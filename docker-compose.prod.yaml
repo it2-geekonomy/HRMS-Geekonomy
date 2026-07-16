@@ -86,10 +86,13 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx/nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
       - horilla-static:/app/staticfiles:ro
       - horilla-media:/app/media:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot:ro
     depends_on:
       - horilla-app
 
@@ -97,3 +100,4 @@ volumes:
   horilla-data:
   horilla-media:
   horilla-static:
+  certbot-www:
