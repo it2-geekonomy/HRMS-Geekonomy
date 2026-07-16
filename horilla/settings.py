@@ -280,15 +280,15 @@ LOGGING = {
 # Production settings
 if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
-    # Temporarily disable SSL redirect to test connection
-    # Re-enable when HTTPS reverse proxy is properly configured
-    SECURE_SSL_REDIRECT = False
+    # SSL redirect stays off at app layer; TLS is terminated at Cloudflare / load balancer
+    SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=False)
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
-    # Disable secure cookies for HTTP access (re-enable for HTTPS)
-    SESSION_COOKIE_SECURE = False
-    CSRF_COOKIE_SECURE = False
-    # Trust the X-Forwarded-Proto header from reverse proxy
+    USE_X_FORWARDED_HOST = env.bool("USE_X_FORWARDED_HOST", default=True)
+    # Trust X-Forwarded-Proto from Nginx / Cloudflare
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    # True when serving over HTTPS (Cloudflare). Set False only for plain HTTP IP tests.
+    SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=True)
+    CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=True)

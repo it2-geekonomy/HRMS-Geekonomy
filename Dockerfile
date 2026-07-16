@@ -24,8 +24,8 @@ COPY . .
 # Add permissions
 RUN chmod +x entrypoint.sh
 
-# Collect static at build time
-RUN python manage.py collectstatic --noinput || true
+# Collect static at build time (best-effort; entrypoint collects again at runtime with real env)
+RUN SECRET_KEY=build-only DEBUG=False python manage.py collectstatic --noinput || true
 
 # Expose app port
 EXPOSE 8000

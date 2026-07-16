@@ -8,17 +8,18 @@ services:
     container_name: horilla-database
     restart: unless-stopped
     environment:
-      POSTGRES_DB: horilla
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-horilla}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - docker-composeprod_horilla-data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+      - horilla-data:/var/lib/postgresql/data
+    # Not published to the host — only reachable on the Docker network
+    expose:
+      - "5432"
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-horilla}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,41 +35,38 @@ services:
     restart: unless-stopped
     expose:
       - "8000"
-
+    env_file:
+      - .env
     environment:
-      # Core
       DEBUG: "False"
-      TIME_ZONE: "Asia/Kolkata"
-      SECRET_KEY: "django-insecure-change-this-in-real-prod"
+      TIME_ZONE: ${TIME_ZONE:-Asia/Kolkata}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
 
-      # Domain & Security
-      ALLOWED_HOSTS: "people.geekonomy.in,localhost,127.0.0.1,horilla-nginx"
-      CSRF_TRUSTED_ORIGINS: "https://people.geekonomy.in"
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-people.geekonomy.in,localhost,127.0.0.1,horilla-nginx}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-https://people.geekonomy.in}
 
-      # Cloudflare / Nginx Proxy
       USE_X_FORWARDED_HOST: "True"
       SECURE_PROXY_SSL_HEADER: "HTTP_X_FORWARDED_PROTO,https"
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-True}
+      CSRF_COOKIE_SECURE: ${CSRF_COOKIE_SECURE:-True}
 
-      # Database
-      DATABASE_URL: "postgres://postgres:postgres@horilla-db:5432/horilla"
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@horilla-db:5432/${POSTGRES_DB:-horilla}
       DB_ENGINE: "django.db.backends.postgresql"
-      DB_NAME: "horilla"
-      DB_USER: "postgres"
-      DB_PASSWORD: "postgres"
+      DB_NAME: ${POSTGRES_DB:-horilla}
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_HOST: "horilla-db"
       DB_PORT: "5432"
 
-      # Slack Online/Offline (Dashboard): Bot User OAuth Token with users:read scope.
-      # Set via .env next to this file (never commit real tokens).
-      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
+      CRM_API_KEY: ${CRM_API_KEY:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-Geekonomy HRMS <hr@thegeekonomy.com>}
+      HR_EMAIL: ${HR_EMAIL:-hr@thegeekonomy.com}
 
-      # CRM public API key – use same value in CRM app
-      CRM_API_KEY: ${CRM_API_KEY}
-
-      # Resend email (API). From address must be on a verified Resend domain.
-      RESEND_API_KEY: ${RESEND_API_KEY}
-      DEFAULT_FROM_EMAIL: "Geekonomy HRMS <hr@thegeekonomy.com>"
-      HR_EMAIL: "hr@thegeekonomy.com"
+      # 2GB droplet: keep workers low to avoid OOM
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-1}
+      GUNICORN_THREADS: ${GUNICORN_THREADS:-2}
 
     volumes:
       - horilla-media:/app/media
@@ -86,7 +84,7 @@ services:
     container_name: horilla-nginx
     restart: unless-stopped
     ports:
-      - "8880:80"
+      - "80:80"
     volumes:
       - ./nginx/nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
       - horilla-static:/app/staticfiles:ro
@@ -95,9 +93,6 @@ services:
       - horilla-app
 
 volumes:
-  docker-composeprod_horilla-data:
-    external: true
+  horilla-data:
   horilla-media:
-    driver: local
   horilla-static:
-    driver: local
