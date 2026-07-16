@@ -3,10 +3,12 @@ App configuration for the Horilla Automations app.
 Initializes model choices and starts automation when the server runs.
 """
 
-import os
+import logging
 import sys
 
 from django.apps import AppConfig
+
+logger = logging.getLogger(__name__)
 
 
 class HorillaAutomationConfig(AppConfig):
@@ -39,17 +41,25 @@ class HorillaAutomationConfig(AppConfig):
         model_choices.append(("pms.models.EmployeeKeyResult", "Employee Key Results"))
         model_choices[:] = list(set(model_choices))  # Update in-place
 
-        # Only start automation when running the server
-        if not any(
-            cmd in sys.argv
-            for cmd in [
-                "makemigrations",
-                "migrate",
-                "compilemessages",
-                "flush",
-                "shell",
-            ]
-        ):
+        # Skip DB-backed automation wiring for management commands that do not
+        # need it (and may run before tables exist).
+        skip_cmds = {
+            "makemigrations",
+            "migrate",
+            "compilemessages",
+            "flush",
+            "shell",
+            "collectstatic",
+            "showmigrations",
+            "check",
+        }
+        if any(cmd in sys.argv for cmd in skip_cmds):
+            return
+
+        try:
             from horilla_automations.signals import start_automation
 
             start_automation()
+        except Exception:
+            # Table may not exist yet on first boot; avoid crashing startup.
+            logger.exception("horilla_automations: start_automation skipped")
