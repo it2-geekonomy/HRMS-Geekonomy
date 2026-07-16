@@ -42,14 +42,14 @@ services:
       TIME_ZONE: ${TIME_ZONE:-Asia/Kolkata}
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
 
-      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-206.189.139.171,localhost,127.0.0.1,horilla-nginx}
-      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://206.189.139.171}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-people.thegeekonomy.com,206.189.139.171,localhost,127.0.0.1,horilla-nginx}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-https://people.thegeekonomy.com,http://people.thegeekonomy.com}
 
       USE_X_FORWARDED_HOST: "True"
       SECURE_PROXY_SSL_HEADER: "HTTP_X_FORWARDED_PROTO,https"
-      # Default False for IP/HTTP; set True in .env after domain + HTTPS
-      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-False}
-      CSRF_COOKIE_SECURE: ${CSRF_COOKIE_SECURE:-False}
+      # True with Cloudflare HTTPS; override in .env if testing plain HTTP only
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-True}
+      CSRF_COOKIE_SECURE: ${CSRF_COOKIE_SECURE:-True}
 
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@horilla-db:5432/${POSTGRES_DB:-horilla}
       DB_ENGINE: "django.db.backends.postgresql"
