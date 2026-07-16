@@ -1,0 +1,61 @@
+{% load i18n %}
+<div class="oh-modal__dialog-header">
+    <span class="oh-modal__dialog-title">
+        {% trans "Link employee to device" %}
+    </span>
+    <button class="oh-modal__close" aria-label="Close">
+        <ion-icon name="close-outline"></ion-icon>
+    </button>
+</div>
+
+<div class="oh-modal__dialog-body">
+    <p class="text-muted mb-3" style="font-size: 0.9rem;">
+        {% trans "Link a user already enrolled on the biometric device to their Horilla employee record. Attendance sync will use this mapping." %}
+    </p>
+    {% if unmapped_count == 0 %}
+        <p class="oh-alert oh-alert--warning mb-3">
+            {% trans "No unmapped users were loaded from the device. Enter the Device User ID manually (from sync logs or device software), or check the device connection." %}
+        </p>
+    {% else %}
+        <p class="mb-3">
+            {{ unmapped_count }}
+            {% if unmapped_count == 1 %}
+                {% trans "device user not yet mapped in HRMS." %}
+            {% else %}
+                {% trans "device users not yet mapped in HRMS." %}
+            {% endif %}
+        </p>
+    {% endif %}
+    <form
+        hx-post="{% url 'map-biometric-users' device_id %}"
+        hx-target="#objectCreateModalTarget"
+        class="oh-profile-section pt-0"
+    >
+        {% csrf_token %}
+        <div class="oh-input-group mb-3">
+            <label class="oh-label" for="{{ form.device_user.id_for_label }}">{{ form.device_user.label }}</label>
+            {{ form.device_user }}
+            {% if form.device_user.help_text %}<span class="text-muted" style="font-size: 0.85rem;">{{ form.device_user.help_text }}</span>{% endif %}
+            {{ form.device_user.errors }}
+        </div>
+        <div class="oh-input-group mb-3">
+            <label class="oh-label" for="{{ form.user_id_manual.id_for_label }}">{{ form.user_id_manual.label }}</label>
+            {{ form.user_id_manual }}
+            {% if form.user_id_manual.help_text %}<span class="text-muted" style="font-size: 0.85rem;">{{ form.user_id_manual.help_text }}</span>{% endif %}
+            {{ form.user_id_manual.errors }}
+        </div>
+        <div class="oh-input-group mb-3">
+            <label class="oh-label" for="{{ form.employee_id.id_for_label }}">{{ form.employee_id.label }}</label>
+            {{ form.employee_id }}
+            {{ form.employee_id.errors }}
+        </div>
+        {% if form.non_field_errors %}
+            <div class="oh-alert oh-alert--danger mb-3">{{ form.non_field_errors }}</div>
+        {% endif %}
+        <div class="oh-modal__dialog-footer p-0 pt-3">
+            <button type="submit" class="oh-btn oh-btn--secondary oh-btn--shadow">
+                {% trans "Link employee" %}
+            </button>
+        </div>
+    </form>
+</div>

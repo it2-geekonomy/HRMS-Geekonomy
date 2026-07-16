@@ -1,0 +1,458 @@
+{% extends 'index.html' %}
+{% block content %}
+{% load i18n payrollfilters %}
+<main :class="sidebarOpen ? 'oh-main__sidebar-visible' : ''">
+    <section class="oh-wrapper oh-main__topbar">
+        <div class="oh-main__titlebar oh-main__titlebar--left">
+            <h1 class="oh-main__titlebar-title fw-bold">{% trans "Salary Data" %}{% if show_archived_only %} <span class="text-muted fs-6 fw-normal">({% trans "Archived" %})</span>{% endif %}</h1>
+        </div>
+        <div class="oh-main__titlebar-button-container">
+            {% if not show_archived_only %}
+            <button type="button" class="oh-btn oh-btn--secondary oh-btn--shadow" data-toggle="oh-modal-toggle" data-target="#filterSalaryDataModal">
+                <ion-icon name="filter-outline" class="me-1"></ion-icon>
+                {% trans "Filter" %}
+            </button>
+            {% if perms.payroll.change_contract %}
+            <button type="button" class="oh-btn oh-btn--secondary oh-btn--shadow ms-2" data-toggle="oh-modal-toggle" data-target="#archiveSalaryDataModal">
+                <ion-icon name="archive-outline" class="me-1"></ion-icon>
+                {% trans "Archive" %}
+            </button>
+            {% endif %}
+            {% endif %}
+            {% if perms.payroll.view_contract %}
+            {% if show_archived_only %}
+            <a href="{% url 'view-salary-data' %}" class="oh-btn oh-btn--secondary oh-btn--shadow{% if not show_archived_only %} ms-2{% endif %}">
+                <ion-icon name="list-outline" class="me-1"></ion-icon>
+                {% trans "Current list" %}
+            </a>
+            {% else %}
+            <a href="{% url 'view-salary-data' %}?archived=1" class="oh-btn oh-btn--secondary oh-btn--shadow ms-2">
+                <ion-icon name="archive-outline" class="me-1"></ion-icon>
+                {% trans "Archived list" %}
+            </a>
+            {% endif %}
+            {% endif %}
+            {% if perms.payroll.view_contract %}
+            <a href="{% url 'view-salary-data-audit-log' %}" class="oh-btn oh-btn--secondary oh-btn--shadow ms-2">
+                <ion-icon name="reader-outline" class="me-1"></ion-icon>
+                {% trans "Activity log" %}
+            </a>
+            <a href="{% url 'export-salary-data-excel' %}{% if request.GET.year or request.GET.month or show_archived_only %}?{% if request.GET.year %}year={{ request.GET.year }}&{% endif %}{% if request.GET.month %}month={{ request.GET.month }}&{% endif %}{% if show_archived_only %}archived=1{% endif %}{% endif %}" class="oh-btn oh-btn--secondary oh-btn--shadow ms-2" target="_blank">
+                <ion-icon name="document-text-outline" class="me-1"></ion-icon>
+                {% trans "Export Excel" %}
+            </a>
+            {% endif %}
+            {% if not show_archived_only and perms.payroll.add_contract %}
+            <div class="ms-2">
+                <a
+                    class="oh-btn oh-btn--secondary oh-btn--shadow"
+                    data-toggle="oh-modal-toggle"
+                    data-target="#objectCreateModal"
+                    hx-get="{% url 'generate-salary-data-form' %}"
+                    hx-target="#objectCreateModalTarget"
+                    hx-swap="innerHTML"
+                >
+                    <ion-icon name="add-outline" class="me-1"></ion-icon>
+                    {% trans "Generate" %}
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="oh-wrapper oh-main__content">
+        <div class="oh-card">
+            <div class="oh-card-body">
+                {% if salary_data_list %}
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 pb-2 border-bottom">
+                    <p class="oh-label mb-0 fw-bold fs-6">
+                        {% trans "Total Final Salary" %}: <span class="text-primary">₹ {{ total_final_salary|floatformat:0 }}</span>
+                    </p>
+                </div>
+                <form id="salaryDataBulkForm" method="post" action="{% url 'salary-data-bulk-delete' %}?year={{ request.GET.year }}&month={{ request.GET.month }}{% if show_archived_only %}&archived=1{% endif %}" onsubmit="var n = document.querySelectorAll('.salary-data-row-cb:checked').length; if (!n) { alert('{% trans "Please select at least one record to delete." %}'); return false; } return confirm('{% trans "Are you sure you want to delete the selected salary data?" %}');">
+                    {% csrf_token %}
+                    <input type="hidden" name="year" value="{{ request.GET.year }}" />
+                    <input type="hidden" name="month" value="{{ request.GET.month }}" />
+                    {% if show_archived_only %}<input type="hidden" name="archived" value="1" />{% endif %}
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <button type="button" class="oh-btn oh-btn--secondary oh-btn--shadow oh-btn--sm" id="salaryDataSelectAll">{% trans "Select All" %}</button>
+                        <button type="button" class="oh-btn oh-btn--secondary oh-btn--shadow oh-btn--sm" id="salaryDataUnselectAll">{% trans "Unselect All" %}</button>
+                        <button type="submit" class="oh-btn oh-btn--danger oh-btn--shadow oh-btn--sm" name="bulk_delete" id="salaryDataBulkDeleteBtn" style="display: none;">
+                            <ion-icon name="trash-outline" class="me-1"></ion-icon>
+                            {% trans "Bulk Delete" %}
+                        </button>
+                    </div>
+                <div class="oh-sticky-table salary-data-table">
+                    <style>
+                        /* Only Employee column (3rd column) stays fixed on horizontal scroll */
+                        .salary-data-table .oh-sticky-table__th:nth-child(3),
+                        .salary-data-table .oh-sticky-table__td:nth-child(3) {
+                            position: sticky;
+                            left: 0;
+                            min-width: 160px;
+                            background: #fff;
+                            z-index: 10;
+                            border-right: 1px solid var(--border-light-color, #e0e0e0);
+                            box-shadow: 2px 0 4px rgba(0,0,0,0.04);
+                        }
+                        .salary-data-table .oh-sticky-table__thead .oh-sticky-table__th:nth-child(3) {
+                            z-index: 11;
+                        }
+                    </style>
+                    <div class="oh-sticky-table__table">
+                        <div class="oh-sticky-table__thead">
+                            <div class="oh-sticky-table__tr">
+                                <div class="oh-sticky-table__th" style="width: 48px; min-width: 48px;">{% trans "S.No" %}</div>
+                                <div class="oh-sticky-table__th" style="width: 40px; min-width: 40px;">
+                                    <input type="checkbox" class="oh-input oh-input__checkbox salary-data-select-all" title="{% trans 'Select All' %}" />
+                                </div>
+                                <div class="oh-sticky-table__th" style="min-width: 160px;">{% trans "Employee" %}</div>
+                                <div class="oh-sticky-table__th">{% trans "Year" %}</div>
+                                <div class="oh-sticky-table__th">{% trans "Month" %}</div>
+                                <div class="oh-sticky-table__th">{% trans "Working Days" %}</div>
+                                <div class="oh-sticky-table__th">{% trans "Days Worked" %}</div>
+                                <div class="oh-sticky-table__th">{% trans "LOP (Days)" %}</div>
+                                <div class="oh-sticky-table__th">{% trans "Basic Salary" %}</div>
+                                <div class="oh-sticky-table__th">{% trans "Monthly Salary" %}</div>
+                                <div class="oh-sticky-table__th">{% trans "Calculated (before PT)" %}</div>
+                                <div class="oh-sticky-table__th">{% trans "PT" %}</div>
+                                <div class="oh-sticky-table__th">{% trans "Final Salary" %}</div>
+                                <div class="oh-sticky-table__th">{% trans "Actions" %}</div>
+                            </div>
+                        </div>
+                        <div class="oh-sticky-table__tbody">
+                            {% for row in salary_data_list %}
+                            <div class="oh-sticky-table__tr">
+                                <div class="oh-sticky-table__td">{{ salary_data_start_index|add:forloop.counter0 }}</div>
+                                <div class="oh-sticky-table__td">
+                                    <input type="checkbox" name="ids" value="{{ row.id }}" class="oh-input oh-input__checkbox salary-data-row-cb" />
+                                </div>
+                                <div class="oh-sticky-table__td">
+                                    {{ row.employee_id.get_full_name }}
+                                    {% if row.employee_id.employee_badge_id %}({{ row.employee_id.employee_badge_id }}){% endif %}
+                                </div>
+                                <div class="oh-sticky-table__td">{{ row.year }}</div>
+                                <div class="oh-sticky-table__td">{{ row.month|month_abbr }}</div>
+                                <div class="oh-sticky-table__td">{{ row.working_days }}</div>
+                                <div class="oh-sticky-table__td">{{ row.days_worked }}</div>
+                                <div class="oh-sticky-table__td">{{ row.working_days|subtract:row.days_worked|floatformat:1 }}</div>
+                                <div class="oh-sticky-table__td">₹ {{ row.basic_salary|floatformat:0 }}</div>
+                                <div class="oh-sticky-table__td">₹ {{ row.monthly_salary|floatformat:0 }}</div>
+                                <div class="oh-sticky-table__td">₹ {{ row.calculated_salary|floatformat:0 }}</div>
+                                <div class="oh-sticky-table__td">- ₹ {{ row.pt_deduction|floatformat:0 }}</div>
+                                <div class="oh-sticky-table__td fw-bold">₹ {{ row.total_pay|floatformat:0 }}{% if row.arrears_amount %}<br><small class="text-muted">{% trans "incl. arrears" %} ₹ {{ row.arrears_amount|floatformat:0 }}</small>{% endif %}</div>
+                                <div class="oh-sticky-table__td d-flex align-items-center gap-1 flex-nowrap">
+                                    {% if perms.payroll.change_monthlysalarydata %}
+                                    <button
+                                        type="button"
+                                        class="oh-btn oh-btn--light-bkg oh-btn--shadow oh-btn--sm"
+                                        style="padding: 6px 10px;"
+                                        title="{% trans 'Edit' %}"
+                                        data-toggle="oh-modal-toggle"
+                                        data-target="#objectCreateModal"
+                                        hx-get="{% url 'edit-salary-data' row.id %}"
+                                        hx-target="#objectCreateModalTarget"
+                                        hx-swap="innerHTML"
+                                    >
+                                        <ion-icon name="create-outline" style="font-size: 16px;"></ion-icon>
+                                    </button>
+                                    {% endif %}
+                                    <button type="button" class="oh-btn oh-btn--light-bkg oh-btn--shadow oh-btn--sm" style="padding: 6px 10px;" title="{% trans 'Arrears log' %}" data-toggle="oh-modal-toggle" data-target="#arrearsLogModal" hx-get="{% url 'salary-data-arrears-log' row.id %}" hx-target="#arrearsLogModalTarget" hx-trigger="click">
+                                        <ion-icon name="information-circle-outline" style="font-size: 18px;"></ion-icon>
+                                    </button>
+                                    <button type="button" class="oh-btn oh-btn--secondary oh-btn--shadow oh-btn--sm add-arrears-btn" style="padding: 6px 10px; white-space: nowrap;" title="{% trans 'Add Arrears' %}" data-id="{{ row.id }}" data-amount="{{ row.arrears_amount|default:0 }}" data-desc="{{ row.arrears_description|default:''|escape }}">
+                                        <ion-icon name="add-circle-outline" style="font-size: 16px;"></ion-icon>
+                                        {% trans "Add Arrears" %}
+                                    </button>
+                                    <form action="{% url 'delete-salary-data' row.id %}?year={{ request.GET.year }}&month={{ request.GET.month }}" method="post" onsubmit="return confirm('{% trans "Are you sure you want to delete this salary data?" %}');" class="d-inline ms-1">
+                                        {% csrf_token %}
+                                        <button type="submit" class="oh-btn oh-btn--danger-outline oh-btn--shadow" style="padding: 6px 10px;" title="{% trans 'Delete' %}">
+                                            <ion-icon name="trash-outline" style="font-size: 16px;"></ion-icon>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                </form>
+                <div class="oh-pagination d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3">
+                    <span class="oh-pagination__page">
+                        {% trans "Page" %} {{ salary_data_list.number }} {% trans "of" %} {{ salary_data_list.paginator.num_pages }}{% if salary_data_list.paginator.count %} ({{ salary_data_list.paginator.count }} {% trans "records" %}){% endif %}
+                    </span>
+                    <nav class="oh-pagination__nav d-flex align-items-center flex-wrap gap-2">
+                        <div class="oh-pagination__input-container d-flex align-items-center gap-1 me-2">
+                            <span class="oh-pagination__label">{% trans "Page" %}</span>
+                            <form method="get" action="{% url 'view-salary-data' %}" class="d-flex align-items-center gap-1" style="max-width: 120px;">
+                                {% if request.GET.year %}<input type="hidden" name="year" value="{{ request.GET.year }}" />{% endif %}
+                                {% if request.GET.month %}<input type="hidden" name="month" value="{{ request.GET.month }}" />{% endif %}
+                                {% if show_archived_only %}<input type="hidden" name="archived" value="1" />{% endif %}
+                                <input type="number" name="page" class="oh-input oh-input--small" value="{{ salary_data_list.number }}" min="1" max="{{ salary_data_list.paginator.num_pages }}" style="width: 60px;" />
+                                <span class="oh-pagination__label">{% trans "of" %} {{ salary_data_list.paginator.num_pages }}</span>
+                                <button type="submit" class="oh-btn oh-btn--secondary oh-btn--sm">{% trans "Go" %}</button>
+                            </form>
+                        </div>
+                        <ul class="oh-pagination__items d-flex align-items-center gap-1 list-unstyled mb-0">
+                            {% if salary_data_list.has_previous %}
+                            <li class="oh-pagination__item">
+                                <a href="?page=1{% if request.GET.year %}&year={{ request.GET.year }}{% endif %}{% if request.GET.month %}&month={{ request.GET.month }}{% endif %}{% if show_archived_only %}&archived=1{% endif %}" class="oh-pagination__link">{% trans "First" %}</a>
+                            </li>
+                            <li class="oh-pagination__item">
+                                <a href="?page={{ salary_data_list.previous_page_number }}{% if request.GET.year %}&year={{ request.GET.year }}{% endif %}{% if request.GET.month %}&month={{ request.GET.month }}{% endif %}{% if show_archived_only %}&archived=1{% endif %}" class="oh-pagination__link">{% trans "Previous" %}</a>
+                            </li>
+                            {% endif %}
+                            {% if salary_data_list.has_next %}
+                            <li class="oh-pagination__item">
+                                <a href="?page={{ salary_data_list.next_page_number }}{% if request.GET.year %}&year={{ request.GET.year }}{% endif %}{% if request.GET.month %}&month={{ request.GET.month }}{% endif %}{% if show_archived_only %}&archived=1{% endif %}" class="oh-pagination__link">{% trans "Next" %}</a>
+                            </li>
+                            <li class="oh-pagination__item">
+                                <a href="?page={{ salary_data_list.paginator.num_pages }}{% if request.GET.year %}&year={{ request.GET.year }}{% endif %}{% if request.GET.month %}&month={{ request.GET.month }}{% endif %}{% if show_archived_only %}&archived=1{% endif %}" class="oh-pagination__link">{% trans "Last" %}</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+                {% else %}
+                <div class="d-flex flex-column align-items-center justify-content-center py-5">
+                    <img src="/static/images/ui/no-money.png" class="mb-3" alt="No records" style="max-height: 120px;" />
+                    <p class="fw-bold">{% trans "No Records found." %}</p>
+                    <p class="text-muted">{% trans "Generate salary data by month using the Generate button." %}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <!-- Filter Salary Data modal: Year, Month and Filter button inside -->
+    <div class="oh-modal" id="filterSalaryDataModal" role="dialog" aria-hidden="true" aria-labelledby="filterSalaryDataModalLabel">
+        <div class="oh-modal__dialog" style="max-width: 380px; margin: 1rem auto;">
+            <div class="oh-modal__dialog-header">
+                <h2 class="oh-modal__dialog-title" id="filterSalaryDataModalLabel">{% trans "Filter salary data" %}</h2>
+                <button type="button" class="oh-modal__close" aria-label="Close">
+                    <ion-icon name="close-outline"></ion-icon>
+                </button>
+            </div>
+            <form method="get" action="{% url 'view-salary-data' %}">
+                {% if show_archived_only %}<input type="hidden" name="archived" value="1" />{% endif %}
+                <div class="oh-modal__dialog-body">
+                    <div class="oh-input__group mb-3">
+                        <label class="oh-label" for="filterYear">{% trans "Year" %}</label>
+                        <input type="number" name="year" id="filterYear" class="oh-input w-100" placeholder="{% trans 'Year' %}" value="{{ request.GET.year }}" min="2020" max="2100" />
+                    </div>
+                    <div class="oh-input__group mb-0">
+                        <label class="oh-label" for="filterMonth">{% trans "Month" %}</label>
+                        <select name="month" id="filterMonth" class="oh-input w-100 oh-select">
+                            <option value="">{% trans "All" %}</option>
+                            {% for num, label in month_choices %}
+                            <option value="{{ num }}" {% if request.GET.month and request.GET.month == num|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="oh-modal__dialog-footer d-flex justify-content-end gap-2">
+                    <button type="button" class="oh-btn oh-btn--secondary oh-modal__cancel">{% trans "Cancel" %}</button>
+                    <button type="submit" class="oh-btn oh-btn--secondary oh-btn--shadow">{% trans "Filter" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Archive Salary Data by month modal (shown via oh-modal--show from data-toggle="oh-modal-toggle") -->
+    <div class="oh-modal" id="archiveSalaryDataModal" role="dialog" aria-hidden="true" aria-labelledby="archiveSalaryDataModalLabel">
+        <div class="oh-modal__dialog" style="max-width: 380px; margin: 1rem auto;">
+            <div class="oh-modal__dialog-header">
+                <h2 class="oh-modal__dialog-title" id="archiveSalaryDataModalLabel">{% trans "Archive salary data" %}</h2>
+                <button type="button" class="oh-modal__close" aria-label="Close" data-dismiss="oh-modal">
+                    <ion-icon name="close-outline"></ion-icon>
+                </button>
+            </div>
+            <form method="post" action="{% url 'archive-salary-data-month' %}" onsubmit="return confirm('{% trans "Archive all salary data for the selected month? It will be hidden from the default list and only visible when you filter by that month/year." %}');">
+                {% csrf_token %}
+                <div class="oh-modal__dialog-body">
+                    <p class="text-muted small mb-3">{% trans "Select the month and year to archive. Archived data will only appear when you filter by that month/year." %}</p>
+                    <div class="oh-input__group mb-3">
+                        <label class="oh-label" for="archiveYear">{% trans "Year" %}</label>
+                        <input type="number" name="year" id="archiveYear" class="oh-input w-100" placeholder="{% trans 'Year' %}" min="2020" max="2100" required />
+                    </div>
+                    <div class="oh-input__group mb-0">
+                        <label class="oh-label" for="archiveMonth">{% trans "Month" %}</label>
+                        <select name="month" id="archiveMonth" class="oh-input w-100 oh-select" required>
+                            <option value="">{% trans "Select month" %}</option>
+                            {% for num, label in month_choices %}
+                            <option value="{{ num }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="oh-modal__dialog-footer d-flex justify-content-end gap-2">
+                    <button type="button" class="oh-btn oh-btn--secondary oh-modal__cancel">{% trans "Cancel" %}</button>
+                    <button type="submit" class="oh-btn oh-btn--secondary oh-btn--shadow">
+                        <ion-icon name="archive-outline" class="me-1"></ion-icon>
+                        {% trans "Archive" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Arrears modal - compact width and height -->
+    <style>
+        #addArrearsModal.oh-modal .oh-modal__dialog { width: 300px !important; max-width: 300px !important; min-width: unset !important; max-height: 320px !important; margin: 0.5rem auto !important; }
+        #addArrearsModal.oh-modal .oh-modal__dialog-header { padding: 0.5rem 1rem !important; min-height: unset !important; }
+        #addArrearsModal.oh-modal .oh-modal__dialog-title { font-size: 0.95rem !important; margin: 0 !important; }
+        #addArrearsModal.oh-modal .oh-modal__dialog-body { padding: 0.4rem 1rem 0.5rem !important; }
+        #addArrearsModal.oh-modal .oh-modal__dialog-footer { padding: 0.5rem 1rem !important; min-height: unset !important; }
+        #addArrearsModal.oh-modal .oh-input-group { margin-bottom: 0.4rem !important; }
+        #addArrearsModal.oh-modal .oh-input-group:last-child { margin-bottom: 0 !important; }
+        #addArrearsModal.oh-modal .oh-input { min-height: 32px !important; padding: 0.25rem 0.5rem !important; }
+        #addArrearsModal.oh-modal .oh-label { margin-bottom: 0.2rem !important; font-size: 0.875rem !important; }
+    </style>
+    <div class="oh-modal" id="addArrearsModal" role="dialog" aria-hidden="true" aria-labelledby="addArrearsModalLabel" style="display: none;">
+        <div class="oh-modal__dialog" style="width: 300px; max-width: 300px; max-height: 320px; margin: 0.5rem auto;">
+            <div class="oh-modal__dialog-header" style="padding: 0.5rem 1rem;">
+                <h2 class="oh-modal__dialog-title" id="addArrearsModalLabel">{% trans "Add Arrears" %}</h2>
+                <button type="button" class="oh-modal__close" aria-label="Close" data-dismiss="oh-modal">
+                    <ion-icon name="close-outline"></ion-icon>
+                </button>
+            </div>
+            <form id="addArrearsForm" method="post" action="{% url 'update-salary-data-arrears' salary_data_id=0 %}">
+                {% csrf_token %}
+                <input type="hidden" name="year" value="{{ request.GET.year }}" />
+                <input type="hidden" name="month" value="{{ request.GET.month }}" />
+                <div class="oh-modal__dialog-body" style="padding: 0.4rem 1rem 0.5rem;">
+                    <div class="oh-input-group mb-1">
+                        <label class="oh-label" for="id_arrears_amount">{% trans "Amount" %} (₹)</label>
+                        <input type="number" name="arrears_amount" id="id_arrears_amount" class="oh-input w-100" step="0.01" min="0" placeholder="0" style="min-height: 32px; padding: 0.25rem 0.5rem;" />
+                    </div>
+                    <div class="oh-input-group mb-0">
+                        <label class="oh-label" for="id_arrears_description">{% trans "Description" %}</label>
+                        <input type="text" name="arrears_description" id="id_arrears_description" class="oh-input w-100" maxlength="255" placeholder="{% trans 'e.g. Bonus, Back pay' %}" style="min-height: 32px; padding: 0.25rem 0.5rem;" />
+                    </div>
+                </div>
+                <div class="oh-modal__dialog-footer d-flex justify-content-between gap-3" style="padding: 0.5rem 1rem;">
+                    <button type="button" class="oh-btn oh-btn--secondary" data-dismiss="oh-modal">{% trans "Cancel" %}</button>
+                    <button type="submit" class="oh-btn oh-btn--secondary oh-btn--shadow">{% trans "Save" %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Arrears Log modal (content loaded via HTMX) -->
+    <div class="oh-modal" id="arrearsLogModal" role="dialog" aria-hidden="true" aria-labelledby="arrearsLogModalLabel" style="display: none;">
+        <div class="oh-modal__dialog" style="max-width: 560px; margin: 1rem auto;">
+            <div id="arrearsLogModalTarget">
+                <div class="oh-modal__dialog-body p-4 text-muted">{% trans "Loading…" %}</div>
+            </div>
+        </div>
+    </div>
+
+    {% if salary_data_list %}
+    <script>
+    (function() {
+        var form = document.getElementById('salaryDataBulkForm');
+        if (!form) return;
+        var selectAllCb = form.querySelector('.salary-data-select-all');
+        var rowCbs = form.querySelectorAll('.salary-data-row-cb');
+        var bulkDeleteBtn = document.getElementById('salaryDataBulkDeleteBtn');
+        var selectAllBtn = document.getElementById('salaryDataSelectAll');
+        var unselectAllBtn = document.getElementById('salaryDataUnselectAll');
+
+        function updateBulkDeleteVisibility() {
+            var anyChecked = Array.prototype.some.call(rowCbs, function(cb) { return cb.checked; });
+            bulkDeleteBtn.style.display = anyChecked ? '' : 'none';
+            selectAllCb.checked = rowCbs.length > 0 && Array.prototype.every.call(rowCbs, function(cb) { return cb.checked; });
+        }
+
+        if (selectAllCb) {
+            selectAllCb.addEventListener('change', function() {
+                rowCbs.forEach(function(cb) { cb.checked = selectAllCb.checked; });
+                updateBulkDeleteVisibility();
+            });
+        }
+        rowCbs.forEach(function(cb) {
+            cb.addEventListener('change', updateBulkDeleteVisibility);
+        });
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener('click', function() {
+                rowCbs.forEach(function(cb) { cb.checked = true; });
+                selectAllCb.checked = true;
+                updateBulkDeleteVisibility();
+            });
+        }
+        if (unselectAllBtn) {
+            unselectAllBtn.addEventListener('click', function() {
+                rowCbs.forEach(function(cb) { cb.checked = false; });
+                selectAllCb.checked = false;
+                updateBulkDeleteVisibility();
+            });
+        }
+
+        // Arrears Log modal: show when "i" button is clicked; close via delegation (loaded content has close button)
+        var arrearsLogModal = document.getElementById('arrearsLogModal');
+        if (arrearsLogModal) {
+            document.querySelectorAll('[data-target="#arrearsLogModal"]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    arrearsLogModal.setAttribute('aria-hidden', 'false');
+                    arrearsLogModal.style.display = 'flex';
+                });
+            });
+            arrearsLogModal.addEventListener('click', function(e) {
+                if (e.target.closest('.oh-modal__close') || e.target.closest('[data-dismiss="oh-modal"]')) {
+                    arrearsLogModal.setAttribute('aria-hidden', 'true');
+                    arrearsLogModal.style.display = 'none';
+                }
+            });
+        }
+
+        // Add Arrears modal
+        var addArrearsModal = document.getElementById('addArrearsModal');
+        var addArrearsForm = document.getElementById('addArrearsForm');
+        var arrearsAmountInput = document.getElementById('id_arrears_amount');
+        var arrearsDescInput = document.getElementById('id_arrears_description');
+        if (addArrearsModal && addArrearsForm) {
+            function closeArrearsModal() {
+                addArrearsModal.setAttribute('aria-hidden', 'true');
+                addArrearsModal.style.display = 'none';
+            }
+            addArrearsModal.querySelectorAll('.oh-modal__close, [data-dismiss="oh-modal"]').forEach(function(el) {
+                el.addEventListener('click', closeArrearsModal);
+            });
+            document.querySelectorAll('.add-arrears-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var id = this.getAttribute('data-id');
+                    var amount = this.getAttribute('data-amount') || '';
+                    var desc = this.getAttribute('data-desc') || '';
+                    addArrearsForm.action = addArrearsForm.action.replace(/\/\d+\/?$/, '/' + id + '/');
+                    if (arrearsAmountInput) arrearsAmountInput.value = amount;
+                    if (arrearsDescInput) arrearsDescInput.value = desc;
+                    addArrearsModal.setAttribute('aria-hidden', 'false');
+                    addArrearsModal.style.display = 'flex';
+                });
+            });
+        }
+    })();
+    </script>
+    {% endif %}
+
+    <script>
+    (function () {
+      function cleanupSalaryDataEmployeePickers() {
+        $("#objectCreateModal > .oh-modal[id^='filterChoose']").remove();
+        $("#objectCreateModal .oh-modal[id^='filterChoose']").removeClass("oh-modal--show");
+      }
+      $(document).ready(cleanupSalaryDataEmployeePickers);
+      $(document).on("click", "#objectCreateModal .oh-modal__close", cleanupSalaryDataEmployeePickers);
+      document.body.addEventListener("htmx:afterSettle", function (evt) {
+        if (
+          evt.detail &&
+          evt.detail.target &&
+          evt.detail.target.id === "objectCreateModalTarget"
+        ) {
+          cleanupSalaryDataEmployeePickers();
+        }
+      });
+    })();
+    </script>
+</main>
+{% endblock content %}

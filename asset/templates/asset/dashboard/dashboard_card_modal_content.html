@@ -1,0 +1,110 @@
+{% load i18n %}
+{% load static %}
+<div class="asset-dashboard-modal-content" style="min-height: 120px;">
+{% if card_type == "assets" %}
+    {% if assets %}
+        <div class="oh-sticky-table">
+            <div class="oh-sticky-table__table">
+                <div class="oh-sticky-table__thead">
+                    <div class="oh-sticky-table__tr">
+                        <div class="oh-sticky-table__th">{% trans "Asset" %}</div>
+                        <div class="oh-sticky-table__th">{% trans "Tracking Id" %}</div>
+                        <div class="oh-sticky-table__th">{% trans "Category" %}</div>
+                        <div class="oh-sticky-table__th">{% trans "Status" %}</div>
+                    </div>
+                </div>
+                <div class="oh-sticky-table__tbody">
+                    {% for asset in assets %}
+                        <div class="oh-sticky-table__tr">
+                            <div class="oh-sticky-table__td">{{ asset.asset_name }}</div>
+                            <div class="oh-sticky-table__td">{{ asset.asset_tracking_id }}</div>
+                            <div class="oh-sticky-table__td">{{ asset.asset_category_id }}</div>
+                            <div class="oh-sticky-table__td">{% trans asset.asset_status %}</div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="oh-empty" style="padding: 2rem 1rem; text-align: center;">
+            <p class="mb-0" style="font-size: 1rem; color: #6c757d;">{% trans "No assets found." %}</p>
+        </div>
+    {% endif %}
+{% elif card_type == "requests" %}
+    {% if asset_requests %}
+        <div class="oh-sticky-table">
+            <div class="oh-sticky-table__table">
+                <div class="oh-sticky-table__thead">
+                    <div class="oh-sticky-table__tr">
+                        <div class="oh-sticky-table__th">{% trans "Request User" %}</div>
+                        <div class="oh-sticky-table__th">{% trans "Asset Category" %}</div>
+                        <div class="oh-sticky-table__th">{% trans "Request Date" %}</div>
+                        <div class="oh-sticky-table__th">{% trans "Status" %}</div>
+                    </div>
+                </div>
+                <div class="oh-sticky-table__tbody">
+                    {% for req in asset_requests %}
+                        <div class="oh-sticky-table__tr">
+                            <div class="oh-sticky-table__sd">
+                                <div class="oh-profile oh-profile--md">
+                                    <div class="oh-profile__avatar mr-1">
+                                        <img src="{{ req.requested_employee_id.get_avatar }}" class="oh-profile__image" alt="" />
+                                    </div>
+                                    <span class="oh-profile__name oh-text--dark">{{ req.requested_employee_id }}</span>
+                                </div>
+                            </div>
+                            <div class="oh-sticky-table__td">{{ req.asset_category_id }}</div>
+                            <div class="oh-sticky-table__td dateformat_changer">{{ req.asset_request_date }}</div>
+                            <div class="oh-sticky-table__td">{% trans req.asset_request_status %}</div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="oh-empty" style="padding: 2rem 1rem; text-align: center;">
+            <p class="mb-0" style="font-size: 1rem; color: #6c757d;">{% trans "No asset requests at the moment." %}</p>
+        </div>
+    {% endif %}
+{% elif card_type == "in_use" %}
+    {% if asset_in_use %}
+        <div class="oh-sticky-table">
+            <div class="oh-sticky-table__table">
+                <div class="oh-sticky-table__thead">
+                    <div class="oh-sticky-table__tr">
+                        <div class="oh-sticky-table__th">{% trans "Asset" %}</div>
+                        <div class="oh-sticky-table__th">{% trans "Tracking Id" %}</div>
+                        <div class="oh-sticky-table__th">{% trans "Category" %}</div>
+                        <div class="oh-sticky-table__th">{% trans "Current User" %}</div>
+                    </div>
+                </div>
+                <div class="oh-sticky-table__tbody">
+                    {% for asset in asset_in_use %}
+                        <div class="oh-sticky-table__tr">
+                            <div class="oh-sticky-table__td">{{ asset.asset_name }}</div>
+                            <div class="oh-sticky-table__td">{{ asset.asset_tracking_id }}</div>
+                            <div class="oh-sticky-table__td">{{ asset.asset_category_id }}</div>
+                            <div class="oh-sticky-table__td">
+                                {% if asset.current_user %}
+                                    <span class="oh-profile__name oh-text--dark">{{ asset.current_user }}</span>
+                                {% else %}
+                                    <span style="color: red;">NO USER</span>
+                                {% endif %}
+                                <!-- Debug: {{ asset|pprint }} -->
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="oh-empty" style="padding: 2rem 1rem; text-align: center;">
+            <p class="mb-0" style="font-size: 1rem; color: #6c757d;">{% trans "No assets in use at the moment." %}</p>
+        </div>
+    {% endif %}
+{% else %}
+    <div class="oh-empty" style="padding: 2rem 1rem; text-align: center;">
+        <p class="mb-0" style="font-size: 1rem; color: #6c757d;">{% trans "No records for this selection." %}</p>
+    </div>
+{% endif %}
+</div>

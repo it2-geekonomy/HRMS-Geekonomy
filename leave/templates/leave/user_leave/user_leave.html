@@ -1,0 +1,120 @@
+{% load i18n leavefilters %}
+{% include 'filter_tags.html' %}
+
+<style>
+    .oh-scrollable-container {
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    .oh-layout--grid-3 {
+        display: inline-block;
+    }
+
+    .oh-kanban-card {
+        display: inline-block;
+        margin-right: 15px;
+        width: auto;
+        border-radius: 15px;
+    }
+</style>
+
+<div class="oh-scrollable-container oh-wrapper mb-3">
+    <div class="oh-layout--grid-3 mt-2 mb-2">
+
+        {% for user_leave in user_leaves %}
+        {% with leave_name=user_leave.leave_type_id.name|lower %}
+
+        <div class="oh-kanban-card"
+            id="requestCreateCard"
+            data-toggle="oh-modal-toggle"
+            data-target="#objectCreateModal"
+            hx-get="{% url 'user-request' user_leave.leave_type_id.id %}"
+            hx-target="#objectCreateModalTarget">
+
+            <!-- Avatar -->
+            <div class="oh-kanban-card__avatar">
+                <div class="oh-kanban-card__profile-container">
+                    <img src="{{ user_leave.leave_type_id.get_avatar }}"
+                        class="oh-kanban-card__profile-image"
+                        alt="Leave Icon" />
+                </div>
+            </div>
+
+            <!-- Details -->
+            <div class="oh-kanban-card__details mt-2">
+
+                <!-- Title -->
+                <span class="oh-kanban-card__title">
+                    {{ user_leave.leave_type_id|truncatechars:20 }}
+                </span>
+
+                <!-- Total Leave / Comp-off -->
+                <span class="oh-kanban-card__subtitle">
+                    {% if "comp off" in leave_name %}
+                        {% trans "Earned from approved extra work" %}
+                    {% else %}
+                        {% trans "Total Leave Days" %} :
+                        {% if user_leave.leave_type_id.limit_leave %}
+                            {% if "sick" in leave_name %}
+                                {{ user_leave.leave_type_id.total_days }}{% trans " per year" %}
+                            {% else %}
+                                {{ user_leave.leave_type_id.total_days }}{% trans " per month" %}
+                            {% endif %}
+                        {% else %}
+                            {% trans "No Limit" %}
+                        {% endif %}
+                    {% endif %}
+                </span><br>
+
+                <!-- Available Leave -->
+                <span class="oh-kanban-card__subtitle">
+                    {% trans "Available Leave Days" %} :
+                    {% if user_leave.leave_type_id.limit_leave %}
+                        {% if computed_leave_display and user_leave.id in computed_leave_display %}
+                            {{ computed_leave_display|get_item:user_leave.id|get_item:"available_days" }}
+                        {% else %}
+                            {{ user_leave.available_days }}
+                        {% endif %}
+                    {% else %}
+                        {% trans "No Limit" %}
+                    {% endif %}
+                </span><br>
+
+                <!-- Carryforward -->
+<span class="oh-kanban-card__subtitle">
+    {% trans "Carryforward Leave Days" %} :
+
+    {% if "sick" in leave_name or "probation" in leave_name or "intern" in leave_name or "comp off" in leave_name %}
+        {% trans "Not Applicable" %}
+
+    {% elif "earned" in leave_name or "casual" in leave_name %}
+        {% if computed_leave_display and user_leave.id in computed_leave_display %}
+            {{ computed_leave_display|get_item:user_leave.id|get_item:"available_days" }}
+        {% else %}
+            {{ user_leave.available_days }}
+        {% endif %}
+
+    {% else %}
+        0
+    {% endif %}
+</span><br>
+
+                <!-- Leave Taken -->
+                <span class="oh-kanban-card__subtitle">
+                    {% trans "Total Leave taken" %} :
+                    {% if computed_leave_display and user_leave.id in computed_leave_display %}
+                        {{ computed_leave_display|get_item:user_leave.id|get_item:"leave_taken"|default_if_none:user_leave.leave_taken }}
+                    {% else %}
+                        {{ user_leave.leave_taken }}
+                    {% endif %}
+                </span>
+
+            </div>
+        </div>
+
+        {% endwith %}
+        {% endfor %}
+
+    </div>
+</div>

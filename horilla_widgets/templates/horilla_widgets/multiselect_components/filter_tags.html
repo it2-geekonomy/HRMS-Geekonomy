@@ -1,0 +1,54 @@
+{% load i18n %}
+<style>
+  .oh-checkpoint-badge {
+    cursor: pointer;
+  }
+  .multiselect-selection-bar {
+    gap: 0.5rem;
+  }
+  .multiselect-selection-count {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-right: 0.25rem;
+  }
+</style>
+{% if widget_show_filter_dropdown %}
+<div class="oh-filter-tag-container mb-2 p-0" id="filterTagContainer{{self.attrs.id}}"></div>
+{% endif %}
+<div class="ration-container mb-2 d-flex flex-wrap align-items-center multiselect-selection-bar">
+  <span class="multiselect-selection-count mb-1">
+    {% trans "Selected" %}:
+    <strong><span class="selected-count">0</span></strong>
+    / <span class="total-count">{{ queryset|length }}</span>
+  </span>
+  {% if widget_has_is_active %}
+  <button
+    type="button"
+    class="oh-checkpoint-badge oh-checkpoint-badge--secondary border-0"
+    id="selectActiveEmployees{{section_id}}"
+    onclick="event.preventDefault();event.stopPropagation();var _ms=window['multiselectWidget{{section_id}}'];if(_ms&&_ms.selectActiveEmployees){_ms.selectActiveEmployees();}"
+  >
+    {% trans "Select Active Employees" %}
+  </button>
+  {% endif %}
+  <button
+    type="button"
+    class="oh-checkpoint-badge oh-checkpoint-badge--success border-0"
+    id="selectAllEmployees{{section_id}}"
+    onclick="event.preventDefault();event.stopPropagation();var _ms=window['multiselectWidget{{section_id}}'];if(_ms&&_ms.selectAllEmployees){_ms.selectAllEmployees();}"
+  >
+    {% if widget_model_label == "employee.employee" %}
+      {% trans "Select All Employees" %}
+    {% else %}
+      {% trans "Select All" %}
+    {% endif %}
+  </button>
+  <button
+    type="button"
+    class="oh-checkpoint-badge border-0"
+    id="unselectEmployees{{section_id}}"
+    onclick="event.preventDefault();event.stopPropagation();var _ms=window['multiselectWidget{{section_id}}'];if(_ms&&_ms.unselectEmployees){_ms.unselectEmployees();}"
+  >
+    {% trans "Unselect" %}
+  </button>
+</div>

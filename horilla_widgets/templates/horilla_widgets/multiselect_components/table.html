@@ -1,0 +1,970 @@
+{% load i18n %}
+
+<div class="oh-sticky-table" style="height: 50vh">
+
+  <div
+
+    class="oh-sticky-table__table oh-table--sortable"
+
+    id="chooseTableHeaderParent{{section_id}}"
+
+  >
+
+    <div class="oh-sticky-table__thead" id="chooseTableHeader{{section_id}}">
+
+      <div class="oh-sticky-table__tr">
+
+        <div class="oh-sticky-table__th oh-sticky-table__th--custom">
+
+          <div class="d-flex">
+
+            <div class="">
+
+              <input
+
+                type="checkbox"
+
+                title="Select all users"
+
+                class="oh-input oh-input__checkbox mt-1 mr-2"
+
+                id="choose-all-user-{{section_id}}"
+
+              />
+
+            </div>
+
+            {% trans "Employee" %}
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    {% for instance in queryset %}
+
+    <div class="oh-sticky-table__tbody" data-instance-id="{{instance.id}}">
+
+      <div
+
+        class="oh-sticky-table__tr oh-sticky-table__tr--custom"
+
+        data-instance-id="{{instance.id}}"
+
+        data-label="{{instance}}"
+
+        data-avatar="{{instance.get_avatar}}"
+
+        draggable="true"
+
+      >
+
+        <div
+
+          class="oh-sticky-table__sd"
+
+          id="selectRow{{self.attrs.id}}{{instance.id}}"
+
+        >
+
+          <div class="d-flex">
+
+            <div class="">
+
+              <input
+
+                type="checkbox"
+
+                value="{{instance.id}}"
+
+                class="oh-input oh-input__checkbox mt-2 mr-2 all-choose-user-row"
+
+              />
+
+            </div>
+
+            <div class="oh-profile oh-profile--md">
+
+              <div class="oh-profile__avatar mr-1">
+
+                <img
+
+                  src="{{instance.get_avatar}}"
+
+                  class="oh-profile__image"
+
+                />
+
+              </div>
+
+              <span class="oh-profile__name oh-text--dark">{{instance}}</span>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    {% endfor %}
+
+  </div>
+
+</div>
+
+<script>
+(function initHorillaMultiselect($) {
+  if (!$) {
+    setTimeout(function () { initHorillaMultiselect(window.jQuery || window.$); }, 30);
+    return;
+  }
+
+  var sectionSelector = "#{{section_id}}";
+
+  var selectSelector = 'select[name="{{field_name}}"]';
+
+  var tableParentSelector = "#chooseTableHeaderParent{{section_id}}";
+
+  var chooseAllSelector = "#choose-all-user-{{section_id}}";
+
+  var filterBtnSelector = '[id="widgetFilterButton{{self.attrs.id}}"]';
+
+  var filterFormSelector = '[id="widgetFilterFormContainer{{self.attrs.id}}"]';
+
+  var filterRequestId = 0;
+
+  var currentVisibleIds = null;
+
+  var modalSelectedIds = new Set();
+
+
+
+  function $section() {
+
+    return $(sectionSelector);
+
+  }
+
+
+
+  function getAllRowIds() {
+
+    var ids = [];
+
+    $section().find(tableParentSelector + " .oh-sticky-table__tbody").each(function () {
+
+      ids.push(String($(this).attr("data-instance-id")));
+
+    });
+
+    return ids;
+
+  }
+
+
+
+  function getCommittedSelectIds() {
+
+    var $select = $section().find(selectSelector);
+
+    var val = $select.val();
+
+    if (!val) {
+
+      return [];
+
+    }
+
+    return (Array.isArray(val) ? val : [val]).map(String);
+
+  }
+
+
+
+  function collectFilterFormData(extraParams) {
+
+    var data = {};
+
+    $section().find(filterFormSelector + " [name]").each(function () {
+
+      var name = $(this).attr("name");
+
+      if (name) {
+
+        data[name] = $(this).val() || "";
+
+      }
+
+    });
+
+    if (extraParams) {
+
+      Object.keys(extraParams).forEach(function (key) {
+
+        data[key] = extraParams[key];
+
+      });
+
+    }
+
+    return data;
+
+  }
+
+
+
+  function setRowChecked($row, checked) {
+
+    var $cell = $row.find(".oh-sticky-table__sd");
+
+    $row.find(".all-choose-user-row").prop("checked", checked);
+
+    $cell.toggleClass("oh-sticky-table__tr--selected", checked);
+
+  }
+
+
+
+  function renderCheckboxesFromModalSelection() {
+
+    $section().find(tableParentSelector + " .oh-sticky-table__tbody").each(function () {
+
+      var rowId = String($(this).attr("data-instance-id"));
+
+      setRowChecked(
+
+        $(this).find(".oh-sticky-table__tr--custom"),
+
+        modalSelectedIds.has(rowId)
+
+      );
+
+    });
+
+  }
+
+
+
+  function getVisibleSelectedIds() {
+
+    var ids = [];
+
+    $section().find(tableParentSelector + " .oh-sticky-table__tbody:visible").each(function () {
+
+      var rowId = String($(this).attr("data-instance-id"));
+
+      if (modalSelectedIds.has(rowId)) {
+
+        ids.push(rowId);
+
+      }
+
+    });
+
+    return ids;
+
+  }
+
+
+
+  function updateCounts() {
+
+    var $root = $section();
+
+    var visibleRows = $root.find(tableParentSelector + " .oh-sticky-table__tbody:visible").length;
+
+    var visibleSelected = getVisibleSelectedIds().length;
+
+    var chooseAll = $root.find(chooseAllSelector);
+
+
+
+    $root.find(".selected-count").html(modalSelectedIds.size);
+
+
+
+    if (visibleRows === 0) {
+
+      chooseAll.prop({ checked: false, indeterminate: false });
+
+    } else if (visibleSelected === visibleRows) {
+
+      chooseAll.prop({ checked: true, indeterminate: false });
+
+    } else if (visibleSelected > 0) {
+
+      chooseAll.prop({ checked: false, indeterminate: true });
+
+    } else {
+
+      chooseAll.prop({ checked: false, indeterminate: false });
+
+    }
+
+  }
+
+
+
+  function clearAllRowSelection() {
+
+    modalSelectedIds.clear();
+
+    renderCheckboxesFromModalSelection();
+
+    updateCounts();
+
+  }
+
+
+
+  function selectAllVisibleRows() {
+
+    $section().find(tableParentSelector + " .oh-sticky-table__tbody:visible").each(function () {
+
+      modalSelectedIds.add(String($(this).attr("data-instance-id")));
+
+    });
+
+    renderCheckboxesFromModalSelection();
+
+    updateCounts();
+
+  }
+
+
+
+  function applyIdsFilter(ids) {
+
+    var idSet = new Set((ids || []).map(String));
+
+    currentVisibleIds = idSet;
+
+    $section().find(tableParentSelector + " .oh-sticky-table__tbody").each(function () {
+
+      var $tbody = $(this);
+
+      var rowId = String($tbody.attr("data-instance-id"));
+
+      if (idSet.has(rowId)) {
+
+        $tbody.show();
+
+      } else {
+
+        $tbody.hide();
+
+      }
+
+    });
+
+    renderCheckboxesFromModalSelection();
+
+    updateCounts();
+
+  }
+
+
+
+  function showAllRows() {
+
+    currentVisibleIds = new Set(getAllRowIds());
+
+    $section().find(tableParentSelector + " .oh-sticky-table__tbody").show();
+
+    renderCheckboxesFromModalSelection();
+
+    updateCounts();
+
+  }
+
+
+
+  function reapplyCurrentView() {
+
+    if (currentVisibleIds && currentVisibleIds.size) {
+
+      applyIdsFilter(Array.from(currentVisibleIds));
+
+    } else {
+
+      showAllRows();
+
+    }
+
+  }
+
+
+
+  function onModalOpen() {
+
+    modalSelectedIds = new Set(getCommittedSelectIds());
+
+    showAllRows();
+
+    renderCheckboxesFromModalSelection();
+
+    updateCounts();
+
+  }
+
+
+
+  function commitSelectionToSelect() {
+
+    var ids = Array.from(modalSelectedIds);
+
+    var $select = $section().find(selectSelector);
+
+
+
+    $select.find("option").prop("selected", false);
+
+    $select.val(null);
+
+    if (ids.length) {
+
+      $select.val(ids);
+
+    }
+
+    $select.trigger("change");
+
+    modalSelectedIds = new Set(ids);
+
+    updateCounts();
+
+    return ids;
+
+  }
+
+
+
+  function buildAvatars(ids) {
+
+    var $container = $section().find("#avatarsContainer");
+
+    $container.html("");
+
+    ids.forEach(function (id) {
+
+      var $row = $section().find(
+
+        '.oh-sticky-table__tr--custom[data-instance-id="' + id + '"]'
+
+      );
+
+      var label = $row.attr("data-label") || "";
+
+      var imgUrl = $row.attr("data-avatar") || "";
+
+      $container.append(
+
+        $(
+
+          '<a href="#" class="avatars__item" title="' +
+
+            label +
+
+            '"><img class="avatar" src="' +
+
+            imgUrl +
+
+            '" alt=""></a>'
+
+        )
+
+      );
+
+    });
+
+  }
+
+
+
+  function fetchAndApplyFilter(extraParams, onDone) {
+
+    var filterUrl = $section().find(filterBtnSelector).attr("data-action");
+
+    if (!filterUrl) {
+
+      if (typeof onDone === "function") {
+
+        onDone();
+
+      }
+
+      return;
+
+    }
+
+    var requestId = ++filterRequestId;
+
+    var data = collectFilterFormData(extraParams);
+
+    $.ajax({
+
+      type: "get",
+
+      url: filterUrl,
+
+      data: data,
+
+      success: function (response) {
+
+        if (requestId !== filterRequestId) {
+
+          return;
+
+        }
+
+        applyIdsFilter(response.ids || []);
+
+        if (typeof onDone === "function") {
+
+          onDone();
+
+        }
+
+      },
+
+    });
+
+  }
+
+
+
+  function toggleRowSelection(rowId, selected) {
+
+    rowId = String(rowId);
+
+    if (selected) {
+
+      modalSelectedIds.add(rowId);
+
+    } else {
+
+      modalSelectedIds.delete(rowId);
+
+    }
+
+    renderCheckboxesFromModalSelection();
+
+    updateCounts();
+
+  }
+
+
+
+  window["multiselectWidget{{section_id}}"] = {
+
+    applyIdsFilter: applyIdsFilter,
+
+    updateCounts: updateCounts,
+
+    showAllRows: showAllRows,
+
+    fetchAndApplyFilter: fetchAndApplyFilter,
+
+    collectFilterFormData: collectFilterFormData,
+
+    onModalOpen: onModalOpen,
+
+    getCurrentVisibleIds: function () {
+
+      return currentVisibleIds ? Array.from(currentVisibleIds) : getAllRowIds();
+
+    },
+
+    selectActiveEmployees: function () {
+
+      modalSelectedIds.clear();
+
+      fetchAndApplyFilter({ is_active: "True" }, function () {
+
+        selectAllVisibleRows();
+
+      });
+
+    },
+
+    selectAllEmployees: function () {
+
+      showAllRows();
+
+      modalSelectedIds = new Set(getAllRowIds());
+
+      renderCheckboxesFromModalSelection();
+
+      updateCounts();
+
+    },
+
+    unselectEmployees: function () {
+
+      clearAllRowSelection();
+
+      reapplyCurrentView();
+
+    },
+
+  };
+
+
+
+  function initSelect2() {
+
+    var $select = $section().find(selectSelector);
+
+    if (!$select.length) {
+
+      return;
+
+    }
+
+    try {
+
+      if ($select.hasClass("select2-hidden-accessible") && $select.data("select2")) {
+
+        $select.select2("destroy");
+
+      }
+
+      $select.select2({ multiple: true, width: "100%" });
+
+    } catch (err) {
+
+      console.warn("multiselect select2 init:", err);
+
+    }
+
+  }
+
+
+
+  function bindMultiselectInteractions() {
+
+    var $root = $section();
+
+    if (!$root.length) {
+
+      return;
+
+    }
+
+
+
+    $root
+
+      .off("click.multiselect{{section_id}}", '[data-target="#filterChoose{{section_id}}"]')
+
+      .on("click.multiselect{{section_id}}", '[data-target="#filterChoose{{section_id}}"]', function () {
+
+        setTimeout(onModalOpen, 50);
+
+      });
+
+
+
+    $root
+
+      .off("click.multiselect{{section_id}}", "#selectActiveEmployees{{section_id}}")
+
+      .on("click.multiselect{{section_id}}", "#selectActiveEmployees{{section_id}}", function (e) {
+
+        e.preventDefault();
+
+        e.stopPropagation();
+
+        modalSelectedIds.clear();
+
+        fetchAndApplyFilter({ is_active: "True" }, function () {
+
+          selectAllVisibleRows();
+
+        });
+
+      });
+
+
+
+    $root
+
+      .off("click.multiselect{{section_id}}", "#selectAllEmployees{{section_id}}")
+
+      .on("click.multiselect{{section_id}}", "#selectAllEmployees{{section_id}}", function (e) {
+
+        e.preventDefault();
+
+        e.stopPropagation();
+
+        showAllRows();
+
+        modalSelectedIds = new Set(getAllRowIds());
+
+        renderCheckboxesFromModalSelection();
+
+        updateCounts();
+
+      });
+
+
+
+    $root
+
+      .off("click.multiselect{{section_id}}", "#unselectEmployees{{section_id}}")
+
+      .on("click.multiselect{{section_id}}", "#unselectEmployees{{section_id}}", function (e) {
+
+        e.preventDefault();
+
+        e.stopPropagation();
+
+        clearAllRowSelection();
+
+        reapplyCurrentView();
+
+      });
+
+
+
+    $root
+
+      .off("click.multiselect{{section_id}}", "#chooseTableHeader{{section_id}}")
+
+      .on("click.multiselect{{section_id}}", "#chooseTableHeader{{section_id}}", function (e) {
+
+        if ($(e.target).is("[type=checkbox]")) {
+
+          return;
+
+        }
+
+        e.preventDefault();
+
+        var chooseAll = $root.find(chooseAllSelector);
+
+        var shouldCheck = !chooseAll.is(":checked") && !chooseAll.prop("indeterminate");
+
+        $root
+
+          .find(tableParentSelector + " .oh-sticky-table__tbody:visible")
+
+          .each(function () {
+
+            toggleRowSelection($(this).attr("data-instance-id"), shouldCheck);
+
+          });
+
+      });
+
+
+
+    $root
+
+      .off("change.multiselect{{section_id}}", chooseAllSelector)
+
+      .on("change.multiselect{{section_id}}", chooseAllSelector, function (e) {
+
+        e.preventDefault();
+
+        var checked = $(this).is(":checked");
+
+        $root
+
+          .find(tableParentSelector + " .oh-sticky-table__tbody:visible")
+
+          .each(function () {
+
+            toggleRowSelection($(this).attr("data-instance-id"), checked);
+
+          });
+
+      });
+
+
+
+    $root
+
+      .off("click.multiselect{{section_id}}", "#chooseTableHeaderParent{{section_id}} .oh-sticky-table__tr--custom")
+
+      .on("click.multiselect{{section_id}}", "#chooseTableHeaderParent{{section_id}} .oh-sticky-table__tr--custom", function (e) {
+
+        if ($(e.target).is("input[type=checkbox]")) {
+
+          return;
+
+        }
+
+        var rowId = String($(this).attr("data-instance-id"));
+
+        toggleRowSelection(rowId, !modalSelectedIds.has(rowId));
+
+      });
+
+
+
+    $root
+
+      .off("click.multiselect{{section_id}}", "#multiselectAddBtn{{section_id}}")
+
+      .on("click.multiselect{{section_id}}", "#multiselectAddBtn{{section_id}}", function (e) {
+
+        e.preventDefault();
+
+        e.stopPropagation();
+
+        var ids = commitSelectionToSelect();
+
+        buildAvatars(ids);
+
+        $("#filterChoose{{section_id}}").removeClass("oh-modal--show");
+
+      });
+
+
+
+    $root
+
+      .off("click.multiselect{{section_id}}", "#chooseTableHeaderParent{{section_id}} .all-choose-user-row")
+
+      .on("click.multiselect{{section_id}}", "#chooseTableHeaderParent{{section_id}} .all-choose-user-row", function (e) {
+
+        e.preventDefault();
+
+        var $row = $(this).closest(".oh-sticky-table__tr--custom");
+
+        setTimeout(function () {
+
+          $row[0].click();
+
+        }, 1);
+
+      });
+
+
+
+    $root
+
+      .off("change.multiselectWidget", selectSelector)
+
+      .on("change.multiselectWidget", selectSelector, function () {
+
+        buildAvatars(($(this).val() || []).map(String));
+
+      });
+
+
+
+    var modalNode = document.getElementById("filterChoose{{section_id}}");
+
+    if (modalNode && !modalNode._multiselectObserver{{section_id}}) {
+
+      modalNode._multiselectObserver{{section_id}} = new MutationObserver(function () {
+
+        if ($(modalNode).hasClass("oh-modal--show")) {
+
+          setTimeout(onModalOpen, 50);
+
+        }
+
+      });
+
+      modalNode._multiselectObserver{{section_id}}.observe(modalNode, {
+
+        attributes: true,
+
+        attributeFilter: ["class"],
+
+      });
+
+    }
+
+
+
+    $root
+
+      .off("click.multiselect{{section_id}}", chooseAllSelector)
+
+      .on("click.multiselect{{section_id}}", chooseAllSelector, function () {
+
+        var $header = $root.find(chooseAllSelector).closest(".oh-sticky-table__th--custom");
+
+        if ($header.length) {
+
+          setTimeout(function () {
+
+            $header[0].click();
+
+          }, 2);
+
+        }
+
+      });
+
+
+
+    initSelect2();
+
+    showAllRows();
+
+    renderCheckboxesFromModalSelection();
+
+    updateCounts();
+
+  }
+
+
+
+  function bootMultiselectWidget() {
+
+    bindMultiselectInteractions();
+
+    {% if initial %}
+
+    modalSelectedIds = new Set({{ initial|safe }}.map(String));
+
+    $section()
+
+      .find(selectSelector)
+
+      .val({{initial|safe}})
+
+      .trigger("change");
+
+    {% endif %}
+
+  }
+
+
+
+  if (document.readyState === "loading") {
+
+    $(document).ready(bootMultiselectWidget);
+
+  } else {
+
+    bootMultiselectWidget();
+
+  }
+
+
+
+  if (!window._msAfterSettleBound_{{section_id}}) {
+    window._msAfterSettleBound_{{section_id}} = true;
+    document.body.addEventListener("htmx:afterSettle", function (evt) {
+      if (evt.detail.target.querySelector("#{{section_id}}")) {
+        bootMultiselectWidget();
+      }
+    });
+  }
+
+})(window.jQuery || window.$);
+
+</script>
+

@@ -1,0 +1,182 @@
+{% extends 'index.html' %} {% load i18n %} {% block content %} {% load static %}
+{% load attendancefilters %}
+<style>
+    .oh-sticky-table__right {
+        position: sticky;
+        right: 0;
+        background-color: #fff;
+    }
+    .oh-card-dashboard--clickable {
+        cursor: pointer;
+    }
+</style>
+<div class="oh-wrapper">
+    <div class="oh-dashboard__left col-12 col-sm-12 col-md-12 col-lg-12 pb-5">
+        <div class="oh-dashboard row">
+            <div class="oh-dashboard__cards row">
+                <div class="col-12 col-sm-12 col-md-6 col-lg-4">
+                    <div class="oh-card-dashboard oh-card-dashboard--neutral">
+                        <div class="oh-card-dashboard__header">
+                            <span class="oh-card-dashboard__title">{% trans "Today's Attendances" %}</span>
+                        </div>
+                        <div class="oh-card-dashboard__body">
+                            <div class="oh-card-dashboard__counts">
+                                <span class="oh-card-dashboard__count">{{marked_attendances_ratio}}%</span>
+                            </div>
+                            {% comment %}
+                                <span class="oh-badge oh-card-dashboard__badge">{{marked_attendances}}/{{expected_attendances}}</span>
+                            {% endcomment %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-12 col-md-6 col-lg-4">
+                    <div class="oh-card-dashboard oh-card-dashboard oh-card-dashboard--success oh-card-dashboard--clickable"
+                        role="button" tabindex="0"
+                        data-toggle="oh-modal-toggle" data-target="#dashboardCardModal"
+                        data-card-type="on_time"
+                        data-card-title="{% trans 'On Time' %}">
+                        <div class="oh-card-dashboard__header">
+                            <span class="oh-card-dashboard__title">{% trans "On Time" %}</span>
+                        </div>
+                        <div class="oh-card-dashboard__body">
+                            <div class="oh-card-dashboard__counts">
+                                <span class="oh-card-dashboard__count">{{on_time}}</span>
+                            </div>
+                            {% comment %}
+                                <span class="oh-badge oh-card-dashboard__badge">{{on_time_ratio}}%</span>
+                            {% endcomment %}
+                        </div>
+                    </div>
+                </div>
+                {% if late_come_early_out_tracking %}
+                <div class="col-12 col-sm-12 col-md-6 col-lg-4">
+                    <div class="oh-card-dashboard oh-card-dashboard--danger oh-card-dashboard--clickable"
+                        role="button" tabindex="0"
+                        data-toggle="oh-modal-toggle" data-target="#dashboardCardModal"
+                        data-card-type="late_come"
+                        data-card-title="{% trans 'Late Come' %}">
+                        <div class="oh-card-dashboard__header">
+                            <span class="oh-card-dashboard__title">{% trans "Late Come" %}</span>
+                        </div>
+                        <div class="oh-card-dashboard__body">
+                            <div class="oh-card-dashboard__counts">
+                                <span class="oh-card-dashboard__count">{{late_come}}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-12 col-md-6 col-lg-4">
+                    <div class="oh-card-dashboard oh-card-dashboard--warning oh-card-dashboard--clickable"
+                        role="button" tabindex="0"
+                        data-toggle="oh-modal-toggle" data-target="#dashboardCardModal"
+                        data-card-type="early_out"
+                        data-card-title="{% trans 'Early Out' %}">
+                        <div class="oh-card-dashboard__header">
+                            <span class="oh-card-dashboard__title">{% trans "Early Out" %}</span>
+                        </div>
+                        <div class="oh-card-dashboard__body">
+                            <div class="oh-card-dashboard__counts">
+                                <span class="oh-card-dashboard__count">{{early_out}}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                </div>
+            </div>
+            <div class="oh-dashboard row pt-3">
+                <div class="oh-dashboard__movable-cards row mt-4">
+                    <div class="col-12 col-sm-12 col-md-6 col-lg-6">
+                        <div class="oh-card-dashboard oh-card-dashboard--no-scale oh-card-dashboard--transparent"
+                            style="min-height: 423px">
+                            <div class="oh-card-dashboard__header oh-card-dashboard__header--divider">
+                                <span class="oh-card-dashboard__title" id="online-employees-title">{% trans 'Online Employees' %}</span>
+                            </div>
+                            <div class="oh-card-dashboard__body" hx-get="{% url 'not-out-yet' %}" hx-trigger="load"
+                                id="onlineEmployeesCardBody" style="height: 310px;">
+                                <div class="animated-background"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-12 col-md-6 col-lg-6">
+                        <div class="oh-card-dashboard oh-card-dashboard--no-scale oh-card-dashboard--transparent"
+                            style="min-height: 423px">
+                            <div class="oh-card-dashboard__header oh-card-dashboard__header--divider">
+                                <span class="oh-card-dashboard__title" id="offline-employees-title">{% trans 'Offline Employees' %}</span>
+                            </div>
+                            <div class="oh-card-dashboard__body" hx-get="{% url 'not-in-yet' %}" hx-trigger="load"
+                                id="notInYetIdCardBody" style="height: 310px;">
+                                <div class="animated-background"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% comment %} Attendance To Validate card - not needed, commented out {% endcomment %}
+            {% comment %}
+            <div class="oh-dashboard row pt-3">
+                <div class="col-12 col-sm-12 col-md-12 col-lg-12">
+                    <div class="oh-card-dashboard oh-card-dashboard--no-scale oh-card-dashboard--transparent h-100">
+                        <div class="oh-card-dashboard__header oh-card-dashboard__header--divider">
+                            <span class="oh-card-dashboard__title">{% trans "Attendance To Validate" %}</span>
+                        </div>
+                        <div class="oh-card-dashboard__body" style="height:400px" id="attendanceValidateCardBody"
+                            hx-get="{% url 'dashboard-validate-attendances' %}" hx-trigger="load">
+                            <div class="animated-background h-100"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endcomment %}
+        </div>
+    </div>
+
+    <div class="oh-modal" id="sendMailModal" role="dialog" aria-labelledby="sendMailModal" aria-hidden="true">
+        <div class="oh-modal__dialog">
+            <div class="oh-modal__dialog-header">
+                <h5 class="oh-modal__dialog-title" id="sendMailModalLabel">
+                    {% trans "Send Mail" %}
+                </h5>
+                <button class="oh-modal__close" aria-label="Close">
+                    <ion-icon name="close-outline"></ion-icon>
+                </button>
+            </div>
+            <div class="oh-modal__dialog-body" id="mail-content"></div>
+        </div>
+    </div>
+    <div class="oh-modal" id="dashboardCardModal" role="dialog" aria-labelledby="dashboardCardModalLabel" aria-hidden="true">
+        <div class="oh-modal__dialog" style="max-width: 560px;">
+            <div class="oh-modal__dialog-header">
+                <h5 class="oh-modal__dialog-title" id="dashboardCardModalLabel">{% trans "Attendance" %}</h5>
+                <button class="oh-modal__close" aria-label="Close">
+                    <ion-icon name="close-outline"></ion-icon>
+                </button>
+            </div>
+            <div class="oh-modal__dialog-body" id="dashboardCardModalBody" style="max-height: 70vh; overflow-y: auto;">
+                <div class="animated-background"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+      (function () {
+        var modal = document.getElementById('dashboardCardModal');
+        var label = document.getElementById('dashboardCardModalLabel');
+        var body = document.getElementById('dashboardCardModalBody');
+        var baseUrl = "{% url 'dashboard-card-modal' card_type='CARD_TYPE' %}".replace('CARD_TYPE', '');
+        document.querySelectorAll('.oh-card-dashboard--clickable[data-card-type]').forEach(function (card) {
+          card.addEventListener('click', function () {
+            var cardType = this.getAttribute('data-card-type');
+            var cardTitle = this.getAttribute('data-card-title') || 'Attendance';
+            if (!cardType) return;
+            label.textContent = cardTitle;
+            body.innerHTML = '<div class="animated-background"></div>';
+            modal.classList.add('oh-modal--show');
+            var url = "{% url 'dashboard-card-modal' card_type='CARD_TYPE' %}".replace('CARD_TYPE', cardType);
+            htmx.ajax('GET', url, { target: '#dashboardCardModalBody', swap: 'innerHTML' });
+          });
+        });
+      })();
+    </script>
+</div>
+{% endblock content %}

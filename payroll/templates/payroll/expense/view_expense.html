@@ -1,0 +1,18 @@
+{% extends 'index.html' %}
+{% block content %}
+{% load static i18n %}
+{% include 'payroll/expense/nav.html' %}
+<div id="expenseContainer">
+    {% if expense_exists or show_archived %}
+        {% include 'payroll/expense/list_expense.html' %}
+    {% else %}
+        <div class="oh-wrapper">
+            <div class="oh-empty">
+                <img src="{% static 'images/ui/search.svg' %}" class="oh-404__image" alt="" />
+                <h1 class="oh-empty__title">{% trans "No Records found." %}</h1>
+                <p class="oh-empty__subtitle">{% trans "No expenses recorded yet. Click Create to add one." %}</p>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock content %}

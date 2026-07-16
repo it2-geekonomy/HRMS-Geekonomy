@@ -1,0 +1,129 @@
+{% load i18n %}
+<div class="oh-modal__dialog-header">
+    <span class="oh-modal__dialog-title">{% trans "Comp-Off Request" %}</span>
+    <button class="oh-modal__close" aria-label="Close">
+        <ion-icon name="close-outline"></ion-icon>
+    </button>
+</div>
+<div class="oh-modal__dialog-body oh-modal__dialog-relative">
+    {% if instances_ids %}
+    <div class="oh-modal__dialog oh-modal__dialog--navigation m-0 p-0">
+        <button hx-get="{% url 'comp-off-request-single-view' previous %}?instances_ids={{ instances_ids }}&my_request={{ my_request|yesno:'True,False' }}"
+            hx-target="#objectDetailsModalW25Target" class="oh-modal__diaglog-nav oh-modal__nav-prev" data-action="previous">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+        </button>
+        <button hx-get="{% url 'comp-off-request-single-view' next %}?instances_ids={{ instances_ids }}&my_request={{ my_request|yesno:'True,False' }}"
+            hx-target="#objectDetailsModalW25Target" class="oh-modal__diaglog-nav oh-modal__nav-next" data-action="next">
+            <ion-icon name="chevron-forward-outline"></ion-icon>
+        </button>
+    </div>
+    {% endif %}
+
+    <a class="oh-timeoff-modal__profile-content" style="text-decoration:none;"
+        href="{% url 'employee-view-individual' comp_off_request.employee_id.id %}">
+        <div class="oh-profile mb-2">
+            <div class="oh-profile__avatar">
+                <img src="{{ comp_off_request.employee_id.get_avatar }}" class="oh-profile__image me-2" alt="" />
+            </div>
+            <div class="oh-timeoff-modal__profile-info">
+                <span class="oh-timeoff-modal__user fw-bold">{{ comp_off_request.employee_id }}</span>
+                {% if comp_off_request.employee_id.employee_work_info %}
+                <span class="oh-timeoff-modal__user m-0" style="font-size: 18px; color: #4d4a4a">
+                    {{ comp_off_request.employee_id.employee_work_info.department_id }} /
+                    {{ comp_off_request.employee_id.employee_work_info.job_position_id }}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </a>
+
+    <div class="oh-modal__dialog-header pt-0">
+        <div class="oh-timeoff-modal__stats-container">
+            <div class="oh-timeoff-modal__stat">
+                <span class="oh-timeoff-modal__stat-title">{% trans "Status" %}</span>
+                <span class="oh-timeoff-modal__stat-count">{{ comp_off_request.get_status_display }}</span>
+            </div>
+            <div class="oh-timeoff-modal__stat">
+                <span class="oh-timeoff-modal__stat-title">{% trans "Requested Days" %}</span>
+                <span class="oh-timeoff-modal__stat-count">{{ comp_off_request.requested_days }}</span>
+            </div>
+        </div>
+
+        <div class="oh-timeoff-modal__stats-container mt-3">
+            <div class="oh-timeoff-modal__stat">
+                <span class="oh-timeoff-modal__stat-title">{% trans "Start Date" %}</span>
+                <span class="oh-timeoff-modal__stat-count dateformat_changer">{{ comp_off_request.start_date }}</span>
+            </div>
+            <div class="oh-timeoff-modal__stat">
+                <span class="oh-timeoff-modal__stat-title">{% trans "End Date" %}</span>
+                <span class="oh-timeoff-modal__stat-count dateformat_changer">{{ comp_off_request.end_date }}</span>
+            </div>
+        </div>
+
+        <div class="oh-timeoff-modal__stats-container mt-3">
+            <div class="oh-timeoff-modal__stat">
+                <span class="oh-timeoff-modal__stat-title">{% trans "Breakdown" %}</span>
+                <span class="oh-timeoff-modal__stat-count">{{ comp_off_request.get_start_date_breakdown_display }}</span>
+            </div>
+            <div class="oh-timeoff-modal__stat">
+                <span class="oh-timeoff-modal__stat-title">{% trans "Approved Days" %}</span>
+                <span class="oh-timeoff-modal__stat-count">{{ comp_off_request.approved_days|default:"—" }}</span>
+            </div>
+        </div>
+
+        {% if comp_off_request.status == "approved" and comp_off_request.modified_by %}
+        <div class="oh-timeoff-modal__stats-container mt-3">
+            <div class="oh-timeoff-modal__stat">
+                <span class="oh-timeoff-modal__stat-title">{% trans "Approved By" %}</span>
+                <span class="oh-timeoff-modal__stat-count">
+                    {% if comp_off_request.modified_by.employee_get %}
+                        {{ comp_off_request.modified_by.employee_get }}
+                    {% else %}
+                        {{ comp_off_request.modified_by.get_full_name|default:comp_off_request.modified_by }}
+                    {% endif %}
+                </span>
+            </div>
+            <div class="oh-timeoff-modal__stat">
+                <span class="oh-timeoff-modal__stat-title">{% trans "Requested On" %}</span>
+                <span class="oh-timeoff-modal__stat-count dateformat_changer">{{ comp_off_request.requested_date }}</span>
+            </div>
+        </div>
+        {% elif comp_off_request.status == "rejected" and comp_off_request.modified_by %}
+        <div class="oh-timeoff-modal__stats-container mt-3">
+            <div class="oh-timeoff-modal__stat">
+                <span class="oh-timeoff-modal__stat-title">{% trans "Rejected By" %}</span>
+                <span class="oh-timeoff-modal__stat-count">
+                    {% if comp_off_request.modified_by.employee_get %}
+                        {{ comp_off_request.modified_by.employee_get }}
+                    {% else %}
+                        {{ comp_off_request.modified_by.get_full_name|default:comp_off_request.modified_by }}
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+        {% else %}
+        <div class="oh-timeoff-modal__stats-container mt-3">
+            <div class="oh-timeoff-modal__stat">
+                <span class="oh-timeoff-modal__stat-title">{% trans "Requested On" %}</span>
+                <span class="oh-timeoff-modal__stat-count dateformat_changer">{{ comp_off_request.requested_date }}</span>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="oh-timeoff-modal__stats w-100 mt-3">
+            <div class="oh-timeoff-modal__stat">
+                <span class="oh-timeoff-modal__stat-title">{% trans "Description" %}</span>
+                <div class="oh-timeoff-modal__stat-description">{{ comp_off_request.description|default:"—" }}</div>
+            </div>
+        </div>
+
+        {% if comp_off_request.reject_reason %}
+        <div class="oh-timeoff-modal__stats w-100 mt-3">
+            <div class="oh-timeoff-modal__stat">
+                <span class="oh-timeoff-modal__stat-title">{% trans "Reject Reason" %}</span>
+                <div class="oh-timeoff-modal__stat-description">{{ comp_off_request.reject_reason }}</div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>

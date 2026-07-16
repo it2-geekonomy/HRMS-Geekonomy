@@ -1,0 +1,50 @@
+{% load i18n %}
+<p class="oh-general__tab-desc mb-3">{% trans "Background verification (BGV) data for this employee. Use this when creating another BGV." %}</p>
+{% if not candidates %}
+<p class="text-muted mb-0">{% trans "No BGV data for this employee." %}</p>
+{% else %}
+<div class="table-responsive">
+    <table class="oh-table oh-table--striped">
+        <thead>
+            <tr>
+                <th>{% trans "Name" %}</th>
+                <th>{% trans "Email" %}</th>
+                <th>{% trans "Phone" %}</th>
+                <th>{% trans "Status" %}</th>
+                {% if show_sensitive_fields %}
+                <th>{% trans "Candidate ID" %}</th>
+                {% endif %}
+                <th>{% trans "Initiation Date" %}</th>
+                <th>{% trans "Completion Date" %}</th>
+                {% if show_sensitive_fields %}
+                <th>{% trans "Report" %}</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in candidates %}
+            <tr>
+                <td>{{ c.name|default:"—" }}</td>
+                <td>{{ c.email|default:"—" }}</td>
+                <td>{{ c.phone_number|default:"—" }}</td>
+                <td>{{ c.overall_status|default:"—" }}</td>
+                {% if show_sensitive_fields %}
+                <td>{{ c.candidate_id|default:"—" }}</td>
+                {% endif %}
+                <td>{% if c.initiation_date %}{{ c.initiation_date|date:"Y-m-d" }}{% else %}—{% endif %}</td>
+                <td>{% if c.completion_date %}{{ c.completion_date|date:"Y-m-d" }}{% else %}—{% endif %}</td>
+                {% if show_sensitive_fields %}
+                <td>
+                    {% if c.report_url %}
+                        <a href="{{ c.report_url }}" target="_blank" rel="noopener noreferrer" class="oh-btn oh-btn--secondary oh-btn--small">{% trans "View report" %}</a>
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}

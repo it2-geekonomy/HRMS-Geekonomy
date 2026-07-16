@@ -1,0 +1,310 @@
+{% load i18n %}
+<style>
+    .expense-category-block {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+        background: #fff;
+    }
+    .expense-category-header {
+        background: #f5f5f5;
+        border-radius: 6px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+    }
+    .expense-category-line {
+        display: grid;
+        grid-template-columns: 1fr 140px 36px;
+        gap: 10px;
+        align-items: end;
+        margin-bottom: 8px;
+    }
+    .expense-line-remove {
+        padding: 8px;
+        min-width: 36px;
+        height: 38px;
+    }
+    .expense-category-remove-link {
+        color: #c0392b;
+        font-size: 12px;
+        white-space: nowrap;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px 0;
+    }
+    .expense-category-remove-link:hover {
+        text-decoration: underline;
+    }
+    .expense-field-error {
+        color: #c0392b;
+        font-size: 12px;
+        margin-top: 4px;
+    }
+    .expense-input-error {
+        border-color: #c0392b !important;
+    }
+</style>
+
+<div class="oh-input-group mt-3">
+    <label class="oh-label fw-bold mb-1 required-star">{% trans "Categories & Amount Breakup" %}</label>
+    <p class="text-muted small mb-2">
+        {% trans "Enter category name, then add particulars and amounts below it." %}
+    </p>
+    {% if form.non_field_errors %}
+    <div class="oh-alert oh-alert--danger mb-2">
+        <ul class="mb-0 ps-3">
+            {% for error in form.non_field_errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    <div id="expenseCategoryContainer">
+        {% for group in category_groups %}
+        <div class="expense-category-block" data-category-block data-cat-index="{{ forloop.counter0 }}">
+            <div class="expense-category-header">
+                <div class="d-flex justify-content-between align-items-end gap-2">
+                    <div class="flex-grow-1">
+                        <label class="oh-label small mb-1 required-star">{% trans "Category" %}</label>
+                        <input type="text" name="cat_{{ forloop.counter0 }}_name" class="oh-input w-100 category-name-input{% if group.name_error %} expense-input-error{% endif %}"
+                            value="{{ group.name }}" placeholder="{% trans 'e.g. Travel, Office, Food' %}">
+                        {% if group.name_error %}
+                        <div class="expense-field-error">{{ group.name_error }}</div>
+                        {% endif %}
+                    </div>
+                    <button type="button" class="expense-category-remove-link expense-category-remove"
+                        title="{% trans 'Remove entire category' %}">
+                        {% trans "Remove category" %}
+                    </button>
+                </div>
+            </div>
+
+            <div class="small text-muted fw-bold mb-1" style="display:grid;grid-template-columns:1fr 140px 36px;gap:10px;">
+                <span class="required-star">{% trans "Particular" %}</span>
+                <span class="required-star">{% trans "Amount" %}</span>
+                <span></span>
+            </div>
+            <div class="category-lines" data-category-lines>
+                {% for line in group.lines %}
+                <div class="expense-category-line" data-line-row>
+                    <div>
+                        <input type="text" name="cat_{{ forloop.parentloop.counter0 }}_line_{{ forloop.counter0 }}_particular"
+                            class="oh-input w-100{% if line.errors.particular %} expense-input-error{% endif %}"
+                            value="{{ line.particular }}" placeholder="{% trans 'Particular' %}">
+                        {% if line.errors.particular %}
+                        <div class="expense-field-error">{{ line.errors.particular }}</div>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <input type="number" name="cat_{{ forloop.parentloop.counter0 }}_line_{{ forloop.counter0 }}_amount"
+                            class="oh-input w-100 line-amount-input{% if line.errors.amount %} expense-input-error{% endif %}"
+                            step="0.01" min="0.01" value="{{ line.amount }}">
+                        {% if line.errors.amount %}
+                        <div class="expense-field-error">{{ line.errors.amount }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex align-items-end justify-content-center">
+                        <button type="button" class="oh-btn oh-btn--light-bkg oh-btn--sm expense-line-remove"
+                            title="{% trans 'Remove line' %}" aria-label="{% trans 'Remove line' %}">
+                            <ion-icon name="close-outline"></ion-icon>
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <button type="button" class="oh-btn oh-btn--light-bkg oh-btn--sm add-category-line mt-1">
+                <ion-icon name="add-outline"></ion-icon> {% trans "Add line" %}
+            </button>
+            <p class="mb-0 mt-2 small">
+                <span class="text-muted">{% trans "Category total" %}:</span>
+                <strong class="category-total">0.00</strong>
+            </p>
+        </div>
+        {% endfor %}
+    </div>
+    <button type="button" class="oh-btn oh-btn--light-bkg mt-1" id="addExpenseCategory">
+        <ion-icon name="add-outline"></ion-icon> {% trans "Add category" %}
+    </button>
+    <p class="mb-0 mt-2">
+        <span class="text-muted">{% trans "Grand total" %}:</span>
+        <strong id="expenseGrandTotal">0.00</strong>
+    </p>
+</div>
+
+<script>
+(function () {
+    var container = document.getElementById("expenseCategoryContainer");
+    if (!container) return;
+
+    function nextCatIndex() {
+        var max = -1;
+        container.querySelectorAll("[data-category-block]").forEach(function (block) {
+            var idx = parseInt(block.getAttribute("data-cat-index"), 10);
+            if (!isNaN(idx)) max = Math.max(max, idx);
+        });
+        return max + 1;
+    }
+
+    function reindexCategories() {
+        container.querySelectorAll("[data-category-block]").forEach(function (block, catIdx) {
+            block.setAttribute("data-cat-index", catIdx);
+            var nameInput = block.querySelector(".category-name-input");
+            if (nameInput) nameInput.name = "cat_" + catIdx + "_name";
+            block.querySelectorAll("[data-line-row]").forEach(function (row, lineIdx) {
+                row.querySelectorAll("input").forEach(function (input) {
+                    if (input.classList.contains("category-name-input")) return;
+                    if (input.name.indexOf("_particular") !== -1) {
+                        input.name = "cat_" + catIdx + "_line_" + lineIdx + "_particular";
+                    } else if (input.name.indexOf("_amount") !== -1) {
+                        input.name = "cat_" + catIdx + "_line_" + lineIdx + "_amount";
+                    }
+                });
+            });
+        });
+    }
+
+    function recalcCategory(block) {
+        var total = 0;
+        block.querySelectorAll(".line-amount-input").forEach(function (input) {
+            total += parseFloat(input.value) || 0;
+        });
+        var el = block.querySelector(".category-total");
+        if (el) el.textContent = total.toFixed(2);
+    }
+
+    function recalcGrandTotal() {
+        var total = 0;
+        container.querySelectorAll(".line-amount-input").forEach(function (input) {
+            total += parseFloat(input.value) || 0;
+        });
+        var el = document.getElementById("expenseGrandTotal");
+        if (el) el.textContent = total.toFixed(2);
+    }
+
+    function refreshCategoryRemoveLinks() {
+        var blocks = container.querySelectorAll("[data-category-block]");
+        blocks.forEach(function (block) {
+            var link = block.querySelector(".expense-category-remove");
+            if (link) link.style.display = blocks.length > 1 ? "" : "none";
+        });
+    }
+
+    function addLineRow(block) {
+        var catIdx = block.getAttribute("data-cat-index");
+        var lines = block.querySelector("[data-category-lines]");
+        var lineIdx = lines.querySelectorAll("[data-line-row]").length;
+        var row = document.createElement("div");
+        row.className = "expense-category-line";
+        row.setAttribute("data-line-row", "");
+        row.innerHTML =
+            '<div><input type="text" name="cat_' + catIdx + '_line_' + lineIdx + '_particular" class="oh-input w-100" placeholder="{% trans "Particular" %}"></div>' +
+            '<div><input type="number" name="cat_' + catIdx + '_line_' + lineIdx + '_amount" class="oh-input w-100 line-amount-input" step="0.01" min="0.01"></div>' +
+            '<div class="d-flex align-items-end justify-content-center">' +
+            '<button type="button" class="oh-btn oh-btn--light-bkg oh-btn--sm expense-line-remove" title="{% trans "Remove line" %}">' +
+            '<ion-icon name="close-outline"></ion-icon></button></div>';
+        lines.appendChild(row);
+        row.querySelector("input[type=text]").focus();
+        recalcCategory(block);
+        recalcGrandTotal();
+    }
+
+    function addCategoryBlock() {
+        var catIdx = nextCatIndex();
+        var block = document.createElement("div");
+        block.className = "expense-category-block";
+        block.setAttribute("data-category-block", "");
+        block.setAttribute("data-cat-index", catIdx);
+        block.innerHTML =
+            '<div class="expense-category-header">' +
+            '<div class="d-flex justify-content-between align-items-end gap-2">' +
+            '<div class="flex-grow-1"><label class="oh-label small mb-1 required-star">{% trans "Category" %}</label>' +
+            '<input type="text" name="cat_' + catIdx + '_name" class="oh-input w-100 category-name-input" placeholder="{% trans "e.g. Travel, Office, Food" %}"></div>' +
+            '<button type="button" class="expense-category-remove-link expense-category-remove">{% trans "Remove category" %}</button>' +
+            '</div></div>' +
+            '<div class="small text-muted fw-bold mb-1" style="display:grid;grid-template-columns:1fr 140px 36px;gap:10px;">' +
+            '<span class="required-star">{% trans "Particular" %}</span><span class="required-star">{% trans "Amount" %}</span><span></span></div>' +
+            '<div class="category-lines" data-category-lines">' +
+            '<div class="expense-category-line" data-line-row">' +
+            '<div><input type="text" name="cat_' + catIdx + '_line_0_particular" class="oh-input w-100" placeholder="{% trans "Particular" %}"></div>' +
+            '<div><input type="number" name="cat_' + catIdx + '_line_0_amount" class="oh-input w-100 line-amount-input" step="0.01" min="0.01"></div>' +
+            '<div class="d-flex align-items-end justify-content-center">' +
+            '<button type="button" class="oh-btn oh-btn--light-bkg oh-btn--sm expense-line-remove">' +
+            '<ion-icon name="close-outline"></ion-icon></button></div></div></div>' +
+            '<button type="button" class="oh-btn oh-btn--light-bkg oh-btn--sm add-category-line mt-1">' +
+            '<ion-icon name="add-outline"></ion-icon> {% trans "Add line" %}</button>' +
+            '<p class="mb-0 mt-2 small"><span class="text-muted">{% trans "Category total" %}:</span> <strong class="category-total">0.00</strong></p>';
+        container.appendChild(block);
+        refreshCategoryRemoveLinks();
+        recalcCategory(block);
+        recalcGrandTotal();
+        block.querySelector(".category-name-input").focus();
+    }
+
+    container.addEventListener("click", function (e) {
+        var lineBtn = e.target.closest(".expense-line-remove");
+        if (lineBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            var block = lineBtn.closest("[data-category-block]");
+            var row = lineBtn.closest("[data-line-row]");
+            var lines = block.querySelector("[data-category-lines]");
+            if (lines.querySelectorAll("[data-line-row]").length > 1) {
+                row.remove();
+                reindexCategories();
+            } else {
+                row.querySelectorAll("input").forEach(function (input) {
+                    input.value = "";
+                });
+            }
+            recalcCategory(block);
+            recalcGrandTotal();
+            return;
+        }
+
+        var catBtn = e.target.closest(".expense-category-remove");
+        if (catBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (container.querySelectorAll("[data-category-block]").length <= 1) return;
+            var block = catBtn.closest("[data-category-block]");
+            block.remove();
+            reindexCategories();
+            refreshCategoryRemoveLinks();
+            recalcGrandTotal();
+            return;
+        }
+
+        var addLineBtn = e.target.closest(".add-category-line");
+        if (addLineBtn) {
+            e.preventDefault();
+            addLineRow(addLineBtn.closest("[data-category-block]"));
+        }
+    });
+
+    container.addEventListener("input", function (e) {
+        if (e.target.classList.contains("line-amount-input")) {
+            var block = e.target.closest("[data-category-block]");
+            recalcCategory(block);
+            recalcGrandTotal();
+        }
+    });
+
+    if (!container.querySelectorAll("[data-category-block]").length) {
+        addCategoryBlock();
+    } else {
+        container.querySelectorAll("[data-category-block]").forEach(recalcCategory);
+        refreshCategoryRemoveLinks();
+    }
+    recalcGrandTotal();
+
+    var addCatBtn = document.getElementById("addExpenseCategory");
+    if (addCatBtn) {
+        addCatBtn.addEventListener("click", function (e) {
+            e.preventDefault();
+            addCategoryBlock();
+        });
+    }
+})();
+</script>

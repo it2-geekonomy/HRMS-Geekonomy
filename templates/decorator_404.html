@@ -1,0 +1,10 @@
+{% load i18n %}
+{% load static %}
+<script>reloadMessage();</script>
+<h1 class="oh-404__title">{% trans "You Dont Have Permission" %}</h1>
+<p class="oh-404__subtitle">{% trans "You dont have permission to the feature" %}</p>
+{% if request.resolver_match.url_name == "employee-view-individual" and "resign" in request.path.lower %}
+<p class="oh-404__subtitle mt-2 text-muted" style="font-size: 0.9rem;">{% trans "If this is the Resignation tab: an administrator must enable 'Resignation Request' in Configuration --> General settings (Offboarding section). Once enabled, you can create resignation requests here and admins will see them under Offboarding --> Resignation Letters." %}</p>
+{% else %}
+<p class="oh-404__subtitle mt-2 text-muted" style="font-size: 0.9rem;">{% trans "If you believe you should have access to this feature, please contact your system administrator to grant the necessary permissions." %}</p>
+{% endif %}

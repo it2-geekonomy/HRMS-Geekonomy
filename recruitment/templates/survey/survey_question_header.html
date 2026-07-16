@@ -1,0 +1,7 @@
+{% load i18n %}
+<span class="oh-label oh-label--question">
+  {{ question.question }}
+  {% if question.is_mandatory %}
+  <span class="text-danger"> * {% trans "Required" %}</span>
+  {% endif %}
+</span>

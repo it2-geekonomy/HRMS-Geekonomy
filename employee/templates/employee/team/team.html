@@ -1,0 +1,68 @@
+{% extends 'settings.html' %} {% load i18n %} {% block settings %} {% load static %}
+<div class="oh-inner-sidebar-content">
+    {% if perms.employee.view_team or perms.base.view_department or request.user.is_staff %}
+        <div class="oh-inner-sidebar-content__header d-flex justify-content-between align-items-center">
+            <h2 class="oh-inner-sidebar-content__title">{% trans "Teams" %}</h2>
+            {% if perms.employee.add_team or perms.base.add_department or request.user.is_staff %}
+                <button class="oh-btn oh-btn--secondary oh-btn--shadow" data-toggle="oh-modal-toggle"
+                    data-target="#objectCreateModal" hx-get="{% url 'team-create' %}"
+                    hx-target="#objectCreateModalTarget">
+                    <ion-icon name="add-outline" class="me-1"></ion-icon>
+                    {% trans "Create" %}
+                </button>
+            {% endif %}
+        </div>
+        <div class="oh-inner-sidebar-content__header mb-3">
+            <select class="oh-select" id="departmentFilter" style="width: 200px;">
+                <option value="">{% trans "All Departments" %}</option>
+                {% for department in departments %}
+                    <option value="{{ department.id }}" {% if request.GET.department == department.id|stringformat:"i" %}selected{% endif %}>{{ department.department }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% if teams %}
+            {% include 'employee/team/team_view.html' %}
+        {% else %}
+            <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%;">
+                <img style="display: block; width: 15%; margin: 20px auto; filter: opacity(0.5);"
+                    src="{% static 'images/ui/connection.png' %}" class="" alt="Page not found. 404." />
+                <h5 class="oh-404__subtitle">{% trans "There is no team at this moment." %}</h5>
+            </div>
+        {% endif %}
+    {% endif %}
+</div>
+
+<!-- Create Modal -->
+<div class="oh-modal" id="objectCreateModal" role="dialog" aria-hidden="true">
+    <div class="oh-modal__dialog" style="max-width: 550px">
+        <div class="oh-modal__dialog-header">
+            <h2 class="oh-modal__dialog-title" id="objectCreateModalLabel">
+                {% trans "Create Team" %}
+            </h2>
+            <button type="button" class="oh-modal__close" aria-label="Close">
+                <ion-icon name="close-outline"></ion-icon>
+            </button>
+        </div>
+        <div class="oh-modal__dialog-body" id="objectCreateModalTarget">
+            <!-- Content will be loaded here via hx-get -->
+        </div>
+    </div>
+</div>
+
+<!-- Update Modal -->
+<div class="oh-modal" id="objectUpdateModal" role="dialog" aria-hidden="true">
+    <div class="oh-modal__dialog" style="max-width: 550px">
+        <div class="oh-modal__dialog-header">
+            <h2 class="oh-modal__dialog-title" id="objectUpdateModalLabel">
+                {% trans "Update Team" %}
+            </h2>
+            <button type="button" class="oh-modal__close" aria-label="Close">
+                <ion-icon name="close-outline"></ion-icon>
+            </button>
+        </div>
+        <div class="oh-modal__dialog-body" id="objectUpdateModalTarget">
+            <!-- Content will be loaded here via hx-get -->
+        </div>
+    </div>
+</div>
+{% endblock settings %}

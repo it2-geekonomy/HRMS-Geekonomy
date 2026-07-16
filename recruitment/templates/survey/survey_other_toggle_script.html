@@ -1,0 +1,58 @@
+{% load i18n %}
+<script>
+  function surveyOtherSelected(values) {
+    if (Array.isArray(values)) {
+      return values.some(function (value) {
+        return value === "__other__" || value === "Other";
+      });
+    }
+    return values === "__other__" || values === "Other";
+  }
+
+  function toggleSurveyOtherField(selectEl) {
+    if (!selectEl) return;
+    var inputId = selectEl.getAttribute("data-other-input");
+    if (!inputId) return;
+    var otherInput = document.getElementById(inputId);
+    if (!otherInput) return;
+
+    var values = window.jQuery ? jQuery(selectEl).val() : selectEl.value;
+    var hasOther = surveyOtherSelected(values);
+
+    otherInput.style.display = hasOther ? "block" : "none";
+    otherInput.required = hasOther;
+    if (!hasOther) {
+      otherInput.value = "";
+    }
+  }
+
+  function initSurveyOtherFields() {
+    document.querySelectorAll(".survey-other-select").forEach(function (selectEl) {
+      toggleSurveyOtherField(selectEl);
+    });
+  }
+
+  (function () {
+    function bindSurveyOtherHandlers() {
+      if (!window.jQuery) return;
+      jQuery(document)
+        .off("change.surveyOther select2:select.surveyOther select2:unselect.surveyOther", ".survey-other-select")
+        .on(
+          "change.surveyOther select2:select.surveyOther select2:unselect.surveyOther",
+          ".survey-other-select",
+          function () {
+            toggleSurveyOtherField(this);
+          }
+        );
+      initSurveyOtherFields();
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", function () {
+        setTimeout(bindSurveyOtherHandlers, 150);
+      });
+    } else {
+      setTimeout(bindSurveyOtherHandlers, 150);
+    }
+  })();
+</script>

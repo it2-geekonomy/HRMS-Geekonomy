@@ -1,0 +1,220 @@
+{% extends "index.html" %}
+{% load i18n %}
+{% block styles %}
+<style>
+  /* Span full content width (many columns: employee, date, in, out, note, approver, time). */
+  .oh-sticky-table.oh-sticky-table--fluid {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+    box-sizing: border-box;
+  }
+  .oh-sticky-table--fluid .oh-sticky-table__td,
+  .oh-sticky-table--fluid .oh-sticky-table__th {
+    width: auto !important;
+    min-width: 8rem;
+    max-width: none;
+  }
+  .attendance-logs-search .attendance-logs-search__input {
+    min-width: 18rem;
+    max-width: 32rem;
+    min-height: 2.75rem;
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    line-height: 1.4;
+  }
+</style>
+{% endblock styles %}
+{% block content %}
+<div class="oh-wrapper">
+    <section class="oh-main__topbar">
+        <div class="oh-main__titlebar oh-main__titlebar--left">
+            <h1 class="oh-main__titlebar-title fw-bold">{% trans "Attendance Logs" %}</h1>
+        </div>
+        <div class="oh-main__titlebar oh-main__titlebar--right">
+            <form method="get" action="" class="attendance-logs-search d-flex flex-wrap align-items-center justify-content-end gap-2" role="search">
+                <input id="attendance-logs-search" type="search" name="q" class="form-control attendance-logs-search__input"
+                       value="{{ search_q|default:''|escape }}"
+                       aria-label="{% trans 'Search attendance logs' %}"
+                       autocomplete="off">
+                <button type="submit" class="oh-btn oh-btn--secondary">{% trans "Search" %}</button>
+                {% if search_q %}
+                <a class="oh-btn oh-btn--light" href="{% url 'attendance-request-logs' %}">{% trans "Clear" %}</a>
+                {% endif %}
+            </form>
+        </div>
+    </section>
+
+    <div class="oh-sticky-table-container mt-3 w-100">
+        <div class="oh-sticky-table oh-sticky-table--fluid">
+            <div class="oh-sticky-table__thead">
+                <div class="oh-sticky-table__tr">
+                    <div class="oh-sticky-table__th">{% trans "Requested by (employee)" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Attendance date" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Requested check-in" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Requested check-out" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Request description" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Requested at" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Status" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Action by" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Action at" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Final check-in" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Final check-out" %}</div>
+                </div>
+            </div>
+            <div class="oh-sticky-table__tbody">
+                {% for row in logs %}
+                {% if row.kind == "log" %}
+                <div class="oh-sticky-table__tr">
+                    <div class="oh-sticky-table__td">{{ row.log.employee_id }}</div>
+                    <div class="oh-sticky-table__td dateformat_changer">
+                        {% if row.log.attendance_id %}
+                            {{ row.log.attendance_id.attendance_date }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                    <div class="oh-sticky-table__td timeformat_changer">
+                        {% if row.requested_snapshot.attendance_clock_in %}
+                            {{ row.requested_snapshot.attendance_clock_in }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                    <div class="oh-sticky-table__td timeformat_changer">
+                        {% if row.requested_snapshot.attendance_clock_out %}
+                            {{ row.requested_snapshot.attendance_clock_out }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                    <div class="oh-sticky-table__td">
+                        {% if row.display_request_note %}
+                            {{ row.display_request_note|linebreaksbr }}
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </div>
+                    <div class="oh-sticky-table__td">
+                        {% if row.requested_log %}
+                            {{ row.requested_log.performed_at }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                    <div class="oh-sticky-table__td">
+                        {% if row.log.action == "approved" %}
+                            <span class="text-success">{% trans "Approved" %}</span>
+                        {% elif row.log.action == "rejected" %}
+                            <span class="text-danger">{% trans "Rejected" %}</span>
+                        {% else %}
+                            {{ row.log.action }}
+                        {% endif %}
+                    </div>
+                    <div class="oh-sticky-table__td">
+                        {% if row.log.performed_by %}
+                            {{ row.log.performed_by.get_full_name|default:row.log.performed_by.username }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                    <div class="oh-sticky-table__td">{{ row.log.performed_at }}</div>
+                    <div class="oh-sticky-table__td timeformat_changer">
+                        {% if row.attendance_snapshot.attendance_clock_in %}
+                            {{ row.attendance_snapshot.attendance_clock_in }}
+                        {% elif row.log.attendance_id and row.log.attendance_id.attendance_clock_in %}
+                            {{ row.log.attendance_id.attendance_clock_in }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                    <div class="oh-sticky-table__td timeformat_changer">
+                        {% if row.attendance_snapshot.attendance_clock_out %}
+                            {{ row.attendance_snapshot.attendance_clock_out }}
+                        {% elif row.log.attendance_id and row.log.attendance_id.attendance_clock_out %}
+                            {{ row.log.attendance_id.attendance_clock_out }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="oh-sticky-table__tr">
+                    <div class="oh-sticky-table__td">{{ row.employee }}</div>
+                    <div class="oh-sticky-table__td dateformat_changer">{{ row.attendance_date }}</div>
+                    <div class="oh-sticky-table__td timeformat_changer">
+                        <span class="text-muted">—</span>
+                    </div>
+                    <div class="oh-sticky-table__td timeformat_changer">
+                        <span class="text-muted">—</span>
+                    </div>
+                    <div class="oh-sticky-table__td">
+                        <span class="text-muted" title="{% trans 'Recovered from email only; employee note was not stored.' %}">—</span>
+                    </div>
+                    <div class="oh-sticky-table__td">
+                        <span class="text-muted">—</span>
+                    </div>
+                    <div class="oh-sticky-table__td">
+                        <span class="text-success">{% trans "Approved" %}</span>
+                    </div>
+                    <div class="oh-sticky-table__td">
+                        {% if row.performed_by_display %}
+                            {{ row.performed_by_display }}
+                        {% else %}
+                            <span class="text-muted" title="{% trans 'This row comes from EmailLog (no matching activity log). Older logs only kept the first 255 characters of the email, so the approver line was often cut off. Run migrations and new approval emails store the full body so the approver can be read here.' %}">—</span>
+                        {% endif %}
+                    </div>
+                    <div class="oh-sticky-table__td">{{ row.performed_at }}</div>
+                    <div class="oh-sticky-table__td timeformat_changer">
+                        {% if row.attendance and row.attendance.attendance_clock_in %}
+                            {{ row.attendance.attendance_clock_in }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                    <div class="oh-sticky-table__td timeformat_changer">
+                        {% if row.attendance and row.attendance.attendance_clock_out %}
+                            {{ row.attendance.attendance_clock_out }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                {% empty %}
+                <div class="oh-sticky-table__tr">
+                    <div class="oh-sticky-table__td" style="flex: 1 1 100%; max-width: 100%;">
+                        {% trans "No attendance request log entries found." %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    {% if logs.paginator.count %}
+    <div class="oh-pagination mt-3">
+        <span class="oh-pagination__page">
+            {% trans "Page" %} {{ logs.number }} {% trans "of" %} {{ logs.paginator.num_pages }}
+            — {{ logs.paginator.count }} {% trans "records" %}
+        </span>
+        {% if logs.paginator.num_pages > 1 %}
+        <nav class="oh-pagination__nav">
+            <ul class="oh-pagination__items">
+                {% if logs.has_previous %}
+                <li class="oh-pagination__item">
+                    <a class="oh-pagination__link" href="?page={{ logs.previous_page_number }}{% if search_q %}&amp;q={{ search_q|urlencode }}{% endif %}">{% trans "Previous" %}</a>
+                </li>
+                {% endif %}
+                {% if logs.has_next %}
+                <li class="oh-pagination__item">
+                    <a class="oh-pagination__link" href="?page={{ logs.next_page_number }}{% if search_q %}&amp;q={{ search_q|urlencode }}{% endif %}">{% trans "Next" %}</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

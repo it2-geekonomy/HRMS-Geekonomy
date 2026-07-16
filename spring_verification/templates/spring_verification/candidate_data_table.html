@@ -1,0 +1,45 @@
+{% load i18n %}
+{% if error_message %}
+<div class="alert alert-danger" role="alert">{{ error_message }}</div>
+{% endif %}
+{% if not error_message and not candidates %}
+<p class="text-muted mb-0">{% trans "No candidate data available." %}</p>
+{% endif %}
+{% if candidates %}
+<div class="table-responsive">
+    <table class="oh-table oh-table--striped">
+        <thead>
+            <tr>
+                <th>{% trans "Name" %}</th>
+                <th>{% trans "Email" %}</th>
+                <th>{% trans "Phone" %}</th>
+                <th>{% trans "Status" %}</th>
+                <th>{% trans "Candidate ID" %}</th>
+                <th>{% trans "Initiation Date" %}</th>
+                <th>{% trans "Completion Date" %}</th>
+                <th>{% trans "Report" %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in candidates %}
+            <tr>
+                <td>{{ c.name|default:"—" }}</td>
+                <td>{{ c.email|default:"—" }}</td>
+                <td>{{ c.phone_number|default:"—" }}</td>
+                <td>{{ c.overall_status|default:"—" }}</td>
+                <td>{{ c.candidate_id|default:"—" }}</td>
+                <td>{% if c.initiation_date %}{{ c.initiation_date|slice:":10" }}{% else %}—{% endif %}</td>
+                <td>{% if c.completion_date %}{{ c.completion_date|slice:":10" }}{% else %}—{% endif %}</td>
+                <td>
+                    {% if c.report_url %}
+                        <a href="{{ c.report_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm">{% trans "View report" %}</a>
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}

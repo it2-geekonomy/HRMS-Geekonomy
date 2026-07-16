@@ -1,0 +1,147 @@
+{% load i18n %}
+{% load static %}
+{% load basefilters %}
+{% load leavefilters %}
+{% include 'filter_tags.html' %}
+<div class="d-flex flex-row-reverse mb-2">
+  <span class="me-3 review_ongoing"
+    onclick="$('[name=status]').val('rejected');$('[name=status]').first().change();$('.filterButton').click()"
+    style="cursor: pointer">
+    <span class="oh-dot oh-dot--small me-1" style="background-color:red"></span>
+    {% trans "Rejected" %}
+  </span>
+  <span class="me-3 review_ongoing"
+    onclick="$('[name=status]').val('cancelled');$('[name=status]').first().change();$('.filterButton').click()"
+    style="cursor: pointer">
+    <span class="oh-dot oh-dot--small me-1" style="background-color:grey"></span>
+    {% trans "Cancelled" %}
+  </span>
+  <span class="me-3 paid"
+    onclick="$('[name=status]').val('approved');$('[name=status]').first().change();$('.filterButton').click()"
+    style="cursor: pointer">
+    <span class="oh-dot oh-dot--small me-1" style="background-color:yellowgreen"></span>
+    {% trans "Approved" %}
+  </span>
+  <span class="me-3 confirmed"
+    onclick="$('[name=status]').val('requested');$('[name=status]').first().change();$('.filterButton').click()"
+    style="cursor: pointer">
+    <span class="oh-dot oh-dot--small me-1" style="background-color:orange"></span>
+    {% trans "Requested" %}
+  </span>
+</div>
+{% if comp_off_requests %}
+<div class="oh-sticky-table">
+  <div class="oh-sticky-table__table ">
+    <div class="oh-sticky-table__thead">
+      <div class="oh-sticky-table__tr">
+        <div class="oh-sticky-table__th {% if request.sort_option.order == '-employee_id__employee_first_name' %}arrow-up {% elif request.sort_option.order == 'employee_id__employee_first_name' %}arrow-down {% else %}arrow-up-down {% endif %}"
+          hx-get="{% url 'comp-off-request-filter' %}?{{ pd }}&sortby=employee_id__employee_first_name" hx-target="#compOffStaffContainer">
+          {% trans "Employee" %}
+        </div>
+        <div class="oh-sticky-table__th {% if request.sort_option.order == '-start_date' %}arrow-up {% elif request.sort_option.order == 'start_date' %}arrow-down {% else %}arrow-up-down {% endif %}"
+          hx-get="{% url 'comp-off-request-filter' %}?{{ pd }}&sortby=start_date" hx-target="#compOffStaffContainer">
+          {% trans "Start Date" %}
+        </div>
+        <div class="oh-sticky-table__th {% if request.sort_option.order == '-end_date' %}arrow-up {% elif request.sort_option.order == 'end_date' %}arrow-down {% else %}arrow-up-down {% endif %}"
+          hx-get="{% url 'comp-off-request-filter' %}?{{ pd }}&sortby=end_date" hx-target="#compOffStaffContainer">
+          {% trans "End Date" %}
+        </div>
+        <div class="oh-sticky-table__th">{% trans "Breakdown" %}</div>
+        <div class="oh-sticky-table__th {% if request.sort_option.order == '-requested_days' %}arrow-up {% elif request.sort_option.order == 'requested_days' %}arrow-down {% else %}arrow-up-down {% endif %}"
+          hx-get="{% url 'comp-off-request-filter' %}?{{ pd }}&sortby=requested_days" hx-target="#compOffStaffContainer">
+          {% trans "Requested Days" %}
+        </div>
+        <div class="oh-sticky-table__th">{% trans "Approved Days" %}</div>
+        <div class="oh-sticky-table__th {% if request.sort_option.order == '-status' %}arrow-up {% elif request.sort_option.order == 'status' %}arrow-down {% else %}arrow-up-down {% endif %}"
+          hx-get="{% url 'comp-off-request-filter' %}?{{ pd }}&sortby=status" hx-target="#compOffStaffContainer">
+          {% trans "Status" %}
+        </div>
+        <div class="oh-sticky-table__th">{% trans "Description" %}</div>
+        <div class="oh-sticky-table__th" style="width:200px">{% trans "Actions" %}</div>
+      </div>
+    </div>
+    <div class="oh-sticky-table__tbody">
+      {% for req in comp_off_requests %}
+      <div class="oh-sticky-table__tr"
+        data-toggle="oh-modal-toggle" data-target="#objectDetailsModalW25"
+        hx-get="{% url 'comp-off-request-single-view' req.id %}?instances_ids={{ request_ids }}"
+        hx-target="#objectDetailsModalW25Target">
+        <div class="oh-sticky-table__td">
+          <div class="oh-profile oh-profile--md">
+            <div class="oh-profile__avatar mr-1">
+              <img src="{{ req.employee_id.get_avatar }}" class="oh-profile__image" alt="" />
+            </div>
+            <span class="oh-profile__name oh-text--dark">{{ req.employee_id }}</span>
+          </div>
+        </div>
+        <div class="oh-sticky-table__td dateformat_changer">{{ req.start_date }}</div>
+        <div class="oh-sticky-table__td dateformat_changer">{{ req.end_date }}</div>
+        <div class="oh-sticky-table__td">{{ req.get_start_date_breakdown_display }}</div>
+        <div class="oh-sticky-table__td">{{ req.requested_days }}</div>
+        <div class="oh-sticky-table__td">{{ req.approved_days|default:"—" }}</div>
+        <div class="oh-sticky-table__td">{{ req.get_status_display }}</div>
+        <div class="oh-sticky-table__td">{{ req.description|truncatechars:30 }}</div>
+        <div class="oh-sticky-table__td" onclick="event.stopPropagation()">
+          <div class="oh-btn-group">
+            {% if req.status == 'requested' and request.user|can_approve_comp_off_request:req %}
+            <button class="oh-btn oh-btn--success w-100" hx-get="{% url 'comp-off-request-approve' req.id %}" hx-target="#rejectTarget" data-toggle="oh-modal-toggle" data-target="#rejectModal" title="{% trans 'Approve' %}">
+              <ion-icon class="me-1" name="checkmark-outline"></ion-icon>
+            </button>
+            <button class="oh-btn oh-btn--danger w-100" hx-get="{% url 'comp-off-request-reject' req.id %}" hx-target="#rejectTarget" data-toggle="oh-modal-toggle" data-target="#rejectModal" title="{% trans 'Reject' %}">
+              <ion-icon class="me-1" name="close-circle-outline"></ion-icon>
+            </button>
+            {% else %}
+            <button class="oh-btn oh-btn--success oh-btn--disabled w-100" disabled title="{% trans 'Approve' %}">
+              <ion-icon class="me-1" name="checkmark-outline"></ion-icon>
+            </button>
+            <button class="oh-btn oh-btn--danger oh-btn--disabled w-100" disabled title="{% trans 'Reject' %}">
+              <ion-icon class="me-1" name="close-circle-outline"></ion-icon>
+            </button>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+<div class="oh-modal" id="rejectModal" role="dialog" aria-hidden="true"><div class="oh-modal__dialog" id="rejectTarget"></div></div>
+<div class="oh-pagination" data-pd="{{ pd }}">
+  <span class="oh-pagination__page">
+    {% trans "Page" %} {{ comp_off_requests.number }} {% trans "of" %} {{ comp_off_requests.paginator.num_pages }}{% if comp_off_requests.paginator.count %} ({{ comp_off_requests.paginator.count }} {% trans "records" %}){% endif %}.
+  </span>
+  <nav class="oh-pagination__nav">
+    <div class="oh-pagination__input-container me-3">
+      <span class="oh-pagination__label me-1">{% trans "Page" %}</span>
+      <input type="number" name="page" class="oh-pagination__input" value="{{ comp_off_requests.number }}"
+        hx-get="{% url 'comp-off-request-filter' %}?{{ pd }}" hx-target="#compOffStaffContainer" min="1" />
+      <span class="oh-pagination__label">{% trans "of" %} {{ comp_off_requests.paginator.num_pages }}</span>
+    </div>
+    <ul class="oh-pagination__items">
+      {% if comp_off_requests.has_previous %}
+      <li class="oh-pagination__item oh-pagination__item--wide">
+        <a hx-target="#compOffStaffContainer" hx-get="{% url 'comp-off-request-filter' %}?{{ pd }}&page=1" class="oh-pagination__link">{% trans "First" %}</a>
+      </li>
+      <li class="oh-pagination__item oh-pagination__item--wide">
+        <a hx-target="#compOffStaffContainer" hx-get="{% url 'comp-off-request-filter' %}?{{ pd }}&page={{ comp_off_requests.previous_page_number }}" class="oh-pagination__link">{% trans "Previous" %}</a>
+      </li>
+      {% endif %}
+      {% if comp_off_requests.has_next %}
+      <li class="oh-pagination__item oh-pagination__item--wide">
+        <a hx-target="#compOffStaffContainer" hx-get="{% url 'comp-off-request-filter' %}?{{ pd }}&page={{ comp_off_requests.next_page_number }}" class="oh-pagination__link">{% trans "Next" %}</a>
+      </li>
+      <li class="oh-pagination__item oh-pagination__item--wide">
+        <a hx-target="#compOffStaffContainer" hx-get="{% url 'comp-off-request-filter' %}?{{ pd }}&page={{ comp_off_requests.paginator.num_pages }}" class="oh-pagination__link">{% trans "Last" %}</a>
+      </li>
+      {% endif %}
+    </ul>
+  </nav>
+</div>
+{% else %}
+<div style="height: 310px; display:flex;align-items: center;justify-content: center;">
+  <div class="text-center">
+    <img style="width: 150px; height: 150px" src="{% static 'images/ui/no-results.png' %}" class="oh-404__image mb-4" alt="" />
+    <h5 class="oh-404__subtitle">{% trans "No search result found!" %}</h5>
+  </div>
+</div>
+{% endif %}

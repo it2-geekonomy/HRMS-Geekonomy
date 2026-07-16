@@ -1,0 +1,43 @@
+{% load i18n %}
+<div class="oh-modal__dialog-header pb-0">
+    <h2 class="oh-modal__dialog-title" id="arrearsLogModalLabel">
+        {% trans "Arrears Log" %} – {{ salary_data.employee_id.get_full_name }}
+        {% if salary_data.employee_id.employee_badge_id %}({{ salary_data.employee_id.employee_badge_id }}){% endif %}
+    </h2>
+    <button type="button" class="oh-modal__close" aria-label="Close" data-dismiss="oh-modal">
+        <ion-icon name="close-outline"></ion-icon>
+    </button>
+</div>
+<div class="oh-modal__dialog-body">
+    <p class="text-muted small mb-2">
+        {% trans "Current arrears" %}: ₹ {{ salary_data.arrears_amount|floatformat:0 }}{% if salary_data.arrears_description %} – {{ salary_data.arrears_description }}{% endif %}
+    </p>
+    {% if logs %}
+    <div class="oh-sticky-table">
+        <div class="oh-sticky-table__table">
+            <div class="oh-sticky-table__thead">
+                <div class="oh-sticky-table__tr">
+                    <div class="oh-sticky-table__th">{% trans "When" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Who" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Action" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Amount (₹)" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Description" %}</div>
+                </div>
+            </div>
+            <div class="oh-sticky-table__tbody">
+                {% for log in logs %}
+                <div class="oh-sticky-table__tr">
+                    <div class="oh-sticky-table__td">{{ log.created_at|date:"d M Y, H:i" }}</div>
+                    <div class="oh-sticky-table__td">{{ log.user.get_full_name|default:log.user.username|default:"—" }}</div>
+                    <div class="oh-sticky-table__td">{% if log.action == "added" %}{% trans "Added" %}{% else %}{% trans "Updated" %}{% endif %}</div>
+                    <div class="oh-sticky-table__td">₹ {{ log.amount|floatformat:0 }}</div>
+                    <div class="oh-sticky-table__td">{{ log.description|default:"—" }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <p class="text-muted mb-0">{% trans "No arrears log entries yet." %}</p>
+    {% endif %}
+</div>

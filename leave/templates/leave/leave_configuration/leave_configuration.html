@@ -1,0 +1,378 @@
+{% extends 'index.html' %}
+{% block content %}
+{% load static %}
+{% load i18n %}
+{% load basefilters %}
+
+<section class="oh-wrapper oh-main__topbar">
+    <div class="oh-main__titlebar oh-main__titlebar--left">
+        <h1 class="oh-main__titlebar-title fw-bold">
+            {% trans "Leave Configuration" %}
+        </h1>
+    </div>
+    <div class="oh-main__titlebar oh-main__titlebar--right">
+        <button type="button" class="oh-btn oh-btn--secondary"
+            data-toggle="oh-modal-toggle" data-target="#leaveConfigExportModal">
+            <ion-icon name="download-outline" class="me-1"></ion-icon>
+            {% trans "Export Excel" %}
+        </button>
+    </div>
+</section>
+
+<div class="oh-wrapper">
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-12 col-md-4">
+            <div class="oh-card">
+                <div class="oh-card__body">
+                    <div class="d-flex align-items-center">
+                        <div class="oh-card__icon-container">
+                            <ion-icon name="calendar-outline" class="oh-card__icon" style="font-size: 2rem; color: #4CAF50;"></ion-icon>
+                        </div>
+                        <div class="ms-3">
+                            <h3 class="oh-card__title mb-0">{{ total_leave_types }}</h3>
+                            <p class="oh-card__subtitle mb-0">{% trans "Leave Types" %}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="oh-card">
+                <div class="oh-card__body">
+                    <div class="d-flex align-items-center">
+                        <div class="oh-card__icon-container">
+                            <ion-icon name="people-outline" class="oh-card__icon" style="font-size: 2rem; color: #2196F3;"></ion-icon>
+                        </div>
+                        <div class="ms-3">
+                            <h3 class="oh-card__title mb-0">{{ total_employees_with_leaves }}</h3>
+                            <p class="oh-card__subtitle mb-0">{% trans "Employees with Leaves" %}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="oh-card">
+                <div class="oh-card__body">
+                    <div class="d-flex align-items-center">
+                        <div class="oh-card__icon-container">
+                            <ion-icon name="checkmark-circle-outline" class="oh-card__icon" style="font-size: 2rem; color: #FF9800;"></ion-icon>
+                        </div>
+                        <div class="ms-3">
+                            <h3 class="oh-card__title mb-0">{{ total_assignments }}</h3>
+                            <p class="oh-card__subtitle mb-0">{% trans "Total Assignments" %}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leave Types Configuration -->
+    <div class="oh-card">
+        <div class="oh-card__header">
+            <h2 class="oh-card__title">{% trans "Leave Types & Employee Assignments" %}</h2>
+        </div>
+        <div class="oh-card__body">
+            {% if configuration_data %}
+                {% for config in configuration_data %}
+                    <div class="oh-card mb-4" style="border: 1px solid #e0e0e0;">
+                        <div class="oh-card__header" style="background-color: #f5f5f5;">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h3 class="oh-card__title mb-1">{{ config.leave_type.name }}</h3>
+                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                        {% for rule in config.rules %}
+                                            <span class="oh-badge oh-badge--secondary">{{ rule }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <span class="oh-badge oh-badge--info">{{ config.assigned_count }} {% trans "Employee(s)" %}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="oh-card__body">
+                            {% if config.employees %}
+                                <div class="oh-sticky-table">
+                                    <div class="oh-sticky-table__table">
+                                        <div class="oh-sticky-table__thead">
+                                            <div class="oh-sticky-table__tr">
+                                                <div class="oh-sticky-table__th" style="width: 20%;">{% trans "Employee" %}</div>
+                                                <div class="oh-sticky-table__th" style="width: 9%;">{% trans "Available" %}</div>
+                                                <div class="oh-sticky-table__th" style="width: 9%;" title="{% trans 'Days earned/credited to date (Available + Taken)' %}">{% trans "Accrued" %}</div>
+                                                <div class="oh-sticky-table__th" style="width: 9%;" title="{% trans 'Yearly maximum for this leave type' %}">{% trans "Total" %}</div>
+                                                <div class="oh-sticky-table__th" style="width: 10%;">{% trans "Taken" %}</div>
+                                                <div class="oh-sticky-table__th" style="width: 10%;">{% trans "Assigned Date" %}</div>
+                                                <div class="oh-sticky-table__th" style="width: 10%;">
+                                                    {% if config.reset_date_column_label == "Year Reset" %}
+                                                        <span title="{% trans 'Unused CL/SL balance clears on this date (1 January each year)' %}">{% trans "Year Reset" %}</span>
+                                                    {% elif config.reset_date_column_label == "Expires On" %}
+                                                        <span title="{% trans 'Unused EL balance expires on this date (3 years from assignment)' %}">{% trans "Expires On" %}</span>
+                                                    {% elif config.reset_date_column_label == "Next Accrual" %}
+                                                        <span title="{% trans 'Next date 1 day is added (balance is not cleared)' %}">{% trans "Next Accrual" %}</span>
+                                                    {% else %}
+                                                        {{ config.reset_date_column_label }}
+                                                    {% endif %}
+                                                </div>
+                                                <div class="oh-sticky-table__th" style="width: 12.5%;">{% trans "Recent Leaves" %}</div>
+                                            </div>
+                                        </div>
+                                        <div class="oh-sticky-table__tbody">
+                                            {% for emp_data in config.employees %}
+                                                <div class="oh-sticky-table__tr">
+                                                    <div class="oh-sticky-table__td">
+                                                        <div class="d-flex align-items-center">
+                                                            {% if emp_data.employee.employee_profile %}
+                                                                <img src="{{ emp_data.employee.get_avatar }}" 
+                                                                     alt="{{ emp_data.employee.get_full_name }}" 
+                                                                     class="oh-profile oh-profile--sm me-2">
+                                                            {% else %}
+                                                                <div class="oh-profile oh-profile--sm me-2" style="background-color: #e0e0e0;">
+                                                                    <span>{{ emp_data.employee.get_full_name|first|upper }}</span>
+                                                                </div>
+                                                            {% endif %}
+                                                            <div>
+                                                                <span class="oh-sticky-table__td-span">{{ emp_data.employee.get_full_name }}</span>
+                                                                {% if emp_data.employee.employee_work_info and emp_data.employee.employee_work_info.department_id %}
+                                                                    <small class="text-muted d-block">{{ emp_data.employee.employee_work_info.department_id }}</small>
+                                                                {% endif %}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="oh-sticky-table__td">
+                                                        <span class="oh-badge oh-badge--success">{{ emp_data.available_days }}</span>
+                                                    </div>
+                                                    <div class="oh-sticky-table__td">
+                                                        <span class="oh-badge oh-badge--info">{{ emp_data.accrued_days }}</span>
+                                                    </div>
+                                                    <div class="oh-sticky-table__td">
+                                                        <strong>{{ emp_data.total_leave_days }}</strong>
+                                                    </div>
+                                                    <div class="oh-sticky-table__td">
+                                                        {% if config.sick_leave_display %}
+                                                            <div class="d-flex flex-column gap-1">
+                                                                {% if emp_data.probation_leave_taken %}
+                                                                    <span class="oh-badge oh-badge--warning" title="{% trans 'Deducted from yearly Sick Leave allocation' %}">
+                                                                        {{ emp_data.probation_leave_taken }}
+                                                                        <small class="ms-1">{% trans "Probation" %}</small>
+                                                                    </span>
+                                                                {% endif %}
+                                                                {% if emp_data.sick_leave_taken %}
+                                                                    <span class="oh-badge oh-badge--secondary">
+                                                                        {{ emp_data.sick_leave_taken }}
+                                                                        <small class="ms-1">{% trans "Sick Leave" %}</small>
+                                                                    </span>
+                                                                {% endif %}
+                                                                {% if not emp_data.probation_leave_taken and not emp_data.sick_leave_taken %}
+                                                                    <span>0</span>
+                                                                {% endif %}
+                                                            </div>
+                                                        {% else %}
+                                                            <span class="oh-badge oh-badge--warning">{{ emp_data.leave_taken }}</span>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="oh-sticky-table__td">
+                                                        <span>{{ emp_data.assigned_date|date:"d M Y" }}</span>
+                                                    </div>
+                                                    <div class="oh-sticky-table__td">
+                                                        {% if emp_data.reset_date %}
+                                                            <span>{{ emp_data.reset_date|date:"d M Y" }}</span>
+                                                        {% else %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="oh-sticky-table__td">
+                                                        {% if config.sick_leave_display and emp_data.recent_leave_timeline %}
+                                                            <div class="d-flex flex-column gap-1">
+                                                                {% for entry in emp_data.recent_leave_timeline %}
+                                                                    <small>
+                                                                        {% if entry.kind == "probation" %}
+                                                                            <span class="oh-badge oh-badge--warning" title="{% trans 'Probation Leave (deducted from Sick Leave)' %}">
+                                                                                {{ entry.leave.start_date|date:"d M" }}
+                                                                                {% if entry.leave.end_date and entry.leave.end_date != entry.leave.start_date %}
+                                                                                    - {{ entry.leave.end_date|date:"d M" }}
+                                                                                {% endif %}
+                                                                                ({{ entry.leave.requested_days }}d)
+                                                                                <small class="ms-1">{% trans "Probation" %}</small>
+                                                                            </span>
+                                                                        {% else %}
+                                                                            <span class="oh-badge oh-badge--secondary">
+                                                                                {{ entry.leave.start_date|date:"d M" }}
+                                                                                {% if entry.leave.end_date and entry.leave.end_date != entry.leave.start_date %}
+                                                                                    - {{ entry.leave.end_date|date:"d M" }}
+                                                                                {% endif %}
+                                                                                ({{ entry.leave.requested_days }}d)
+                                                                                <small class="ms-1">{% trans "Sick Leave" %}</small>
+                                                                            </span>
+                                                                        {% endif %}
+                                                                    </small>
+                                                                {% endfor %}
+                                                            </div>
+                                                        {% elif emp_data.recent_leaves %}
+                                                            <div class="d-flex flex-column gap-1">
+                                                                {% for leave in emp_data.recent_leaves %}
+                                                                    <small>
+                                                                        <span class="oh-badge oh-badge--secondary">
+                                                                            {{ leave.start_date|date:"d M" }}
+                                                                            {% if leave.end_date and leave.end_date != leave.start_date %}
+                                                                                - {{ leave.end_date|date:"d M" }}
+                                                                            {% endif %}
+                                                                            ({{ leave.requested_days }}d)
+                                                                        </span>
+                                                                    </small>
+                                                                {% endfor %}
+                                                            </div>
+                                                        {% else %}
+                                                            <span class="text-muted">{% trans "No leaves taken" %}</span>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <p class="text-muted mb-0">{% trans "No employees assigned to this leave type." %}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-muted mb-0">{% trans "No leave types with employee assignments to display." %}</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .oh-card {
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 1rem;
+    }
+    .oh-card__header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    .oh-card__body {
+        padding: 1.5rem;
+    }
+    .oh-sticky-table__th {
+        font-weight: 600;
+        color: #333;
+        padding: 0.75rem;
+        background-color: #f8f9fa;
+    }
+    .oh-sticky-table__td {
+        padding: 0.75rem;
+        vertical-align: middle;
+    }
+    .oh-profile {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+    .oh-profile--sm {
+        width: 28px;
+        height: 28px;
+        font-size: 0.75rem;
+    }
+</style>
+
+<div class="oh-modal" id="leaveConfigExportModal" role="dialog" aria-hidden="true"
+    aria-labelledby="leaveConfigExportModalLabel">
+    <div class="oh-modal__dialog">
+        <div class="oh-modal__dialog-header">
+            <h2 class="oh-modal__dialog-title" id="leaveConfigExportModalLabel">
+                {% trans "Export Leave Configuration" %}
+            </h2>
+            <button type="button" class="oh-modal__close" aria-label="Close" data-dismiss="modal">
+                <ion-icon name="close-outline"></ion-icon>
+            </button>
+        </div>
+        <div class="oh-modal__dialog-body">
+            <p class="text-muted small mb-3">
+                {% trans "Choose filters for the Excel export. Leave blank to export all data." %}
+            </p>
+            <div class="row g-3">
+                <div class="col-12">
+                    <div class="oh-input-group">
+                        <label class="oh-label" for="exportLeaveConfigSearch">{% trans "Search" %}</label>
+                        <input type="text" id="exportLeaveConfigSearch" class="oh-input w-100"
+                            placeholder="{% trans 'Employee name / leave type' %}">
+                    </div>
+                </div>
+                <div class="col-12 col-md-6">
+                    <div class="oh-input-group">
+                        <label class="oh-label" for="exportLeaveConfigType">{% trans "Leave Type" %}</label>
+                        <select id="exportLeaveConfigType" class="oh-select w-100">
+                            <option value="">{% trans "All Leave Types" %}</option>
+                            {% for lt in filter_leave_type_options %}
+                            <option value="{{ lt.id }}">{{ lt.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-12 col-md-6">
+                    <div class="oh-input-group">
+                        <label class="oh-label" for="exportLeaveConfigDepartment">{% trans "Department" %}</label>
+                        <select id="exportLeaveConfigDepartment" class="oh-select w-100">
+                            <option value="">{% trans "All Departments" %}</option>
+                            {% for dept in filter_department_options %}
+                            <option value="{{ dept.id }}">{{ dept.department }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="oh-input-group">
+                        <label class="oh-label" for="exportLeaveConfigEmployee">{% trans "Employee" %}</label>
+                        <select id="exportLeaveConfigEmployee" class="oh-select w-100">
+                            <option value="">{% trans "All Employees" %}</option>
+                            {% for emp in filter_employee_options %}
+                            <option value="{{ emp.id }}">{{ emp.get_full_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="oh-modal__dialog-footer">
+            <a href="{% url 'leave-configuration-export-excel' %}" target="_blank"
+                class="oh-btn oh-btn--secondary" id="leaveConfigExportDownloadBtn">
+                <ion-icon name="download-outline" class="me-1"></ion-icon>
+                {% trans "Download Excel" %}
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var btn = document.getElementById("leaveConfigExportDownloadBtn");
+    if (!btn) return;
+    var baseUrl = btn.getAttribute("href");
+    btn.addEventListener("click", function (e) {
+        var params = new URLSearchParams();
+        var search = document.getElementById("exportLeaveConfigSearch").value.trim();
+        var leaveType = document.getElementById("exportLeaveConfigType").value;
+        var department = document.getElementById("exportLeaveConfigDepartment").value;
+        var employee = document.getElementById("exportLeaveConfigEmployee").value;
+        if (search) params.set("search", search);
+        if (leaveType) params.set("leave_type", leaveType);
+        if (department) params.set("department", department);
+        if (employee) params.set("employee", employee);
+        var qs = params.toString();
+        btn.href = qs ? baseUrl + "?" + qs : baseUrl;
+    });
+})();
+</script>
+
+{% endblock content %}

@@ -1,0 +1,46 @@
+{% load i18n %}
+
+<!-- Biometric Sync Buttons -->
+<div class="oh-dropdown oh-dropdown--absolute" x-data="{open: false}">
+    <button class="oh-btn oh-btn--secondary oh-btn--small" @click="open = !open">
+        <ion-icon name="sync-outline" role="img" class="md hydrated" aria-label="sync outline"></ion-icon>
+        {% trans "Biometric Sync" %}
+    </button>
+    <div class="oh-dropdown__menu" x-show="open" @click.away="open = false" style="display: none;">
+        <ul class="oh-dropdown__items">
+            <li class="oh-dropdown__item">
+                <a href="{% url 'sync-biometric-attendance' %}" class="oh-dropdown__link">
+                    <ion-icon name="time-outline" role="img" class="md hydrated" aria-label="time outline"></ion-icon>
+                    {% trans "Sync Recent (Last 20 Days)" %}
+                </a>
+            </li>
+            <li class="oh-dropdown__item">
+                <a href="{% url 'full-sync-biometric-attendance' %}" class="oh-dropdown__link">
+                    <ion-icon name="refresh-outline" role="img" class="md hydrated" aria-label="refresh outline"></ion-icon>
+                    {% trans "Full Sync (All Data)" %}
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<script>
+// Add some JavaScript for better UX
+document.addEventListener('DOMContentLoaded', function() {
+    // Add click handlers for sync buttons
+    const syncButtons = document.querySelectorAll('a[href*="sync-biometric-attendance"]');
+    syncButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            const buttonText = this.querySelector('ion-icon').nextSibling.textContent.trim();
+            this.innerHTML = '<ion-icon name="hourglass-outline"></ion-icon> Syncing...';
+            this.style.pointerEvents = 'none';
+            
+            // Re-enable after 30 seconds (adjust based on expected sync time)
+            setTimeout(() => {
+                this.innerHTML = buttonText;
+                this.style.pointerEvents = 'auto';
+            }, 30000);
+        });
+    });
+});
+</script>

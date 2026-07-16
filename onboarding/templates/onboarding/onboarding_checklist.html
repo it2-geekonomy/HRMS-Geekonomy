@@ -1,0 +1,444 @@
+{% extends 'index.html' %}
+{% block content %}
+{% load i18n %}
+{% load static %}
+{% load generic_template_filters %}
+<style>
+  .oh-wrapper.text-left .oh-table th,
+  .oh-wrapper.text-left .oh-table td,
+  #onboardingReasonModal .oh-modal__dialog-body { text-align: left !important; }
+  /* Onboarding checklist modal: large width so all items are clearly visible */
+  #onboardingChecklistModal .oh-modal__dialog {
+    max-width: 960px;
+    width: 95%;
+  }
+  #onboardingChecklistModal .oh-modal__dialog-body {
+    display: block !important;
+    text-align: left !important;
+    padding: 1.25rem 1.5rem;
+    min-width: 0;
+  }
+  #onboardingChecklistModal #onboardingChecklistModalSteps {
+    align-items: flex-start !important;
+    width: 100% !important;
+    min-width: 0;
+  }
+  #onboardingChecklistModal .oh-onboarding-step-wrap {
+    width: 100% !important;
+    min-width: 0;
+    display: flex !important;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  #onboardingChecklistModal .oh-onboarding-step-btn-modal {
+    text-align: left !important;
+    justify-content: flex-start !important;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  #onboardingChecklistModal .oh-onboarding-view-logs-btn {
+    flex-shrink: 0;
+  }
+  #onboardingChecklistModal .oh-onboarding-upload-form {
+    flex-shrink: 0;
+    display: inline-flex !important;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  #onboardingChecklistModal .oh-onboarding-upload-form input[type="file"],
+  #onboardingChecklistModal .oh-onboarding-file-input {
+    min-width: 200px;
+    max-width: 260px;
+    width: auto;
+  }
+</style>
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+<div class="oh-wrapper text-left">
+  <section class="oh-wrapper oh-main__topbar pb-3" x-data="{ open: false }">
+    <div class="oh-main__titlebar oh-main__titlebar--left">
+      <h1 class="oh-main__titlebar-title fw-bold mb-0">{% trans "Onboarding" %}</h1>
+    </div>
+    <div class="oh-main__titlebar oh-main__titlebar--right">
+      <div class="oh-dropdown" x-data="{ open: false }">
+        <button type="button" class="oh-btn ml-2" @click="open = !open" onclick="event.preventDefault()">
+          <ion-icon name="filter" class="mr-1"></ion-icon>{% trans "Filter" %}
+        </button>
+        <div class="oh-dropdown__menu oh-dropdown__menu--right oh-dropdown__filter p-4" x-show="open" @click.outside="open = false" style="display: none;">
+          <form method="get" action="{% url 'onboarding-view' %}">
+            <div class="oh-dropdown__filter-body">
+              <div class="oh-input-group">
+                <label class="oh-label" for="filter_archived">{% trans "Status" %}</label>
+                <select name="archived" id="filter_archived" class="oh-select w-100">
+                  <option value="" {% if filter_archived == "" %}selected{% endif %}>{% trans "Active" %}</option>
+                  <option value="true" {% if filter_archived == "true" %}selected{% endif %}>{% trans "Archived" %}</option>
+                  <option value="all" {% if filter_archived == "all" %}selected{% endif %}>{% trans "All" %}</option>
+                </select>
+              </div>
+              <div class="oh-input-group">
+                <label class="oh-label" for="filter_joining_from">{% trans "Joining date from" %}</label>
+                <input type="date" name="joining_date_from" id="filter_joining_from" class="oh-input w-100" value="{{ filter_joining_from }}" placeholder="mm/dd/yyyy">
+              </div>
+              <div class="oh-input-group">
+                <label class="oh-label" for="filter_joining_to">{% trans "Joining date to" %}</label>
+                <input type="date" name="joining_date_to" id="filter_joining_to" class="oh-input w-100" value="{{ filter_joining_to }}" placeholder="mm/dd/yyyy">
+              </div>
+            </div>
+            <div class="oh-dropdown__filter-footer mt-3">
+              <button type="submit" class="oh-btn oh-btn--primary w-100">{% trans "Filter" %}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+  <div class="oh-card mt-4">
+    <div class="oh-card__body text-left">
+      {% if progress_list %}
+      <div class="table-responsive">
+        <table class="oh-table oh-table--striped text-left">
+          <thead>
+            <tr class="text-left">
+              <th class="text-left">{% trans "Employee" %}</th>
+              <th class="text-left">{% trans "Email" %}</th>
+              <th class="text-left">{% trans "Joining Date" %}</th>
+              <th class="text-left">{% trans "Job Position" %}</th>
+              <th class="text-left">{% trans "Mobile" %}</th>
+              <th class="text-left">{% trans "Actions" %}</th>
+            </tr>
+          </thead>
+          <tbody class="text-left">
+            {% for progress in progress_list %}
+            <tr class="oh-onboarding-row oh-onboarding-row-clickable text-left"
+                data-progress-id="{{ progress.id }}"
+                data-employee-name="{{ progress.employee_id.get_full_name }}"
+                {% for label, field_name in step_labels %} data-step-{{ forloop.counter }}="{% if progress|getattribute:field_name %}true{% else %}false{% endif %}"{% endfor %}
+                style="cursor: pointer;">
+              <td class="oh-link">
+                {{ progress.employee_id.get_full_name }}
+              </td>
+              <td>{{ progress.employee_id.email }}</td>
+              <td>
+                {% if progress.employee_id.employee_work_info and progress.employee_id.employee_work_info.date_joining %}
+                  {{ progress.employee_id.employee_work_info.date_joining|date:"M d, Y" }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td>
+                {% if progress.employee_id.employee_work_info and progress.employee_id.employee_work_info.job_position_id %}
+                  {{ progress.employee_id.employee_work_info.job_position_id }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td>{% if progress.employee_id.employee_work_info %}{{ progress.employee_id.employee_work_info.mobile|default:"—" }}{% else %}—{% endif %}</td>
+              <td class="text-left" onclick="event.stopPropagation();">
+                {% if not progress.is_archived %}
+                <form method="post" action="{% url 'onboarding-archive-progress' progress.id %}" class="d-inline oh-onboarding-archive-form">
+                  {% csrf_token %}
+                  <input type="hidden" name="archived" value="{{ filter_archived }}">
+                  <input type="hidden" name="joining_date_from" value="{{ filter_joining_from }}">
+                  <input type="hidden" name="joining_date_to" value="{{ filter_joining_to }}">
+                  <input type="hidden" name="page" value="{{ progress_list.number }}">
+                  <button type="submit" class="oh-btn oh-btn--small oh-btn--secondary-outline">{% trans "Onboarded" %}</button>
+                </form>
+                {% else %}
+                <span class="text-muted small">{% trans "Archived" %}</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if progress_list.has_other_pages %}
+      <div class="oh-pagination mt-3">
+        <span class="oh-pagination__page">
+          {% trans "Page" %} {{ progress_list.number }} {% trans "of" %} {{ progress_list.paginator.num_pages }}{% if progress_list.paginator.count %} ({{ progress_list.paginator.count }} {% trans "records" %}){% endif %}.
+        </span>
+        <nav class="oh-pagination__nav">
+          {% if progress_list.has_previous %}
+          <a href="?page={{ progress_list.previous_page_number }}" class="oh-pagination__link">{% trans "Previous" %}</a>
+          {% endif %}
+          {% if progress_list.has_next %}
+          <a href="?page={{ progress_list.next_page_number }}" class="oh-pagination__link">{% trans "Next" %}</a>
+          {% endif %}
+        </nav>
+      </div>
+      {% endif %}
+      {% else %}
+      <p class="text-muted mb-0">{% trans "No onboarding entries yet. Convert a candidate to employee from Recruitment to add them here." %}</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="oh-modal text-left" id="onboardingChecklistModal" role="dialog" aria-labelledby="onboardingChecklistModalLabel" aria-hidden="true">
+  <div class="oh-modal__dialog text-left">
+    <div class="oh-modal__dialog-header text-left">
+      <h2 class="oh-modal__dialog-title text-left" id="onboardingChecklistModalLabel">{% trans "Onboarding checklist" %}</h2>
+      <button type="button" class="oh-modal__close" aria-label="Close">
+        <ion-icon name="close-outline"></ion-icon>
+      </button>
+    </div>
+    <div class="oh-modal__dialog-body text-left">
+      <p class="mb-3 text-left"><strong id="onboardingChecklistModalEmployeeName"></strong></p>
+      <div id="onboardingChecklistUploadSuccess" class="oh-alert oh-alert--animated success mb-3 d-none" role="alert">
+        {% trans "Document uploaded successfully. It will appear in Employee Documents." %}
+      </div>
+      <div class="d-flex flex-column gap-2 overflow-auto align-items-start text-left w-100" id="onboardingChecklistModalSteps" style="max-height: 70vh;">
+        {% for label, field_name in step_labels %}
+        <div class="position-relative oh-onboarding-step-wrap text-left d-flex gap-2 align-items-center w-100 flex-wrap">
+          <button type="button"
+            class="oh-onboarding-step-btn-modal oh-btn oh-btn--small flex-grow-1 text-start text-left {% if False %}oh-btn--success{% else %}oh-btn--secondary-outline{% endif %}"
+            data-step="{{ forloop.counter }}"
+            data-field="{{ field_name }}"
+            title="">
+            {{ label }}
+          </button>
+          <button type="button" class="oh-onboarding-view-logs-btn oh-btn oh-btn--small oh-btn--secondary-outline text-nowrap" data-step="{{ forloop.counter }}" data-label="{{ label }}" title="{% trans 'View logs' %}">i</button>
+          <form class="oh-onboarding-upload-form d-inline-flex align-items-center gap-1" method="post" enctype="multipart/form-data" action="" data-step="{{ forloop.counter }}" onclick="event.stopPropagation();">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="{{ forloop.counter }}">
+            <input type="file" name="document" class="oh-input oh-input--small oh-onboarding-file-input" style="font-size: 0.8rem;" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xlsx,.xls,.txt" title="{% trans 'Optional upload (shown in Employee Documents)' %}">
+            <button type="submit" class="oh-btn oh-btn--small oh-btn--secondary-outline">{% trans "Upload" %}</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="oh-modal text-left" id="onboardingStepLogsModal" role="dialog" aria-labelledby="onboardingStepLogsModalLabel" aria-hidden="true">
+  <div class="oh-modal__dialog text-left">
+    <div class="oh-modal__dialog-header text-left">
+      <h2 class="oh-modal__dialog-title text-left" id="onboardingStepLogsModalLabel">{% trans "Step logs" %}</h2>
+      <button type="button" class="oh-modal__close oh-onboarding-step-logs-close" aria-label="Close">
+        <ion-icon name="close-outline"></ion-icon>
+      </button>
+    </div>
+    <div class="oh-modal__dialog-body text-left">
+      <p class="mb-2"><strong id="onboardingStepLogsModalStepName"></strong></p>
+      <div id="onboardingStepLogsModalContent" class="small"></div>
+    </div>
+  </div>
+</div>
+
+<div class="oh-modal text-left" id="onboardingReasonModal" role="dialog" aria-labelledby="onboardingReasonModalLabel" aria-hidden="true">
+  <div class="oh-modal__dialog text-left">
+    <div class="oh-modal__dialog-header text-left">
+      <h2 class="oh-modal__dialog-title text-left" id="onboardingReasonModalLabel">{% trans "Reason for unchecking" %}</h2>
+      <button type="button" class="oh-modal__close oh-onboarding-reason-close" aria-label="Close">
+        <ion-icon name="close-outline"></ion-icon>
+      </button>
+    </div>
+    <div class="oh-modal__dialog-body text-left">
+      <p class="mb-2 text-muted small text-left">{% trans "Please provide a reason before unchecking this step." %}</p>
+      <textarea id="onboardingReasonInput" class="form-control" rows="3" placeholder="{% trans 'Enter reason...' %}"></textarea>
+      <div class="d-flex justify-content-end gap-2 mt-3">
+        <button type="button" class="oh-btn oh-btn--secondary oh-onboarding-reason-close">{% trans "Cancel" %}</button>
+        <button type="button" class="oh-btn oh-btn--primary" id="onboardingReasonSubmit">{% trans "Submit" %}</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+  var toggleUrlBase = '{% url "onboarding-checklist-step-toggle" 0 %}'.replace('/0/', '/');
+  var logsUrlBase = '{% url "onboarding-checklist-logs" 0 %}'.replace('/0/', '/');
+
+  var stepLogs = {};
+  var pendingUncheck = null;
+
+  function setStepButtonState(btn, done) {
+    if (done) {
+      btn.classList.remove('oh-btn--secondary-outline');
+      btn.classList.add('oh-btn--success');
+    } else {
+      btn.classList.remove('oh-btn--success');
+      btn.classList.add('oh-btn--secondary-outline');
+    }
+  }
+
+  function toggleStep(progressId, step, updateBtn, updateRow, reason) {
+    var formData = new FormData();
+    formData.append('step', step);
+    formData.append('csrfmiddlewaretoken', csrfToken);
+    if (reason !== undefined && reason !== null) formData.append('reason', reason);
+    fetch(toggleUrlBase + progressId + '/', {
+      method: 'POST',
+      body: formData,
+      headers: { 'X-CSRFToken': csrfToken }
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      if (data.ok && updateBtn) setStepButtonState(updateBtn, data.done);
+      if (data.ok && updateRow) updateRow.setAttribute('data-step-' + step, data.done ? 'true' : 'false');
+      if (data.ok && progressId === document.getElementById('onboardingChecklistModal').getAttribute('data-progress-id')) {
+        fetchStepLogs(progressId);
+      }
+    }).catch(function() {});
+  }
+
+  function fetchStepLogs(progressId) {
+    fetch(logsUrlBase + progressId + '/', { headers: { 'X-CSRFToken': csrfToken } })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.ok && data.steps) stepLogs = data.steps;
+      })
+      .catch(function() { stepLogs = {}; });
+  }
+
+  var modal = document.getElementById('onboardingChecklistModal');
+  var modalTitle = document.getElementById('onboardingChecklistModalEmployeeName');
+  var modalSteps = document.getElementById('onboardingChecklistModalSteps');
+  var reasonModal = document.getElementById('onboardingReasonModal');
+  var reasonInput = document.getElementById('onboardingReasonInput');
+  var reasonSubmit = document.getElementById('onboardingReasonSubmit');
+
+  modalSteps.addEventListener('submit', function(e) {
+    var form = e.target;
+    if (!form || !form.classList.contains('oh-onboarding-upload-form')) return;
+    var fileInput = form.querySelector('input[name="document"]');
+    if (!fileInput || !fileInput.files || !fileInput.files.length) {
+      e.preventDefault();
+      return;
+    }
+    e.preventDefault();
+    var formData = new FormData(form);
+    var submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+    fetch(form.action, {
+      method: 'POST',
+      body: formData,
+      headers: { 'X-CSRFToken': csrfToken }
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      if (data.ok) {
+        if (submitBtn) submitBtn.textContent = '{% trans "Uploaded" %}';
+        form.reset();
+        var successEl = document.getElementById('onboardingChecklistUploadSuccess');
+        if (successEl) {
+          successEl.classList.remove('d-none');
+          setTimeout(function() { successEl.classList.add('d-none'); }, 4000);
+        }
+        setTimeout(function() { if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '{% trans "Upload" %}'; } }, 2000);
+      } else {
+        if (submitBtn) submitBtn.disabled = false;
+        alert(data.error || data.message || 'Upload failed');
+      }
+    }).catch(function() {
+      if (submitBtn) submitBtn.disabled = false;
+    });
+  });
+
+  var uploadUrlBase = '{% url "onboarding-checklist-upload" 0 %}'.replace('/0/', '/');
+
+  function openChecklistModal(row) {
+    if (!row || !modal) return;
+    var progressId = row.getAttribute('data-progress-id');
+    var employeeName = row.getAttribute('data-employee-name');
+    modal.setAttribute('data-progress-id', progressId);
+    if (modalTitle) modalTitle.textContent = employeeName || '';
+    modalSteps.querySelectorAll('.oh-onboarding-step-btn-modal').forEach(function(stepBtn) {
+      var step = stepBtn.getAttribute('data-step');
+      var done = row.getAttribute('data-step-' + step) === 'true';
+      setStepButtonState(stepBtn, done);
+    });
+    modalSteps.querySelectorAll('.oh-onboarding-upload-form').forEach(function(form) {
+      form.action = uploadUrlBase + progressId + '/';
+      form.reset();
+    });
+    stepLogs = {};
+    fetchStepLogs(progressId);
+    modal.classList.add('oh-modal--show');
+  }
+
+  document.querySelectorAll('.oh-onboarding-row-clickable').forEach(function(row) {
+    row.addEventListener('click', function(e) {
+      e.preventDefault();
+      openChecklistModal(row);
+    });
+  });
+
+  var stepLogsModal = document.getElementById('onboardingStepLogsModal');
+  var stepLogsModalStepName = document.getElementById('onboardingStepLogsModalStepName');
+  var stepLogsModalContent = document.getElementById('onboardingStepLogsModalContent');
+
+  function openStepLogsModal(step, stepLabel) {
+    if (!stepLogsModal || !stepLogsModalStepName || !stepLogsModalContent) return;
+    stepLogsModalStepName.textContent = stepLabel || '';
+    var logs = stepLogs[String(step)] || [];
+    if (logs.length === 0) {
+      stepLogsModalContent.innerHTML = '<p class="text-muted mb-0">{% trans "No log entries yet." %}</p>';
+    } else {
+      var html = '<ul class="list-unstyled mb-0">';
+      logs.forEach(function(l) {
+        var action = l.action === 'checked' ? '{% trans "Checked" %}' : '{% trans "Unchecked" %}';
+        var line = action + ' by ' + (l.user || '—') + ' on ' + (l.at_display || l.at || '—');
+        if (l.reason) line += '<br><span class="text-muted">{% trans "Reason" %}: ' + (l.reason || '') + '</span>';
+        html += '<li class="mb-2 pb-2 border-bottom">' + line + '</li>';
+      });
+      html += '</ul>';
+      stepLogsModalContent.innerHTML = html;
+    }
+    stepLogsModal.classList.add('oh-modal--show');
+  }
+
+  modalSteps.addEventListener('click', function(e) {
+    if (e.target.closest('.oh-onboarding-view-logs-btn')) {
+      e.preventDefault();
+      e.stopPropagation();
+      var logsBtn = e.target.closest('.oh-onboarding-view-logs-btn');
+      var step = logsBtn.getAttribute('data-step');
+      var stepLabel = logsBtn.getAttribute('data-label');
+      openStepLogsModal(step, stepLabel);
+      return;
+    }
+    var btn = e.target.closest('.oh-onboarding-step-btn-modal');
+    if (!btn) return;
+    var progressId = modal.getAttribute('data-progress-id');
+    var row = document.querySelector('.oh-onboarding-row[data-progress-id="' + progressId + '"]');
+    var step = btn.getAttribute('data-step');
+    var currentlyDone = row && row.getAttribute('data-step-' + step) === 'true';
+    if (currentlyDone) {
+      pendingUncheck = { progressId: progressId, step: step, updateBtn: btn, updateRow: row };
+      if (reasonInput) reasonInput.value = '';
+      if (reasonModal) reasonModal.classList.add('oh-modal--show');
+    } else {
+      toggleStep(progressId, step, btn, row);
+    }
+  });
+
+  function closeReasonModal() {
+    if (reasonModal) reasonModal.classList.remove('oh-modal--show');
+    pendingUncheck = null;
+  }
+
+  if (reasonSubmit) {
+    reasonSubmit.addEventListener('click', function() {
+      if (!pendingUncheck) return;
+      var reason = (reasonInput && reasonInput.value && reasonInput.value.trim()) || '';
+      if (!reason) return;
+      toggleStep(pendingUncheck.progressId, pendingUncheck.step, pendingUncheck.updateBtn, pendingUncheck.updateRow, reason);
+      closeReasonModal();
+    });
+  }
+  document.querySelectorAll('.oh-onboarding-reason-close').forEach(function(el) {
+    el.addEventListener('click', closeReasonModal);
+  });
+
+  modal.querySelector('.oh-modal__close').addEventListener('click', function() {
+    modal.classList.remove('oh-modal--show');
+  });
+
+  var stepLogsCloseBtn = stepLogsModal && stepLogsModal.querySelector('.oh-onboarding-step-logs-close');
+  if (stepLogsCloseBtn) {
+    stepLogsCloseBtn.addEventListener('click', function() {
+      stepLogsModal.classList.remove('oh-modal--show');
+    });
+  }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends 'index.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block content %}
+<section class="oh-wrapper oh-main__topbar">
+    <div class="oh-main__titlebar oh-main__titlebar--left oh-d-flex-column--resp oh-mb-3--small">
+        <h1 class="oh-main__titlebar-title fw-bold">
+            {% trans "Document Templates" %}
+        </h1>
+    </div>
+    <div class="oh-main__titlebar oh-main__titlebar--right oh-d-flex-column--resp oh-mb-3--small">
+        {% if perms.base.add_documenttemplate %}
+        <a
+            hx-get="{% url 'create-document-template' %}"
+            data-toggle="oh-modal-toggle"
+            data-target="#objectCreateModal"
+            hx-target="#objectCreateModalTarget"
+            class="oh-btn oh-btn--secondary ml-2"
+        >
+            <ion-icon name="add" class="mr-1 md hydrated" role="img" aria-label="add"></ion-icon>
+            {% trans "Create" %}
+        </a>
+        {% endif %}
+        <a
+            href="{% url 'generate-document' %}"
+            class="oh-btn oh-btn--secondary ml-2"
+        >
+            <ion-icon name="document-text-outline" class="mr-1 md hydrated" role="img" aria-label="document"></ion-icon>
+            {% trans "Generate Document" %}
+        </a>
+    </div>
+</section>
+
+<div class="oh-wrapper oh-faq-cards">
+    {% for template in templates %}
+    <div class="oh-faq-card">
+        {% if perms.base.delete_documenttemplate %}
+        <h3 class="oh-faq-card__title d-flex justify-content-between">
+            <span style="max-width:75%">{{ template.name }}</span>
+            <div>
+                <a
+                    hx-get="{% url 'duplicate-document-template' template.id %}"
+                    hx-target="#objectCreateModalTarget"
+                    data-toggle="oh-modal-toggle"
+                    data-target="#objectCreateModal"
+                    title="{% trans 'Duplicate' %}"
+                    style="cursor: pointer"
+                >
+                    <ion-icon name="copy-outline"></ion-icon>
+                </a>
+                <a
+                    href="{% url 'delete-document-template' %}?ids={{ template.id }}"
+                    class="text-danger"
+                    style="cursor: pointer"
+                    onclick="return confirm('{% trans "Do you want to delete this template?" %}')"
+                    title="{% trans 'Delete' %}"
+                >
+                    <ion-icon name="trash-outline"></ion-icon>
+                </a>
+            </div>
+        </h3>
+        {% endif %}
+        <div class="oh-faq-card__desc" style="max-height: 500px; padding-top: 10px">
+            <div style="max-height: 350px; overflow: hidden" class="truncated-text">
+                {{ template.get_template_type_display }}
+                {% if template.template_file %}<br/><span class="oh-badge oh-badge--small oh-badge--info">{% trans "Uses uploaded Word file" %}</span>{% endif %}
+                {% if template.signatory_name %}<br/><small>{% trans "Signatory:" %} {{ template.signatory_name }}</small>{% endif %}
+            </div>
+        </div>
+        {% if perms.base.change_documenttemplate %}
+        <a
+            hx-get="{% url 'view-document-template' template.id %}"
+            hx-target="#objectCreateModalTarget"
+            data-toggle="oh-modal-toggle"
+            data-target="#objectCreateModal"
+            class="oh-btn oh-btn--secondary oh-btn--block"
+        >
+            {% trans "Edit Template" %}
+        </a>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% load i18n %}
+<div class="oh-modal__dialog-header">
+    <h5 class="oh-modal__dialog-title">{% if form.instance.pk %}{% trans "Edit Expense" %}{% else %}{% trans "Add Expense" %}{% endif %}</h5>
+    <button type="button" class="oh-modal__close" aria-label="Close">
+        <ion-icon name="close-outline"></ion-icon>
+    </button>
+</div>
+<div class="oh-modal__dialog-body">
+    {% if form.errors %}
+    <div class="oh-alert oh-alert--danger mb-3" id="expenseFormErrorSummary">
+        <strong>{% trans "Please fix the following errors:" %}</strong>
+        <ul class="mb-0 mt-2 ps-3">
+            {% for field in form %}
+                {% if field.errors %}
+                    {% for error in field.errors %}
+                    <li>{{ field.label }}: {{ error }}</li>
+                    {% endfor %}
+                {% endif %}
+            {% endfor %}
+            {% for error in form.non_field_errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    <form id="expenseCreateForm"
+        hx-post="{% url 'create-expense' %}{% if form.instance.id %}?instance_id={{ form.instance.id }}{% endif %}"
+        hx-target="#objectCreateModalTarget" hx-encoding="multipart/form-data">
+        {% csrf_token %}
+        {% include 'payroll/expense/expense_form_fields.html' %}
+        {% include 'payroll/expense/category_breakup_fields.html' %}
+        <div class="d-flex justify-content-end mt-3">
+            <button type="submit" class="oh-btn oh-btn--secondary">{% trans "Save" %}</button>
+        </div>
+    </form>
+</div>
+<script>
+(function () {
+    var summary = document.getElementById("expenseFormErrorSummary");
+    if (summary) {
+        summary.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    var modalBody = document.querySelector("#objectCreateModal .oh-modal__dialog-body");
+    if (modalBody && summary) {
+        modalBody.scrollTop = 0;
+    }
+})();
+</script>

@@ -1,0 +1,49 @@
+{% load i18n %}
+{% load static %}
+{% load basefilters %}
+<div class="leave-dashboard-modal-content" style="min-height: 120px;">
+{% if leave_requests %}
+    <div class="oh-sticky-table">
+        <div class="oh-sticky-table__table">
+            <div class="oh-sticky-table__thead">
+                <div class="oh-sticky-table__tr">
+                    {% if show_employee %}
+                        <div class="oh-sticky-table__th">{% trans "Employee" %}</div>
+                    {% endif %}
+                    <div class="oh-sticky-table__th">{% trans "Leave Type" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Start Date" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "End Date" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Requested Days" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Status" %}</div>
+                </div>
+            </div>
+            <div class="oh-sticky-table__tbody">
+                {% for leave_request in leave_requests %}
+                    <div class="oh-sticky-table__tr">
+                        {% if show_employee %}
+                            <div class="oh-sticky-table__sd">
+                                <div class="oh-profile oh-profile--md">
+                                    <div class="oh-profile__avatar mr-1">
+                                        <img src="{{ leave_request.employee_id.get_avatar }}" class="oh-profile__image" alt="" />
+                                    </div>
+                                    <span class="oh-profile__name oh-text--dark">{{ leave_request.employee_id }}</span>
+                                </div>
+                            </div>
+                        {% endif %}
+                        <div class="oh-sticky-table__td">{{ leave_request.leave_type_id }}</div>
+                        <div class="oh-sticky-table__td dateformat_changer">{{ leave_request.start_date }}</div>
+                        <div class="oh-sticky-table__td dateformat_changer">{{ leave_request.end_date }}</div>
+                        <div class="oh-sticky-table__td" align="center">{{ leave_request.requested_days }}</div>
+                        <div class="oh-sticky-table__td">{{ leave_request.get_status_display }}</div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+{% else %}
+    <div class="oh-empty" style="padding: 2rem 1rem; text-align: center;">
+        <p class="mb-0" style="font-size: 1rem; color: #6c757d;">{% trans "No leave requests for this selection." %}</p>
+        <p class="mb-0 mt-1" style="font-size: 0.875rem; color: #adb5bd;">{% trans "When there are matching requests, they will appear here." %}</p>
+    </div>
+{% endif %}
+</div>

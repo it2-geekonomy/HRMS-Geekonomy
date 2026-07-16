@@ -1,0 +1,15 @@
+{% load i18n %}
+{% if question.allow_other %}
+<div class="survey-other-specify">
+  <label class="oh-label mb-1" for="other_text_{{ question.id }}">
+    {% trans "Please specify your answer" %}
+  </label>
+  <input
+    type="text"
+    class="oh-input w-100 survey-other-text"
+    name="other_text_{{ question.id }}"
+    id="other_text_{{ question.id }}"
+    placeholder="{% trans 'Required if you selected Other' %}"
+  />
+</div>
+{% endif %}

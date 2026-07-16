@@ -1,0 +1,98 @@
+{% load static %} {% load i18n %}
+<div class="oh-modal__dialog-header">
+  <h2 class="oh-modal__dialog-title m-0">
+    {% trans "Export All Attendances" %}
+  </h2>
+  <button class="oh-modal__close" aria-label="Close">
+    <ion-icon name="close-outline"></ion-icon>
+  </button>
+</div>
+<div class="oh-modal__dialog-body">
+  <form
+    action="{% url 'request-attendance-export' %}"
+    method="get"
+    onsubmit="event.stopPropagation();$(this).parents().find('.oh-modal--show').last().toggleClass('oh-modal--show');"
+    id="requestAttendanceExportForm"
+    class="oh-profile-section pt-2"
+  >
+    <div class="oh-dropdown__filter-body">
+      <div class="oh-accordion">
+        <div class="oh-accordion-header">{% trans "Date range" %}</div>
+        <div class="oh-accordion-body">
+          <div class="row">
+            <div class="col-sm-12 col-md-6">
+              <div class="oh-input-group">
+                <label class="oh-label" for="id_attendance_date__gte">{% trans "Date from" %}</label>
+                <input
+                  type="date"
+                  name="attendance_date__gte"
+                  id="id_attendance_date__gte"
+                  class="oh-input w-100"
+                  required
+                />
+              </div>
+            </div>
+            <div class="col-sm-12 col-md-6">
+              <div class="oh-input-group">
+                <label class="oh-label" for="id_attendance_date__lte">{% trans "Date to" %}</label>
+                <input
+                  type="date"
+                  name="attendance_date__lte"
+                  id="id_attendance_date__lte"
+                  class="oh-input w-100"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+          <div class="row mt-2">
+            <div class="col-sm-12 col-md-6">
+              <div class="oh-input-group">
+                <label class="oh-label" for="id_employee_active">{% trans "Employee status" %}</label>
+                <select name="employee_active" id="id_employee_active" class="oh-select w-100">
+                  <option value="">{% trans "All" %}</option>
+                  <option value="true" selected>{% trans "Active" %}</option>
+                  <option value="false">{% trans "Inactive" %}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="oh-accordion">
+        <div class="oh-accordion-header">{% trans "Excel columns" %}</div>
+        <div class="oh-accordion-body">
+          <div class="row">
+            <div class="col-sm-12 col-md-12 col-lg-6">
+              <div class="oh-input-group">
+                <label class="oh-label">
+                  <input type="checkbox" id="select-all-fields" /> {% trans "Select All" %}
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            {% for field in export_form.selected_fields %}
+            <div class="col-sm-12 col-md-12 col-lg-6">
+              <div class="oh-input-group">
+                <label class="oh-label">{{ field }}</label>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="oh-modal__dialog-footer p-0 pt-4">
+      <button type="submit" class="oh-btn oh-btn--secondary oh-btn--shadow">
+        {% trans "Export" %}
+      </button>
+    </div>
+  </form>
+</div>
+<script>
+  $("#select-all-fields").change(function () {
+    var checked = $(this).is(":checked");
+    $("#requestAttendanceExportForm input[name='selected_fields']").prop("checked", checked);
+  });
+</script>

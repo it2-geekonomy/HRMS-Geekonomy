@@ -1,0 +1,56 @@
+{% load i18n payrollfilters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>{% trans "Salary Data" %} - {{ title }}</title>
+    <style type="text/css">
+        body { font-family: Arial, sans-serif; font-size: 10px; padding: 12px; }
+        h1 { font-size: 14px; margin-bottom: 8px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        th, td { border: 1px solid #333; padding: 6px 8px; text-align: left; }
+        th { background-color: #e0e0e0; font-weight: bold; }
+        tr:nth-child(even) { background-color: #f5f5f5; }
+        .total-row { font-weight: bold; background-color: #e8f5e9 !important; }
+        .text-right { text-align: right; }
+    </style>
+</head>
+<body>
+    <h1>{% trans "Salary Data" %} – {{ title }}</h1>
+    <p style="margin-bottom: 8px;">{% trans "Total Final Salary" %}: <strong>₹ {{ total_final_salary|floatformat:0 }}</strong></p>
+    <table>
+        <thead>
+            <tr>
+                <th>{% trans "Employee" %}</th>
+                <th>{% trans "Year" %}</th>
+                <th>{% trans "Month" %}</th>
+                <th>{% trans "Working Days" %}</th>
+                <th>{% trans "Days Worked" %}</th>
+                <th>{% trans "LOP (Days)" %}</th>
+                <th class="text-right">{% trans "Basic Salary" %}</th>
+                <th class="text-right">{% trans "Monthly Salary" %}</th>
+                <th class="text-right">{% trans "Calculated (before PT)" %}</th>
+                <th class="text-right">{% trans "PT" %}</th>
+                <th class="text-right">{% trans "Final Salary" %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in salary_data_list %}
+            <tr>
+                <td>{{ row.employee_id.get_full_name }}{% if row.employee_id.badge_id %} ({{ row.employee_id.badge_id }}){% endif %}</td>
+                <td>{{ row.year }}</td>
+                <td>{{ row.month|month_abbr }}</td>
+                <td>{{ row.working_days }}</td>
+                <td>{{ row.days_worked }}</td>
+                <td>{{ row.working_days|subtract:row.days_worked|floatformat:1 }}</td>
+                <td class="text-right">₹ {{ row.basic_salary|floatformat:0 }}</td>
+                <td class="text-right">₹ {{ row.monthly_salary|floatformat:0 }}</td>
+                <td class="text-right">₹ {{ row.calculated_salary|floatformat:0 }}</td>
+                <td class="text-right">- ₹ {{ row.pt_deduction|floatformat:0 }}</td>
+                <td class="text-right">₹ {{ row.total_pay|floatformat:0 }}{% if row.arrears_amount %} (incl. arrears ₹ {{ row.arrears_amount|floatformat:0 }}){% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

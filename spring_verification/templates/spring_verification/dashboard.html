@@ -1,0 +1,233 @@
+{% extends 'index.html' %}
+{% load static i18n %}
+
+{% block content %}
+<div class="oh-wrapper">
+    <div class="oh-dashboard mb-5">
+        <div class="oh-dashboard__left col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="oh-dashboard__title mb-0">{% trans "BGV" %}</h5>
+            </div>
+            {% if fetch_error %}
+            <div class="alert alert-warning mb-3" role="alert">
+                {% trans "Could not load candidate stats:" %} {{ fetch_error }}
+            </div>
+            {% endif %}
+            <div class="oh-dashboard__cards row">
+                <div class="col-12 col-sm-6 col-md-4 col-lg-2">
+                    <div class="oh-card-dashboard oh-card-dashboard--success h-100" role="button" data-toggle="oh-modal-toggle" data-target="#svModalTotal" style="cursor: pointer;">
+                        <div class="oh-card-dashboard__header d-flex justify-content-between align-items-center">
+                            <span class="oh-card-dashboard__title">{% trans "Total Candidates" %}</span>
+                            <span style="font-size: 24px"><ion-icon name="people-outline"></ion-icon></span>
+                        </div>
+                        <div class="oh-card-dashboard__body">
+                            <span class="oh-card-dashboard__count">{{ total_candidates }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-md-4 col-lg-2">
+                    <div class="oh-card-dashboard oh-card-dashboard--warning h-100" role="button" data-toggle="oh-modal-toggle" data-target="#svModalAwaiting" style="cursor: pointer;">
+                        <div class="oh-card-dashboard__header d-flex justify-content-between align-items-center">
+                            <span class="oh-card-dashboard__title">{% trans "Awaiting Input" %}</span>
+                            <span style="font-size: 24px"><ion-icon name="time-outline"></ion-icon></span>
+                        </div>
+                        <div class="oh-card-dashboard__body">
+                            <span class="oh-card-dashboard__count">{{ awaiting_input }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-md-4 col-lg-2">
+                    <div class="oh-card-dashboard oh-card-dashboard--success h-100" role="button" data-toggle="oh-modal-toggle" data-target="#svModalCompleted" style="cursor: pointer;">
+                        <div class="oh-card-dashboard__header d-flex justify-content-between align-items-center">
+                            <span class="oh-card-dashboard__title">{% trans "Completed" %}</span>
+                            <span style="font-size: 24px"><ion-icon name="checkmark-done-outline"></ion-icon></span>
+                        </div>
+                        <div class="oh-card-dashboard__body">
+                            <span class="oh-card-dashboard__count">{{ completed_count }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-md-4 col-lg-2">
+                    <div class="oh-card-dashboard oh-card-dashboard--success h-100" role="button" style="cursor: pointer;"
+                         data-toggle="oh-modal-toggle" data-target="#svModalCandidateData"
+                         hx-get="{% url 'spring-verification-candidate-data' %}"
+                         hx-target="#svCandidateDataContent"
+                         hx-swap="innerHTML"
+                         hx-trigger="click">
+                        <div class="oh-card-dashboard__header d-flex justify-content-between align-items-center">
+                            <span class="oh-card-dashboard__title">{% trans "Candidate Data" %}</span>
+                            <span style="font-size: 24px"><ion-icon name="list-outline"></ion-icon></span>
+                        </div>
+                        <div class="oh-card-dashboard__body">
+                            <span class="oh-card-dashboard__count" style="font-size: 0.95rem;">{% trans "View all" %}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-sm-6 col-md-4 col-lg-2">
+                    <div class="oh-card-dashboard oh-card-dashboard--warning h-100" role="button" data-toggle="oh-modal-toggle" data-target="#svModalPortal" style="cursor: pointer;">
+                        <div class="oh-card-dashboard__header">
+                            <span class="oh-card-dashboard__title">{% trans "Verification Portal" %}</span>
+                        </div>
+                        <div class="oh-card-dashboard__body">
+                            <span class="oh-card-dashboard__count" style="font-size: 0.95rem;">{% trans "Open Portal" %}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row mt-4">
+                <div class="col-12 col-lg-6">
+                    <div class="oh-card-dashboard oh-card-dashboard--no-scale oh-card-dashboard--transparent h-100">
+                        <div class="oh-card-dashboard__header oh-card-dashboard__header--divider">
+                            <span class="oh-card-dashboard__title">{% trans "Verification status" %}</span>
+                        </div>
+                        <div class="oh-card-dashboard__body" style="height: 280px; position: relative; min-height: 280px;">
+                            <canvas id="springVerificationStatusChart" style="max-height: 260px;"></canvas>
+                            <div id="springVerificationChartEmpty" class="oh-empty-state" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #858796;">
+                                <p class="mb-0">{% trans "No data to display" %}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-lg-6">
+                    <div class="oh-card-dashboard oh-card-dashboard--no-scale oh-card-dashboard--transparent h-100">
+                        <div class="oh-card-dashboard__header oh-card-dashboard__header--divider">
+                            <span class="oh-card-dashboard__title">{% trans "Status breakdown" %}</span>
+                        </div>
+                        <div class="oh-card-dashboard__body" style="min-height: 280px; max-height: 280px; overflow: auto;">
+                            {% if status_breakdown %}
+                            <ul class="list-unstyled mb-0 px-0">
+                                {% for item in status_breakdown %}
+                                <li class="d-flex justify-content-between align-items-center py-2 border-bottom" style="min-height: 40px;">
+                                    <span>{{ item.0 }}</span>
+                                    <span class="badge bg-primary rounded-pill">{{ item.1 }}</span>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <p class="text-muted mb-0">{% trans "No candidate data available." %}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Card popup modals -->
+<div class="oh-modal" id="svModalTotal" role="dialog" aria-hidden="true">
+    <div class="oh-modal__dialog" style="max-width: 380px;">
+        <div class="oh-modal__dialog-header">
+            <span class="oh-modal__dialog-title">{% trans "Total Candidates" %}</span>
+            <button type="button" class="oh-modal__close" aria-label="Close"><ion-icon name="close-outline"></ion-icon></button>
+        </div>
+        <div class="oh-modal__dialog-body">
+            <p class="mb-0">{% trans "Total number of candidates from BGV (current fetch):" %}</p>
+            <p class="fs-4 fw-bold mt-2 mb-0">{{ total_candidates }}</p>
+        </div>
+    </div>
+</div>
+<div class="oh-modal" id="svModalAwaiting" role="dialog" aria-hidden="true">
+    <div class="oh-modal__dialog" style="max-width: 380px;">
+        <div class="oh-modal__dialog-header">
+            <span class="oh-modal__dialog-title">{% trans "Awaiting Input" %}</span>
+            <button type="button" class="oh-modal__close" aria-label="Close"><ion-icon name="close-outline"></ion-icon></button>
+        </div>
+        <div class="oh-modal__dialog-body">
+            <p class="mb-0">{% trans "Candidates with status \"Awaiting Input\"." %}</p>
+            <p class="fs-4 fw-bold mt-2 mb-0">{{ awaiting_input }}</p>
+        </div>
+    </div>
+</div>
+<div class="oh-modal" id="svModalCompleted" role="dialog" aria-hidden="true">
+    <div class="oh-modal__dialog" style="max-width: 380px;">
+        <div class="oh-modal__dialog-header">
+            <span class="oh-modal__dialog-title">{% trans "Completed" %}</span>
+            <button type="button" class="oh-modal__close" aria-label="Close"><ion-icon name="close-outline"></ion-icon></button>
+        </div>
+        <div class="oh-modal__dialog-body">
+            <p class="mb-0">{% trans "Candidates with completed verification." %}</p>
+            <p class="fs-4 fw-bold mt-2 mb-0">{{ completed_count }}</p>
+        </div>
+    </div>
+</div>
+<div class="oh-modal" id="svModalCandidateData" role="dialog" aria-hidden="true">
+    <div class="oh-modal__dialog" style="max-width: 95%; width: 960px;">
+        <div class="oh-modal__dialog-header">
+            <span class="oh-modal__dialog-title">{% trans "Candidate Data" %}</span>
+            <button type="button" class="oh-modal__close" aria-label="Close"><ion-icon name="close-outline"></ion-icon></button>
+        </div>
+        <div class="oh-modal__dialog-body" style="max-height: 70vh; overflow: auto;">
+            <div id="svCandidateDataContent">
+                <p class="text-muted mb-0">{% trans "Loading..." %}</p>
+            </div>
+        </div>
+        <!-- <div class="oh-modal__dialog-footer">
+            <a href="{% url 'spring-verification-candidate-data' %}" class="oh-btn oh-btn--secondary oh-btn--small">{% trans "Open full Candidate Data page (search, filter, reports)" %}</a>
+        </div> -->
+    </div>
+</div>
+<div class="oh-modal" id="svModalPortal" role="dialog" aria-hidden="true">
+    <div class="oh-modal__dialog" style="max-width: 380px;">
+        <div class="oh-modal__dialog-header">
+            <span class="oh-modal__dialog-title">{% trans "Verification Portal" %}</span>
+            <button type="button" class="oh-modal__close" aria-label="Close"><ion-icon name="close-outline"></ion-icon></button>
+        </div>
+        <div class="oh-modal__dialog-body">
+            <p class="mb-3">{% trans "Open the BGV portal in a new tab." %}</p>
+            <a href="https://portal.in.springverify.com" target="_blank" rel="noopener noreferrer" class="oh-btn oh-btn--secondary">{% trans "Open Portal" %}</a>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    function initChart() {
+        var labels = {{ status_chart_labels|safe }};
+        var data = {{ status_chart_data|safe }};
+        var colors = {{ status_chart_colors|safe }};
+        var ctx = document.getElementById("springVerificationStatusChart");
+        var emptyEl = document.getElementById("springVerificationChartEmpty");
+        if (!ctx) return;
+        if (!data || data.length === 0) {
+            if (emptyEl) emptyEl.style.display = "block";
+            return;
+        }
+        if (typeof Chart === "undefined") {
+            if (emptyEl) emptyEl.style.display = "block";
+            return;
+        }
+        try {
+            new Chart(ctx, {
+                type: "doughnut",
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 1.5,
+                    plugins: {
+                        legend: { position: "bottom" }
+                    }
+                }
+            });
+        } catch (e) {
+            if (emptyEl) emptyEl.style.display = "block";
+        }
+    }
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", function() {
+            setTimeout(initChart, 100);
+        });
+    } else {
+        setTimeout(initChart, 100);
+    }
+})();
+</script>
+{% endblock content %}

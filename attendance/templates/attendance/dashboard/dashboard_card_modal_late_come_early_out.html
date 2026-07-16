@@ -1,0 +1,40 @@
+{% load i18n %}
+<div class="oh-sticky-table">
+    <div class="oh-sticky-table__table">
+        <div class="oh-sticky-table__thead">
+            <div class="oh-sticky-table__tr">
+                <div class="oh-sticky-table__th">{% trans "Employee" %}</div>
+                <div class="oh-sticky-table__th">{% trans "Date" %}</div>
+                <div class="oh-sticky-table__th">{% trans "Check-In" %}</div>
+                <div class="oh-sticky-table__th">{% trans "Check-Out" %}</div>
+            </div>
+        </div>
+        <div class="oh-sticky-table__tbody">
+            {% for record in records %}
+            <div class="oh-sticky-table__tr">
+                <div class="oh-sticky-table__td">
+                    <div class="oh-profile oh-profile--md">
+                        <div class="oh-profile__avatar mr-1">
+                            <img src="{{ record.employee_id.get_avatar }}" class="oh-profile__image" alt="" />
+                        </div>
+                        <span class="oh-profile__name oh-text--dark">{{ record.employee_id }}</span>
+                    </div>
+                </div>
+                <div class="oh-sticky-table__td dateformat_changer">{{ record.attendance_id.attendance_date }}</div>
+                <div class="oh-sticky-table__td timeformat_changer">{{ record.attendance_id.attendance_clock_in }}</div>
+                <div class="oh-sticky-table__td timeformat_changer">{{ record.attendance_id.attendance_clock_out|default:"-" }}</div>
+            </div>
+            {% empty %}
+            <div class="oh-sticky-table__tr">
+                <div class="oh-sticky-table__td" colspan="4">
+                    {% if card_type == "late_come" %}
+                        {% trans "No late come records for today." %}
+                    {% else %}
+                        {% trans "No early out records for today." %}
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>

@@ -1,0 +1,206 @@
+{% load i18n %}
+<section
+  class="oh-main__topbar p-3 mb-1 m-0"
+  style="padding-left: 0 !important; padding-right: 0 !important"
+  x-data="{searchShow: false}"
+  id="widgetFilterFormContainer{{self.attrs.id}}"
+>
+  <div class="oh-main__titlebar oh-main__titlebar--left">
+    <div class="mb-2 mt-2">
+      <h1 class="oh-main__titlebar-title fw-bold">{{field.label}}</h1>
+    </div>
+  </div>
+  <div class="oh-main__titlebar oh-main__titlebar--right">
+    <div
+      class="oh-input-group oh-input__search-group"
+      :class="searchShow ? 'oh-input__search-group--show' : ''"
+    >
+      <input
+        type="text"
+        class="oh-input oh-input__icon"
+        name="search"
+        aria-label="Search Input"
+        placeholder="{% trans 'Search' %}"
+      />
+    </div>
+    {% if widget_show_filter_dropdown %}
+    <div class="oh-main__titlebar-button-container">
+      <div class="oh-dropdown" x-data="{open: false}">
+        <button
+          hx-get="{% url 'get-filter-form' %}?template_path={{filter_template_path}}"
+          hx-target="#widgetFilterContainer"
+          hx-swap="innerHTML"
+          hx-trigger="load"
+          id="hxButton"
+          hidden
+        >
+          <button
+            onclick="$(this).closest('.oh-main__titlebar-button-container').find('#hxButton').click();"
+            class="oh-btn ml-2"
+            @click="open = !open"
+          >
+            <ion-icon
+              name="filter"
+              class="mr-1 md hydrated"
+              role="img"
+              aria-label="filter"
+            ></ion-icon>
+            {% trans "Filter" %}
+            <div id="filterCount"></div>
+          </button>
+        </button>
+        <div
+          class="oh-dropdown__menu oh-dropdown__menu--left oh-dropdown__filter p-4"
+          x-show="open"
+          @click.outside="open = false"
+        >
+          <div id="widgetFilterContainer">
+            {% comment %} {% include filter_template_path %} {% endcomment %}
+          </div>
+          <div class="oh-dropdown__filter-footer">
+            <button
+              type="submit"
+              class="oh-btn oh-btn--secondary oh-btn--small w-100"
+              data-action="{% url filter_route_name %}"
+              id="widgetFilterButton{{self.attrs.id}}"
+            >
+              {% trans "Filter" %}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <button
+      type="button"
+      class="d-none"
+      data-action="{% url filter_route_name %}"
+      id="widgetFilterButton{{self.attrs.id}}"
+      aria-hidden="true"
+      tabindex="-1"
+    ></button>
+    {% endif %}
+  </div>
+</section>
+<script>
+(function initHorillaMultiselectNav($) {
+  if (!$) {
+    setTimeout(function () { initHorillaMultiselectNav(window.jQuery || window.$); }, 30);
+    return;
+  }
+  $(document).ready(function () {
+    function transformJson(inputJson) {
+      const modifiedJson = JSON.parse(JSON.stringify(inputJson));
+      modifiedJson.forEach((obj) => {
+        obj.name = obj.name.replace(/_id$/, "");
+        obj.name.replace("_", " ");
+        if (obj.name.includes("__")) {
+          const parts = obj.name.split("__");
+          obj.name = parts[parts.length - 1];
+        }
+        obj.name = obj.name.charAt(0).toUpperCase() + obj.name.slice(1);
+        obj.name = obj.name.replace(/_/g, " ");
+      });
+      return modifiedJson;
+    }
+
+    function getFormDataArray() {
+      var widgetApi = window["multiselectWidget{{section_id}}"];
+      var arr = [];
+      if (widgetApi && typeof widgetApi.collectFilterFormData === "function") {
+        var data = widgetApi.collectFilterFormData();
+        Object.keys(data).forEach(function (name) {
+          arr.push({ name: name, value: data[name] || "" });
+        });
+      } else {
+        $("#{{section_id}} [id=\"widgetFilterFormContainer{{self.attrs.id}}\"]")
+          .find("[name]")
+          .each(function () {
+            arr.push({ name: $(this).attr("name"), value: $(this).val() || "" });
+          });
+      }
+      return arr;
+    }
+
+    $("#{{section_id}} [id=\"widgetFilterButton{{self.attrs.id}}\"]").click(function (e) {
+      e.preventDefault();
+      var widgetApi = window["multiselectWidget{{section_id}}"];
+      var formDataArray = getFormDataArray();
+
+      function renderFilterTags() {
+        {% if widget_show_filter_dropdown %}
+        var labeledTags = transformJson(formDataArray);
+        var tagContainer = $("#{{section_id}} #filterTagContainer{{self.attrs.id}}");
+        tagContainer.html("");
+        $.each(labeledTags, function (indexInArray, valueOfElement) {
+          if (valueOfElement.value.length != 0) {
+            var fieldSelector = formDataArray[indexInArray].name;
+            tagContainer.append(
+              $(
+                '<span class="oh-filter-tag" id="tag-{{self.attrs.id}}-' +
+                  indexInArray +
+                  '">' +
+                  valueOfElement.name +
+                  '<button class="oh-filter-tag__close" type="button">' +
+                  '<ion-icon name="close-outline"></ion-icon></button></span>'
+              ).on("click", ".oh-filter-tag__close", function (ev) {
+                closeFilterTag(ev, fieldSelector, "#{{section_id}} #tag-{{self.attrs.id}}-" + indexInArray);
+              })
+            );
+          }
+        });
+        {% endif %}
+      }
+
+      if (widgetApi && typeof widgetApi.fetchAndApplyFilter === "function") {
+        widgetApi.fetchAndApplyFilter({}, function () {
+          renderFilterTags();
+        });
+        return;
+      }
+
+      var ajaxData = {};
+      formDataArray.forEach(function (item) {
+        ajaxData[item.name] = item.value;
+      });
+      var filterUrl = $(this).attr("data-action");
+      $.ajax({
+        type: "get",
+        url: filterUrl,
+        data: ajaxData,
+        success: function (response) {
+          if (widgetApi && typeof widgetApi.applyIdsFilter === "function") {
+            widgetApi.applyIdsFilter(response.ids || []);
+          } else {
+            $("#{{section_id}} #chooseTableHeaderParent{{section_id}} .oh-sticky-table__tbody").hide();
+            $.each(response.ids || [], function (_index, valueOfElement) {
+              $(
+                `#{{section_id}} #chooseTableHeaderParent{{section_id}} .oh-sticky-table__tbody[data-instance-id=${valueOfElement}]`
+              ).show();
+            });
+          }
+          renderFilterTags();
+        },
+      });
+    });
+    $("#{{section_id}} [id=\"widgetFilterFormContainer{{self.attrs.id}}\"] [name=search]").keyup(
+      function (e) {
+        $("#{{section_id}} [id=\"widgetFilterButton{{self.attrs.id}}\"]").click();
+      }
+    );
+  });
+  window.closeFilterTag = function closeFilterTag(e, fieldName, targetTag) {
+    e.preventDefault();
+    var $field = $("#{{section_id}}").find('[name="' + fieldName + '"]');
+    $field.val("");
+    if ($field.is("select")) {
+      $field
+        .next()
+        .find("#select2-" + $field.attr("id") + "-container")
+        .html("---------");
+    }
+    $("#{{section_id}} [id=\"widgetFilterButton{{self.attrs.id}}\"]").click();
+    $(targetTag).remove();
+  };
+})(window.jQuery || window.$);
+</script>

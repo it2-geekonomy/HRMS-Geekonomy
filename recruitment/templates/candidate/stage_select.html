@@ -1,0 +1,43 @@
+{% load i18n %}
+{% if error %}
+<div class="oh-alert oh-alert--animated oh-alert--danger">
+    {{ error }}
+</div>
+{% elif success %}
+<div class="oh-alert oh-alert--animated oh-alert--success">
+    {{ message }}
+</div>
+<script>
+  // Close modal and reload page after showing success message
+  setTimeout(function() {
+    const closeButton = document.querySelector('#changeStageModal .oh-modal__close');
+    if (closeButton) closeButton.click();
+    location.reload();
+  }, 1000);
+</script>
+{% else %}
+<form method="post"
+      hx-post="{% url 'candidate-stage-change-modal' %}"
+      hx-target="#changeStageModalBody">
+    {% csrf_token %}
+    <input type="hidden" name="canIds" value="{{ candidate.id }}">
+    <div class="oh-modal__dialog-body">
+        <div class="oh-input-group">
+            <label class="oh-label" for="stage">{% trans "Select Stage" %}</label>
+            <select name="stageId" id="stage" class="oh-select oh-select-2" required>
+                <option value="">{% trans "Select a stage" %}</option>
+                {% for stage in stages %}
+                <option value="{{ stage.id }}"{% if candidate.stage_id.id == stage.id %} selected{% endif %}>
+                    {{ stage.stage }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="oh-modal__dialog-footer mt-3">
+            <button type="submit" class="oh-btn oh-btn--secondary">
+                {% trans "Change Stage" %}
+            </button>
+        </div>
+    </div>
+</form>
+{% endif %}

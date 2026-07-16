@@ -1,0 +1,43 @@
+{% load i18n %}{% load widget_tweaks %}
+<div class="oh-modal__dialog-header">
+  <h2 class="oh-modal__dialog-title">{% if edit %}{% trans "Update Comp-Off Request" %}{% else %}{% trans "Create Comp-Off Request" %}{% endif %}</h2>
+  <button class="oh-modal__close" aria-label="Close"><ion-icon name="close-outline"></ion-icon></button>
+</div>
+<div class="oh-modal__dialog-body">
+  <form hx-post="{% if edit %}{% url 'comp-off-request-update' form.instance.id %}{% else %}{% url 'comp-off-request-create' %}{% endif %}?{{pd}}" hx-target="#objectCreateModalTarget">
+    <div class="row">
+      <div class="col-12 col-md-6 mb-3">
+        <label class="oh-label required-star">{% trans "Start Date" %}</label>
+        {{ form.start_date|add_class:"oh-input w-100" }}{{ form.start_date.errors }}
+      </div>
+      <div class="col-12 col-md-6 mb-3">
+        <label class="oh-label required-star">{% trans "End Date" %}</label>
+        {{ form.end_date|add_class:"oh-input w-100" }}{{ form.end_date.errors }}
+      </div>
+      <div class="col-12 mb-3">
+        <label class="oh-label required-star">{% trans "Breakdown" %}</label>
+        {{ form.start_date_breakdown|add_class:"oh-select w-100" }}{{ form.start_date_breakdown.errors }}
+        {{ form.end_date_breakdown }}
+      </div>
+      <div class="col-12 mb-3">
+        <label class="oh-label required-star">{% trans "Description" %}</label>
+        {{ form.description }}{{ form.description.errors }}
+      </div>
+    </div>
+    <div class="oh-modal__dialog-footer p-0 mt-2">
+      <button type="submit" class="oh-btn oh-btn--secondary oh-btn--shadow">{% trans "Save" %}</button>
+    </div>
+  </form>
+</div>
+<script>
+  (function () {
+    var breakdown = document.getElementById("id_start_date_breakdown");
+    var endBreakdown = document.getElementById("id_end_date_breakdown");
+    if (breakdown && endBreakdown) {
+      breakdown.addEventListener("change", function () {
+        endBreakdown.value = breakdown.value;
+      });
+      endBreakdown.value = breakdown.value;
+    }
+  })();
+</script>

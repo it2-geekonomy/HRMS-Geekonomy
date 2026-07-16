@@ -1,0 +1,25 @@
+{% load i18n %}
+
+<div class="oh-modal__dialog-header">
+  <span class="oh-modal__dialog-title">{% trans "Send Late Arrival Mail" %}</span>
+  <button type="button" class="oh-modal__close--custom" aria-label="Close"
+    onclick="$('#lateMailModal').removeClass('oh-modal--show')">
+    <ion-icon name="close-outline"></ion-icon>
+  </button>
+</div>
+
+<div class="oh-modal__dialog-body">
+  <div class="oh-alert-container">
+    <div class="oh-alert oh-alert--animated oh-alert--success">
+      {% trans "Mail sent to" %} {{ employee_name }} ({{ email }}).
+    </div>
+  </div>
+</div>
+
+<span class="late-mail-refresh" hx-get="{% url 'late-come-early-out-search' %}?{{ pd }}" hx-target="#report-container" style="display:none;"></span>
+<script>
+  setTimeout(function () {
+    $("#lateMailModal").removeClass("oh-modal--show");
+    document.querySelector(".late-mail-refresh")?.click();
+  }, 1500);
+</script>

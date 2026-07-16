@@ -1,0 +1,199 @@
+{% load i18n %}
+<style>
+    .expense-breakup-block {
+        border: 1px solid #e8e8e8;
+        border-radius: 8px;
+        padding: 12px;
+        background: #fafafa;
+    }
+    .expense-breakup-row {
+        display: grid;
+        grid-template-columns: 1fr 140px 40px;
+        gap: 10px;
+        align-items: end;
+        margin-bottom: 10px;
+    }
+    .expense-breakup-row--removed {
+        opacity: 0.45;
+        pointer-events: none;
+    }
+    .expense-breakup-row--removed .expense-breakup-remove {
+        pointer-events: auto;
+    }
+    .expense-breakup-row label.oh-label {
+        font-size: 12px;
+        margin-bottom: 4px;
+        display: block;
+    }
+    .expense-breakup-row .delete-field {
+        display: none !important;
+    }
+    .expense-breakup-remove {
+        margin-bottom: 4px;
+        padding: 8px 10px;
+        min-width: 40px;
+    }
+    @media (max-width: 576px) {
+        .expense-breakup-row {
+            grid-template-columns: 1fr;
+        }
+        .expense-breakup-remove {
+            justify-self: start;
+        }
+    }
+</style>
+
+<div class="oh-input-group mt-3 expense-breakup-block">
+    <label class="oh-label fw-bold mb-2">{% trans "Amount Breakup" %}</label>
+    <p class="text-muted small mb-2">{% trans "Add one or more line items. Total is calculated automatically." %}</p>
+    {{ formset.management_form }}
+
+    <div class="expense-breakup-header d-none d-md-grid" style="display:grid; grid-template-columns:1fr 140px 40px; gap:10px; margin-bottom:6px;">
+        <span class="small text-muted fw-bold">{% trans "Particular" %}</span>
+        <span class="small text-muted fw-bold">{% trans "Amount" %}</span>
+        <span></span>
+    </div>
+
+    <div id="expenseBreakupBody">
+        {% for bf in formset %}
+        <div class="expense-breakup-row" data-breakup-row>
+            <div>
+                <label class="oh-label d-md-none">{% trans "Particular" %}</label>
+                {{ bf.particular }}
+            </div>
+            <div>
+                <label class="oh-label d-md-none">{% trans "Amount" %}</label>
+                {{ bf.amount }}
+            </div>
+            <div class="d-flex align-items-end justify-content-center">
+                {{ bf.id }}
+                {% if bf.DELETE %}
+                <span class="delete-field">{{ bf.DELETE }}</span>
+                {% endif %}
+                <button type="button" class="oh-btn oh-btn--danger-outline oh-btn--sm expense-breakup-remove"
+                    title="{% trans 'Remove line' %}" aria-label="{% trans 'Remove line' %}">
+                    <ion-icon name="trash-outline"></ion-icon>
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <button type="button" class="oh-btn oh-btn--light-bkg mt-1" id="addBreakupRow">
+        <ion-icon name="add-outline"></ion-icon> {% trans "Add line" %}
+    </button>
+    <p class="mb-0 mt-2">
+        <span class="text-muted">{% trans "Total" %}:</span>
+        <strong id="expenseBreakupTotal">0.00</strong>
+    </p>
+</div>
+
+<script>
+(function () {
+    var prefix = "{{ formset.prefix }}";
+    var body = document.getElementById("expenseBreakupBody");
+    if (!body) return;
+
+    function getTotalFormsInput() {
+        return document.getElementById("id_" + prefix + "-TOTAL_FORMS");
+    }
+
+    function visibleRows() {
+        return body.querySelectorAll("[data-breakup-row]:not(.expense-breakup-row--removed)");
+    }
+
+    function recalcTotal() {
+        var total = 0;
+        visibleRows().forEach(function (row) {
+            var amount = row.querySelector('input[name$="-amount"]');
+            if (amount) total += parseFloat(amount.value) || 0;
+        });
+        var totalEl = document.getElementById("expenseBreakupTotal");
+        if (totalEl) totalEl.textContent = total.toFixed(2);
+    }
+
+    function ensureAtLeastOneRow() {
+        if (visibleRows().length === 0) {
+            addRow();
+        }
+    }
+
+    function removeRow(row) {
+        var deleteInput = row.querySelector('input[name$="-DELETE"]');
+        var idInput = row.querySelector('input[name$="-id"]');
+        if (deleteInput && idInput && idInput.value) {
+            deleteInput.checked = true;
+            row.classList.add("expense-breakup-row--removed");
+        } else {
+            row.remove();
+            reindexRows();
+        }
+        ensureAtLeastOneRow();
+        recalcTotal();
+    }
+
+    function reindexRows() {
+        var totalForms = getTotalFormsInput();
+        if (!totalForms) return;
+        var rows = body.querySelectorAll("[data-breakup-row]");
+        rows.forEach(function (row, idx) {
+            row.querySelectorAll("input, select, textarea").forEach(function (el) {
+                if (!el.name) return;
+                el.name = el.name.replace(new RegExp(prefix + "-\\d+-"), prefix + "-" + idx + "-");
+                if (el.id) {
+                    el.id = el.id.replace(new RegExp("id_" + prefix + "-\\d+-"), "id_" + prefix + "-" + idx + "-");
+                }
+            });
+        });
+        totalForms.value = rows.length;
+    }
+
+    function bindRow(row) {
+        row.querySelectorAll('input[name$="-amount"]').forEach(function (el) {
+            el.removeEventListener("input", recalcTotal);
+            el.addEventListener("input", recalcTotal);
+        });
+        var btn = row.querySelector(".expense-breakup-remove");
+        if (btn && !btn.dataset.bound) {
+            btn.dataset.bound = "1";
+            btn.addEventListener("click", function () {
+                removeRow(row);
+            });
+        }
+    }
+
+    function addRow() {
+        var totalForms = getTotalFormsInput();
+        var idx = totalForms ? parseInt(totalForms.value, 10) : 0;
+        var row = document.createElement("div");
+        row.className = "expense-breakup-row";
+        row.setAttribute("data-breakup-row", "");
+        row.setAttribute("data-new-row", "1");
+        row.innerHTML =
+            '<div><label class="oh-label d-md-none">{% trans "Particular" %}</label>' +
+            '<input type="text" name="' + prefix + '-' + idx + '-particular" class="oh-input w-100" placeholder="{% trans "e.g. Travel, Food, Supplies" %}"></div>' +
+            '<div><label class="oh-label d-md-none">{% trans "Amount" %}</label>' +
+            '<input type="number" name="' + prefix + '-' + idx + '-amount" class="oh-input w-100" step="0.01" min="0" placeholder="0.00" value=""></div>' +
+            '<div class="d-flex align-items-end justify-content-center">' +
+            '<button type="button" class="oh-btn oh-btn--danger-outline oh-btn--sm expense-breakup-remove" title="{% trans "Remove line" %}">' +
+            '<ion-icon name="trash-outline"></ion-icon></button></div>';
+        body.appendChild(row);
+        if (totalForms) totalForms.value = idx + 1;
+        bindRow(row);
+        recalcTotal();
+        row.querySelector('input[name$="-particular"]').focus();
+    }
+
+    body.querySelectorAll("[data-breakup-row]").forEach(bindRow);
+    if (getTotalFormsInput() && parseInt(getTotalFormsInput().value, 10) === 0) {
+        getTotalFormsInput().value = body.querySelectorAll("[data-breakup-row]").length;
+    }
+    if (body.querySelectorAll("[data-breakup-row]").length === 0) {
+        addRow();
+    }
+    recalcTotal();
+
+    var addBtn = document.getElementById("addBreakupRow");
+    if (addBtn) addBtn.addEventListener("click", addRow);
+})();
+</script>

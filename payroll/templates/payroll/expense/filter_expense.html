@@ -1,0 +1,42 @@
+{% load i18n %}
+<div class="oh-dropdown" x-data="{open: false}">
+    <button type="button" class="oh-btn ml-2" @click="open = !open">
+        <ion-icon name="filter" class="mr-1"></ion-icon>{% trans "Filter" %}
+    </button>
+    <div class="oh-dropdown__menu oh-dropdown__menu--right oh-dropdown__filter p-4" x-show="open"
+        @click.outside="open = false" style="display: none">
+        <div class="oh-dropdown__filter-body">
+            <div class="row">
+                <div class="col-sm-12 col-md-6">
+                    <div class="oh-input-group">
+                        <label class="oh-label">{% trans "Added By" %}</label>
+                        {{ f.form.added_by }}
+                    </div>
+                    <div class="oh-input-group">
+                        <label class="oh-label">{% trans "Mode of Payment" %}</label>
+                        {{ f.form.mode_of_payment }}
+                    </div>
+                </div>
+                <div class="col-sm-12 col-md-6">
+                    <div class="oh-input-group">
+                        <label class="oh-label">{% trans "Date From" %}</label>
+                        {{ f.form.expense_date_from }}
+                    </div>
+                    <div class="oh-input-group">
+                        <label class="oh-label">{% trans "Date Till" %}</label>
+                        {{ f.form.expense_date_till }}
+                    </div>
+                    <div class="oh-input-group">
+                        <label class="oh-label">{% trans "Department" %}</label>
+                        {{ f.form.added_by__employee_work_info__department_id }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="oh-dropdown__filter-footer">
+            <button type="submit" class="oh-btn oh-btn--secondary oh-btn--small w-100 filterButton">
+                {% trans "Filter" %}
+            </button>
+        </div>
+    </div>
+</div>

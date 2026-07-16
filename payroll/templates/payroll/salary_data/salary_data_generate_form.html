@@ -1,0 +1,40 @@
+{% load i18n %}
+<div class="oh-modal__dialog-header pb-0">
+    <h1 class="oh-modal__dialog-title">{% trans "Generate Salary Data" %}</h1>
+    <button class="oh-modal__close" aria-label="Close">
+        <ion-icon name="close-outline"></ion-icon>
+    </button>
+</div>
+<div class="oh-modal__dialog-body">
+    <p class="text-muted small mb-3">
+        {% trans "Uses Attendance Calendar: days worked = P (Present) + L (Paid Leave). Working days = month days excluding PH and WO. Monthly salary = basic salary × 2. Calculated salary = (days worked ÷ working days) × monthly salary." %}
+    </p>
+    <form action="{% url 'generate-salary-data' %}" class="oh-profile-section pt-2" method="post">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col-12 col-sm-6">
+                <div class="oh-input__group">
+                    <label class="oh-input__label" for="{{ form.year.id_for_label }}">{% trans "Year" %}</label>
+                    {{ form.year }} {{ form.year.errors }}
+                </div>
+            </div>
+            <div class="col-12 col-sm-6">
+                <div class="oh-input__group">
+                    <label class="oh-input__label" for="{{ form.month.id_for_label }}">{% trans "Month" %}</label>
+                    {{ form.month }} {{ form.month.errors }}
+                </div>
+            </div>
+        </div>
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="oh-input__group">
+                    <label class="oh-input__label" for="{{ form.employee_id.id_for_label }}">{% trans "Employee" %}</label>
+                    {{ form.employee_id }} {{ form.employee_id.errors }}
+                </div>
+            </div>
+        </div>
+        <div class="oh-modal__dialog-footer p-0 pt-4">
+            <button type="submit" class="oh-btn oh-btn--secondary oh-btn--shadow">{% trans "Generate" %}</button>
+        </div>
+    </form>
+</div>

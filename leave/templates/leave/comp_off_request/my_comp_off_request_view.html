@@ -1,0 +1,58 @@
+{% extends 'index.html' %}
+{% block content %}
+{% load static %}
+{% load i18n %}
+<style>
+  .oh-sticky-table__th {
+    width: 180px;
+  }
+</style>
+<section class="oh-wrapper oh-main__topbar" x-data="{searchShow: false}">
+  <div class="oh-main__titlebar oh-main__titlebar--left">
+    <h1 class="oh-main__titlebar-title fw-bold">{% trans "My Comp-Off Requests" %}</h1>
+    <a class="oh-main__titlebar-search-toggle" role="button" aria-label="Toggle Search" @click="searchShow = !searchShow">
+      <ion-icon name="search-outline" class="oh-main__titlebar-serach-icon"></ion-icon>
+    </a>
+  </div>
+  <div class="oh-main__titlebar oh-main__titlebar--right">
+    <form hx-get="{% url 'my-comp-off-request-filter' %}" hx-target="#compOffMyContainer" id="filterForm" class="d-flex" onsubmit="event.preventDefault()">
+      <div class="oh-input-group oh-input__search-group" :class="searchShow ? 'oh-input__search-group--show' : ''">
+        <ion-icon name="search-outline" class="oh-input-group__icon oh-input-group__icon--left"></ion-icon>
+        <input type="text" class="oh-input oh-input__icon" aria-label="Search Input" name="search" placeholder="{% trans 'Search' %}" onkeyup="$('.filterButton')[0].click();" />
+      </div>
+      <div class="oh-main__titlebar-button-container">
+        <div class="oh-dropdown ml-2" x-data="{open: false}">
+          <button class="oh-btn" @click="open = !open" onclick="event.preventDefault()">
+            <ion-icon name="filter" class="mr-1"></ion-icon>{% trans "Filter" %}
+          </button>
+          <div class="oh-dropdown__menu oh-dropdown__menu--right oh-dropdown__filter p-4" x-show="open" @click.outside="open = false" style="display:none;">
+            <div class="oh-input-group mb-2"><label class="oh-label">{% trans "Status" %}</label>{{ form.status }}</div>
+            <div class="oh-input-group mb-2"><label class="oh-label">{% trans "From" %}</label>{{ form.start_date__gte }}</div>
+            <div class="oh-input-group mb-2"><label class="oh-label">{% trans "Till" %}</label>{{ form.end_date__lte }}</div>
+            <button class="oh-btn oh-btn--secondary oh-btn--small w-100 filterButton" type="submit">{% trans "Filter" %}</button>
+          </div>
+        </div>
+      </div>
+    </form>
+    <div class="oh-btn-group ml-2">
+      <button class="oh-btn oh-btn--secondary oh-btn--shadow"
+        hx-get="{% url 'comp-off-request-create' %}" hx-target="#objectCreateModalTarget"
+        data-toggle="oh-modal-toggle" data-target="#objectCreateModal">
+        <ion-icon name="add-outline" class="me-1"></ion-icon>{% trans "Create" %}
+      </button>
+    </div>
+  </div>
+</section>
+<div class="oh-wrapper" id="compOffMyContainer">
+  {% if comp_off_requests %}
+    {% include "leave/comp_off_request/my_comp_off_requests.html" %}
+  {% else %}
+    <div class="oh-empty">
+      <img src="{% static 'images/ui/search.svg' %}" class="oh-404__image" alt="Page not found. 404." />
+      <h1 class="oh-empty__title">{% trans "No Records found." %}</h1>
+      <p class="oh-empty__subtitle">{% trans "There are no Comp-Off requests at the moment." %}</p>
+    </div>
+  {% endif %}
+</div>
+<script src="{% static '/base/filter.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends 'index.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block content %}
+<section class="oh-wrapper oh-main__topbar">
+    <div class="oh-main__titlebar oh-main__titlebar--left">
+        <h1 class="oh-main__titlebar-title fw-bold">
+            {% trans "Generate Document" %}
+        </h1>
+    </div>
+</section>
+
+<div class="oh-wrapper">
+    <div class="oh-card">
+        <div class="oh-card__body">
+            <p class="text-muted mb-4">
+                {% trans "Select an employee and a document template to generate a PDF or Word document with the employee's details filled in." %}
+                {% trans "If you uploaded your own Word template, the output will be Word (DOCX) so your exact format is preserved." %}
+            </p>
+            <form method="post" action="{% url 'generate-document' %}" class="oh-form">
+                {% csrf_token %}
+                <div class="row">
+                    <div class="col-12 col-md-6">
+                        <div class="oh-input__group">
+                            <label class="oh-input__label" for="id_employee_id">{% trans "Employee" %}</label>
+                            <select name="employee_id" id="id_employee_id" class="oh-input w-100" required>
+                                <option value="">{% trans "Select employee" %}</option>
+                                {% for emp in employees %}
+                                <option value="{{ emp.id }}">{{ emp.get_full_name }} ({{ emp.email }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="oh-input__group">
+                            <label class="oh-input__label" for="id_template_id">{% trans "Document Template" %}</label>
+                            <select name="template_id" id="id_template_id" class="oh-input w-100" required>
+                                <option value="">{% trans "Select template" %}</option>
+                                {% for t in templates %}
+                                <option value="{{ t.id }}">{{ t.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-12 col-md-6">
+                        <div class="oh-input__group">
+                            <label class="oh-input__label" for="id_agreement_date">{% trans "Agreement Date (optional)" %}</label>
+                            <input type="date" name="agreement_date" id="id_agreement_date" class="oh-input w-100">
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="oh-input__group">
+                            <label class="oh-input__label" for="id_format">{% trans "Format" %}</label>
+                            <select name="format" id="id_format" class="oh-input w-100">
+                                <option value="pdf">PDF</option>
+                                <option value="docx">Word (DOCX)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <button type="submit" class="oh-btn oh-btn--secondary">
+                        <ion-icon name="download-outline" class="mr-1"></ion-icon>
+                        {% trans "Generate & Download" %}
+                    </button>
+                    <a href="{% url 'view-document-templates' %}" class="oh-btn oh-btn--light ms-2">
+                        {% trans "Back to templates" %}
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

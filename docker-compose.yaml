@@ -1,0 +1,51 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8000:8000
+    restart: unless-stopped
+    environment:
+      DEBUG: "True"
+      TIME_ZONE: "Asia/Kolkata"
+      SECRET_KEY: "django-insecure-j8op9)1q8$1&@^s&p*_0%d#pr@w9qj@lo=3#@d=a(^@9@zd@%j"
+      ALLOWED_HOSTS: "www.example.com,example.com,*"
+      CSRF_TRUSTED_ORIGINS: "http://localhost:8000"
+      DB_INIT_PASSWORD: "d3f6a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d"
+      DATABASE_URL: "postgres://postgres:postgres@db:5432/horilla"
+      DB_ENGINE: "django.db.backends.postgresql"
+      DB_NAME: "horilla"
+      DB_USER: "postgres"
+      DB_PASSWORD: "postgres"
+      DB_HOST: "db"
+      DB_PORT: "5432"
+    command: sh ./entrypoint.sh
+    volumes:
+      - ./horilla:/app/horilla
+      - ./media:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: horilla
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - 5432:5432
+    restart: unless-stopped
+    volumes:
+      - horilla-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  horilla-data:

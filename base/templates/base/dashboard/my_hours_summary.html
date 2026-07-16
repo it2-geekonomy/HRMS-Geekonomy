@@ -1,0 +1,37 @@
+{% load i18n %}
+
+<div style="padding: 10px;">
+    <!-- Period indicator (Last 4 weeks) -->
+    <div class="text-center mb-3">
+        <span style="font-size: 11px; color: #64748b; background: #f1f5f9; padding: 2px 8px; border-radius: 4px;">{% trans "Last 4 weeks" %}</span>
+    </div>
+    
+    <!-- Main stats -->
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <div class="d-flex align-items-center px-3 py-2" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; border-radius: 8px; flex: 1; min-width: 90px;">
+            <div class="text-center w-100">
+                <div style="font-size: 22px; font-weight: bold;">{{ worked_hours }}h</div>
+                <div style="font-size: 10px; opacity: 0.9;">{% trans "Worked" %}</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Additional stats -->
+    <div class="d-flex flex-wrap gap-2">
+        <div class="p-2" style="background: #f8fafc; border-radius: 6px; flex: 1; text-align: center; border-left: 3px solid #3b82f6;">
+            <div style="font-size: 18px; font-weight: bold; color: #1e293b;">{{ days_worked }}</div>
+            <div style="font-size: 10px; color: #64748b;">{% trans "Total working days" %}</div>
+        </div>
+        <div class="p-2" style="background: #f8fafc; border-radius: 6px; flex: 1; text-align: center; border-left: 3px solid #8b5cf6;">
+            <div style="font-size: 18px; font-weight: bold; color: #1e293b;">{{ avg_hours }}h</div>
+            <div style="font-size: 10px; color: #64748b;">{% trans "Avg/Day" %}</div>
+        </div>
+    </div>
+    
+    {% if days_worked == 0 %}
+        <div class="text-center py-3 mt-2" style="color: #94a3b8;">
+            <i class="material-icons" style="font-size: 28px; opacity: 0.5;">schedule</i>
+            <div style="font-size: 11px; margin-top: 5px;">{% trans "No attendance in last 4 weeks" %}</div>
+        </div>
+    {% endif %}
+</div>

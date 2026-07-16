@@ -1,0 +1,7 @@
+{% load i18n %}
+<div class="oh-modal__dialog-body p-4 text-center">
+    <p class="mb-4">{{ message }}</p>
+    <a href="{% url 'request-attendance-view' %}" class="oh-btn oh-btn--secondary">
+        {% trans "Okay" %}
+    </a>
+</div>

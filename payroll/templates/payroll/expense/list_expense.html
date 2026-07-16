@@ -1,0 +1,136 @@
+{% load i18n static horillafilters %}
+{% include 'payroll/expense/filter_tags.html' %}
+{% if messages %}
+<div class="oh-wrapper">
+    {% for message in messages %}
+    <div class="oh-alert-container">
+        <div class="oh-alert oh-alert--animated {{ message.tags }}">{{ message }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="oh-wrapper">
+    {% if expenses %}
+    <div class="oh-sticky-table">
+        <div class="oh-sticky-table__table oh-table--sortable">
+            <div class="oh-sticky-table__thead">
+                <div class="oh-sticky-table__tr">
+                    <div class="oh-sticky-table__th {% if request.sort_option.order == '-added_by' %}arrow-up{% elif request.sort_option.order == 'added_by' %}arrow-down{% else %}arrow-up-down{% endif %}"
+                        hx-get="{% url 'filter-expense' %}?{{ pd }}&sortby=added_by" hx-target="#expenseContainer">
+                        {% trans "Added By" %}
+                    </div>
+                    <div class="oh-sticky-table__th {% if request.sort_option.order == '-expense_date' %}arrow-up{% elif request.sort_option.order == 'expense_date' %}arrow-down{% else %}arrow-up-down{% endif %}"
+                        hx-get="{% url 'filter-expense' %}?{{ pd }}&sortby=expense_date" hx-target="#expenseContainer">
+                        {% trans "Date" %}
+                    </div>
+                    <div class="oh-sticky-table__th">{% trans "Description / Purpose" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Categories" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Total Amount" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Mode of Payment" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Paid By" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Receipt" %}</div>
+                    <div class="oh-sticky-table__th oh-sticky-table__right">{% trans "Actions" %}</div>
+                </div>
+            </div>
+            {% for expense in expenses %}
+            <div class="oh-sticky-table__tbody" data-toggle="oh-modal-toggle" data-target="#objectDetailsModal"
+                hx-get="{% url 'single-expense-view' expense.id %}?instances_ids={{ expense_ids }}&{{ pd }}"
+                hx-target="#objectDetailsModalTarget">
+                <div class="oh-sticky-table__tr" style="cursor:pointer">
+                    <div class="oh-sticky-table__td">{{ expense.added_by }}</div>
+                    <div class="oh-sticky-table__td">{{ expense.expense_date }}{% if expense.archived %} <span class="oh-badge oh-badge--secondary oh-badge--small">{% trans "Archived" %}</span>{% endif %}</div>
+                    <div class="oh-sticky-table__td">{{ expense.description|truncatechars:60|default:"—" }}</div>
+                    <div class="oh-sticky-table__td">
+                        {% for category, lines in expense.grouped_breakups %}
+                        <span class="d-block small">{{ category }} ({{ lines|length }})</span>
+                        {% empty %}—{% endfor %}
+                    </div>
+                    <div class="oh-sticky-table__td">
+                        {{ expense.total_amount }}
+                    </div>
+                    <div class="oh-sticky-table__td">{{ expense.mode_of_payment|default:"—" }}</div>
+                    <div class="oh-sticky-table__td">{{ expense.paid_by|default:"—" }}</div>
+                    <div class="oh-sticky-table__td" onclick="event.stopPropagation();">
+                        {% if expense.attachment %}
+                        <a href="{{ expense.attachment.url }}" target="_blank" rel="noopener" class="oh-btn oh-btn--light-bkg oh-btn--sm">
+                            <ion-icon name="document-attach-outline"></ion-icon>
+                        </a>
+                        {% else %}
+                        —
+                        {% endif %}
+                    </div>
+                    <div class="oh-sticky-table__td oh-sticky-table__right" onclick="event.stopPropagation();">
+                        <div class="oh-btn-group">
+                            <a class="oh-btn oh-btn--light-bkg w-100"
+                                hx-get="{% url 'create-expense' %}?instance_id={{ expense.id }}"
+                                hx-target="#objectCreateModalTarget"
+                                data-toggle="oh-modal-toggle"
+                                data-target="#objectCreateModal"
+                                onclick="event.stopPropagation();"
+                                title="{% trans 'Edit' %}">
+                                <ion-icon name="create-outline" style="color:blue"></ion-icon>
+                            </a>
+                            <a class="oh-btn oh-btn--light-bkg w-100"
+                                hx-get="{% url 'create-expense' %}?duplicate_id={{ expense.id }}"
+                                hx-target="#objectCreateModalTarget"
+                                data-toggle="oh-modal-toggle"
+                                data-target="#objectCreateModal"
+                                onclick="event.stopPropagation();"
+                                title="{% trans 'Duplicate' %}">
+                                <ion-icon name="copy-outline"></ion-icon>
+                            </a>
+                            <a class="oh-btn oh-btn--danger-outline oh-btn--light-bkg w-100"
+                                hx-post="{% url 'archive-expense' expense.id %}?{{ pd }}"
+                                hx-target="#expenseContainer"
+                                hx-confirm="{% if show_archived %}{% trans 'Restore this expense?' %}{% else %}{% trans 'Archive this expense?' %}{% endif %}"
+                                title="{% if show_archived %}{% trans 'Restore' %}{% else %}{% trans 'Archive' %}{% endif %}">
+                                <ion-icon name="{% if show_archived %}arrow-undo-outline{% else %}archive-outline{% endif %}"></ion-icon>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end align-items-center mt-2 mb-2 px-2 py-2"
+         style="background:#f5f5f5;border-radius:6px;font-weight:700;">
+        <span class="me-3">{% trans "Grand Total" %}:</span>
+        <span>{{ grand_total|default:0 }}</span>
+    </div>
+
+    <div class="oh-pagination">
+        <span class="oh-pagination__page">
+            {% trans "Page" %} {{ expenses.number }} {% trans "of" %} {{ expenses.paginator.num_pages }}
+            {% if expenses.paginator.count %}({{ expenses.paginator.count }} {% trans "records" %}){% endif %}.
+        </span>
+        <nav class="oh-pagination__nav">
+            <ul class="oh-pagination__items">
+                {% if expenses.has_previous %}
+                <li class="oh-pagination__item oh-pagination__item--wide">
+                    <a hx-target="#expenseContainer" hx-get="{% url 'filter-expense' %}?{{ pd }}&page=1" class="oh-pagination__link">{% trans "First" %}</a>
+                </li>
+                <li class="oh-pagination__item oh-pagination__item--wide">
+                    <a hx-target="#expenseContainer" hx-get="{% url 'filter-expense' %}?{{ pd }}&page={{ expenses.previous_page_number }}" class="oh-pagination__link">{% trans "Previous" %}</a>
+                </li>
+                {% endif %}
+                {% if expenses.has_next %}
+                <li class="oh-pagination__item oh-pagination__item--wide">
+                    <a hx-target="#expenseContainer" hx-get="{% url 'filter-expense' %}?{{ pd }}&page={{ expenses.next_page_number }}" class="oh-pagination__link">{% trans "Next" %}</a>
+                </li>
+                <li class="oh-pagination__item oh-pagination__item--wide">
+                    <a hx-target="#expenseContainer" hx-get="{% url 'filter-expense' %}?{{ pd }}&page={{ expenses.paginator.num_pages }}" class="oh-pagination__link">{% trans "Last" %}</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% else %}
+    <div class="oh-404">
+        <img style="width:150px;height:150px" src="{% static 'images/ui/no-results.png' %}" class="oh-404__image mb-4" alt="" />
+        <h5 class="oh-404__subtitle">{% trans "No search result found!" %}</h5>
+    </div>
+    {% endif %}
+</div>

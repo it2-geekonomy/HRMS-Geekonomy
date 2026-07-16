@@ -1,0 +1,103 @@
+services:
+
+  # ------------------------
+  # PostgreSQL Database
+  # ------------------------
+  horilla-db:
+    image: postgres:16
+    container_name: horilla-database
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: horilla
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - docker-composeprod_horilla-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ------------------------
+  # Django App (Gunicorn)
+  # ------------------------
+  horilla-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: horilla-hrms
+    restart: unless-stopped
+    expose:
+      - "8000"
+
+    environment:
+      # Core
+      DEBUG: "False"
+      TIME_ZONE: "Asia/Kolkata"
+      SECRET_KEY: "django-insecure-change-this-in-real-prod"
+
+      # Domain & Security
+      ALLOWED_HOSTS: "people.geekonomy.in,localhost,127.0.0.1,horilla-nginx"
+      CSRF_TRUSTED_ORIGINS: "https://people.geekonomy.in"
+
+      # Cloudflare / Nginx Proxy
+      USE_X_FORWARDED_HOST: "True"
+      SECURE_PROXY_SSL_HEADER: "HTTP_X_FORWARDED_PROTO,https"
+
+      # Database
+      DATABASE_URL: "postgres://postgres:postgres@horilla-db:5432/horilla"
+      DB_ENGINE: "django.db.backends.postgresql"
+      DB_NAME: "horilla"
+      DB_USER: "postgres"
+      DB_PASSWORD: "postgres"
+      DB_HOST: "horilla-db"
+      DB_PORT: "5432"
+
+      # Slack Online/Offline (Dashboard): Bot User OAuth Token with users:read scope.
+      # Set via .env next to this file (never commit real tokens).
+      SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
+
+      # CRM public API key – use same value in CRM app
+      CRM_API_KEY: ${CRM_API_KEY}
+
+      # Resend email (API). From address must be on a verified Resend domain.
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      DEFAULT_FROM_EMAIL: "Geekonomy HRMS <hr@thegeekonomy.com>"
+      HR_EMAIL: "hr@thegeekonomy.com"
+
+    volumes:
+      - horilla-media:/app/media
+      - horilla-static:/app/staticfiles
+
+    depends_on:
+      horilla-db:
+        condition: service_healthy
+
+  # ------------------------
+  # Nginx (Reverse Proxy)
+  # ------------------------
+  horilla-nginx:
+    image: nginx:alpine
+    container_name: horilla-nginx
+    restart: unless-stopped
+    ports:
+      - "8880:80"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - horilla-static:/app/staticfiles:ro
+      - horilla-media:/app/media:ro
+    depends_on:
+      - horilla-app
+
+volumes:
+  docker-composeprod_horilla-data:
+    external: true
+  horilla-media:
+    driver: local
+  horilla-static:
+    driver: local

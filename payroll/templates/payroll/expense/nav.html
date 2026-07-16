@@ -1,0 +1,141 @@
+{% load i18n %}
+<section class="oh-wrapper oh-main__topbar">
+    <div class="oh-main__titlebar oh-main__titlebar--left">
+        <h1 class="oh-main__titlebar-title fw-bold">{% trans "Expenses Tracking" %}</h1>
+    </div>
+    <form id="expenseFilterForm" hx-get="{% url 'filter-expense' %}" hx-target="#expenseContainer">
+        <div class="oh-main__titlebar oh-main__titlebar--right">
+            <div class="oh-input-group oh-input__search-group mr-4">
+                <ion-icon name="search-outline" class="oh-input-group__icon oh-input-group__icon--left"></ion-icon>
+                <input type="text" name="search" class="oh-input oh-input__icon" placeholder="{% trans 'Search' %}"
+                    onkeyup="$('#expenseFilterForm .filterButton').click();" aria-label="{% trans 'Search' %}" />
+            </div>
+            <input type="hidden" name="archived" value="{% if show_archived %}1{% else %}0{% endif %}" id="expenseArchivedInput" />
+            <a href="{% url 'view-expense' %}{% if not show_archived %}?archived=1{% endif %}"
+                class="oh-btn oh-btn--light-bkg mr-2"
+                title="{% if show_archived %}{% trans 'Show active' %}{% else %}{% trans 'Show archived' %}{% endif %}">
+                <ion-icon name="{% if show_archived %}folder-open-outline{% else %}archive-outline{% endif %}"></ion-icon>
+                {% if show_archived %}{% trans "Active" %}{% else %}{% trans "Archived" %}{% endif %}
+            </a>
+            {% include 'payroll/expense/filter_expense.html' %}
+            {% if perms.payroll.change_expense %}
+            <button type="button" class="oh-btn oh-btn--secondary oh-btn--shadow mr-2"
+                data-toggle="oh-modal-toggle" data-target="#archiveExpenseMonthModal"
+                title="{% trans 'Archive all expenses for a month' %}">
+                <ion-icon name="archive-outline" class="me-1"></ion-icon>
+                {% trans "Archive Month" %}
+            </button>
+            {% endif %}
+            <div class="oh-dropdown mr-2" x-data="{exportOpen: false}">
+                <button type="button" class="oh-btn oh-btn--light-bkg" @click="exportOpen = !exportOpen">
+                    <ion-icon name="download-outline"></ion-icon> {% trans "Export" %}
+                </button>
+                <div class="oh-dropdown__menu oh-dropdown__menu--right p-3" x-show="exportOpen"
+                    @click.outside="exportOpen = false" style="display:none; min-width:220px;">
+                    <div class="oh-input-group mb-2">
+                        <label class="oh-label">{% trans "Month" %}</label>
+                        <select id="expenseExportMonth" class="oh-select w-100">
+                            {% for num, name in export_months %}
+                            <option value="{{ num }}" {% if num == export_default_month %}selected{% endif %}>{{ name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="oh-input-group mb-3">
+                        <label class="oh-label">{% trans "Year" %}</label>
+                        <select id="expenseExportYear" class="oh-select w-100">
+                            {% for y in export_years %}
+                            <option value="{{ y }}" {% if y == export_default_year %}selected{% endif %}>{{ y }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <a class="oh-btn oh-btn--secondary w-100 mb-2" target="_blank"
+                        onclick="this.href='{% url 'export-expense-excel' %}?month='+document.getElementById('expenseExportMonth').value+'&year='+document.getElementById('expenseExportYear').value;">
+                        {% trans "Download Excel" %}
+                    </a>
+                    <a class="oh-btn oh-btn--light-bkg w-100" target="_blank"
+                        onclick="this.href='{% url 'export-expense-receipts-zip' %}?month='+document.getElementById('expenseExportMonth').value+'&year='+document.getElementById('expenseExportYear').value;"
+                        title="{% trans 'Receipt files are named by upload date (YYYY-MM-DD)' %}">
+                        <ion-icon name="folder-outline" class="me-1"></ion-icon>
+                        {% trans "Download Receipts (ZIP)" %}
+                    </a>
+                </div>
+            </div>
+            <div class="oh-main__titlebar-button-container">
+                <a hx-get="{% url 'create-expense' %}" hx-target="#objectCreateModalTarget"
+                    data-toggle="oh-modal-toggle" data-target="#objectCreateModal"
+                    class="oh-btn oh-btn--secondary">
+                    <ion-icon name="add-outline"></ion-icon>
+                    {% trans "Create" %}
+                </a>
+            </div>
+        </div>
+    </form>
+</section>
+<script>
+$(document).on("click", "#expenseFilterForm .filterButton", function (e) {
+    e.preventDefault();
+    htmx.trigger("#expenseFilterForm", "submit");
+});
+</script>
+
+{% if perms.payroll.change_expense %}
+<div class="oh-modal" id="archiveExpenseMonthModal" role="dialog" aria-hidden="true"
+    aria-labelledby="archiveExpenseMonthModalLabel">
+    <div class="oh-modal__dialog">
+        <div class="oh-modal__dialog-header">
+            <h2 class="oh-modal__dialog-title" id="archiveExpenseMonthModalLabel">
+                {% trans "Archive expenses for month" %}
+            </h2>
+            <button type="button" class="oh-modal__close" aria-label="Close" data-dismiss="modal">
+                <ion-icon name="close-outline"></ion-icon>
+            </button>
+        </div>
+        <form method="post" action="{% url 'archive-expense-month' %}"
+            onsubmit="return confirm('{% trans "Archive all active expenses for the selected month? Export to Excel first if you need a backup." %}');">
+            {% csrf_token %}
+            <div class="oh-modal__dialog-body">
+                <p class="text-muted small mb-3">
+                    {% trans "Archived expenses are hidden from the default list. Filter by date range or open Archived to view them again." %}
+                </p>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="oh-input-group mb-3">
+                            <label class="oh-label" for="archiveExpenseMonth">{% trans "Month" %}</label>
+                            <select name="month" id="archiveExpenseMonth" class="oh-select w-100" required>
+                                {% for num, name in export_months %}
+                                <option value="{{ num }}" {% if num == export_default_month %}selected{% endif %}>{{ name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="oh-input-group mb-3">
+                            <label class="oh-label" for="archiveExpenseYear">{% trans "Year" %}</label>
+                            <select name="year" id="archiveExpenseYear" class="oh-select w-100" required>
+                                {% for y in export_years %}
+                                <option value="{{ y }}" {% if y == export_default_year %}selected{% endif %}>{{ y }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="oh-input-group">
+                    <label class="oh-label d-flex align-items-center gap-2">
+                        <input type="checkbox" name="remove_receipts" value="1" checked />
+                        {% trans "Remove receipt files from storage (frees disk space)" %}
+                    </label>
+                    <small class="text-muted d-block mt-1">
+                        {% trans "Expense rows and amounts stay in the system; only uploaded receipt files are deleted." %}
+                    </small>
+                </div>
+            </div>
+            <div class="oh-modal__dialog-footer">
+                <button type="submit" class="oh-btn oh-btn--secondary">
+                    <ion-icon name="archive-outline" class="me-1"></ion-icon>
+                    {% trans "Archive month" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}

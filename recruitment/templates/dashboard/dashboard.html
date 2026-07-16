@@ -1,0 +1,352 @@
+{% extends 'index.html' %} {% block content %} {% load static i18n horillafilters mathfilters recruitmentfilters %}
+<style>
+	.oh-card-dashboard{
+		height: 100;
+	}
+    .done-task{
+        background-color: #9acd322e !important;
+    }
+    .scheduled-task{
+        background-color: #00afff2e !important;
+    }
+    .ongoing-task{
+        background-color: #e6ff002e !important;
+    }
+    .stuck-task{
+        background-color: #ff45003b !important;
+    }
+    .todo-task{
+        background-color: #8d8d8d2e !important;
+    }
+	.tooltip {
+		position: absolute;
+		background-color: #000;
+		color: #fff;
+		padding: 5px;
+		border-radius: 5px;
+		display: block;
+		margin-top:80px;
+	}
+
+</style>
+<div class="oh-wrapper">
+	<div class="oh-dashboard row">
+		<div class="oh-dashboard__left col-12 col-sm-12 col-md-12 col-lg-12">
+			<div class="oh-dashboard__cards row">
+				<div class="col-12 col-sm-12 col-md-6 col-lg-2" style="cursor:pointer;">
+					<div class="text-decoration-none" data-toggle="oh-modal-toggle" data-target="#recruitmentCardModalVacancy">
+						<div class="oh-card-dashboard oh-card-dashboard--warning">
+							<div class="oh-card-dashboard__header">
+								<span class="oh-card-dashboard__title">{% trans "Total Vacancies" %}</span>
+							</div>
+							<div class="oh-card-dashboard__body">
+								<div class="oh-card-dashboard__counts">
+									<span class="oh-card-dashboard__count"
+										>{{total_vacancy}}</span
+									>
+									</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-12 col-sm-12 col-md-6 col-lg-2">
+					<div class="text-decoration-none" data-toggle="oh-modal-toggle" data-target="#recruitmentCardModalOngoing" style="cursor:pointer;">
+						<div class="oh-card-dashboard oh-card-dashboard--danger">
+							<div class="oh-card-dashboard__header">
+								<span class="oh-card-dashboard__title">{% trans "Ongoing Recruitments" %}</span>
+							</div>
+							<div class="oh-card-dashboard__body">
+								<div class="oh-card-dashboard__counts">
+									<span class="oh-card-dashboard__count"
+										>{{ongoing_recruitments}}</span
+									>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-12 col-sm-12 col-md-6 col-lg-2">
+					<div class="text-decoration-none" data-toggle="oh-modal-toggle" data-target="#recruitmentCardModalHired" style="cursor:pointer;">
+						<div
+							class="oh-card-dashboard oh-card-dashboard oh-card-dashboard--success filter"
+						>
+							<div class="oh-card-dashboard__header">
+								<span class="oh-card-dashboard__title">{% trans "Hired Candidates" %}</span>
+							</div>
+							<div class="oh-card-dashboard__body">
+								<div class="oh-card-dashboard__counts">
+									<span class="oh-card-dashboard__count"
+									>{{total_hired_candidates}}</span
+									>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+				<div class="oh-dashboard__movable-cards row mt-4">
+					{% comment %} <div class="col-12 col-sm-12 col-md-6 col-lg-3  oh-card-dashboard--moveable me-4" style="background-color: white;">
+						<div class="oh-card-dashboard oh-card-dashboard--no-scale oh-card-dashboard--transparent ">
+							<div class="oh-card-dashboard__header oh-card-dashboard__header--divider">
+								<span class="oh-card-dashboard__title">{% trans "Open Positions By Department" %}</span>
+							</div>
+							<div class="oh-card-dashboard__body" >
+								{% if dep_vacancy %}
+								<div >
+									<canvas id="vacancy"></canvas>
+								</div>
+								{% else %}
+								<div style="display:flex;align-items: center;justify-content: center;">
+									<div style="height:282px; justify-content:center;align-items:center; margin-top: -59px;" class="d-flex">
+										<img style="height:125px;" src="{% static 'images/ui/no_vacancy.png' %}" class=""/>
+									</div>
+								</div>
+								<h3 style="font-size:16px; margin-bottom:69px;" class="oh-404__subtitle">{% trans "No department-specific vacancies currently." %}</h3>
+								{% endif %}
+
+							</div>
+						</div>
+					</div> {% endcomment %}
+
+
+					<div class="col-12 col-sm-12 col-md-6 col-lg-3 me-4" style="background-color: white;">
+						<div class="oh-card-dashboard oh-card-dashboard--no-scale oh-card-dashboard--transparent ">
+							<div class="oh-card-dashboard__header oh-card-dashboard__header--divider">
+								<span class="oh-card-dashboard__title">{% trans "Candidate Offer Letter Status" %}</span>
+
+							</div>
+							<div class="oh-card-dashboard__body" >
+								{% if total_candidates %}
+								<div >
+
+									<canvas id="candidateChart"></canvas>
+
+								</div>
+								{% else %}
+								<div style="display:flex;align-items: center;justify-content: center;">
+									<div style="height:282px; justify-content:center;align-items:center; margin-top: -59px;" class="d-flex">
+										<img style="height:125px;" src="{% static 'images/ui/no_vacancy.png' %}" class=""/>
+									</div>
+								</div>
+								<h3 style="font-size:16px; margin-bottom:69px;" class="oh-404__subtitle">{% trans "No Candidates available." %}</h3>
+								{% endif %}
+
+							</div>
+						</div>
+					</div>
+					<div class="col-12 col-sm-12 col-md-6 col-lg-8 oh-card-dashboard--moveable">
+						<div class="oh-card-dashboard oh-card-dashboard--no-scale oh-card-dashboard--transparent">
+							<div class="oh-card-dashboard__header oh-card-dashboard__header--divider">
+								<span class="oh-card-dashboard__title">{% trans "Joinings Per Month" %}</span>
+								<span class="oh-card-dashboard__title float-end" id="chart2"><ion-icon name="caret-forward"></ion-icon></span>
+								<select class="oh-card-dashboard__body float-end me-3" id="year">
+								</select>
+							</div>
+							{% if joining %}
+								<canvas class="oh-card-dashboard__body" id="hiringChart"></canvas>
+							{% else %}
+							<div style="height: 430px; display:flex;align-items: center;justify-content: center;" class="">
+								<div style="" class="">
+									<img style="display: block;width: 115px;margin: 20px auto ;" src="{% static 'images/ui/no_records.svg' %}" class=""/>
+									<h3 style="font-size:16px" class="oh-404__subtitle">{% trans "No records were available." %}</h3>
+								</div>
+							</div>
+							{% endif %}
+						</div>
+					</div>
+				</div>
+
+				{% if ongoing_recruitments %}
+				<div class="oh-dashboard__movable-cards row mt-4">
+					<div class="col-12 col-sm-12 col-md-12 col-lg-12 oh-card-dashboard--moveable">
+						<div class="oh-card-dashboard__header">
+							<span class="oh-card-dashboard__title">{% trans "Current Hiring Pipeline" %}</span>
+						</div>
+						<div class="oh-sticky-table float-start" style="height:500px">
+							<div class="oh-sticky-table__table">
+								<div class="oh-sticky-table__thead">
+									<div class="oh-sticky-table__tr">
+										<div class="oh-sticky-table__th">{% trans "Job Positions" %}</div>
+										<div class="oh-sticky-table__th">{% trans "Initial" %}</div>
+										<div class="oh-sticky-table__th">{% trans "Test" %}</div>
+										<div class="oh-sticky-table__th">{% trans "Interview" %}</div>
+										<div class="oh-sticky-table__th">{% trans "Hired" %}</div>
+										<div class="oh-sticky-table__th">{% trans "Cancelled" %}</div>
+									</div>
+								</div>
+								<div class="oh-sticky-table__tbody">
+									{% for job_item in job_data %}
+									<div class="oh-sticky-table__tr">
+										<div class="oh-sticky-table__sd">{{ job_item.0 }}</div>
+										<div class="oh-sticky-table__td">{{ job_item.1 }}</div>
+										<div class="oh-sticky-table__td">{{ job_item.2 }}</div>
+										<div class="oh-sticky-table__td">{{ job_item.3 }}</div>
+										<div class="oh-sticky-table__td">{{ job_item.4 }}</div>
+										<div class="oh-sticky-table__td">{{ job_item.5 }}</div>
+									</div>
+									{% endfor %}
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				{% endif %}
+
+				<div class="oh-dashboard__movable-cards row">
+					<div
+					class="col-12 col-sm-12 col-md-6 col-lg-5 mt-4 oh-card-dashboard--moveable"
+					>
+						<div
+							class="oh-card-dashboard oh-card-dashboard--no-scale oh-card-dashboard--transparent"
+						>
+							<div
+							class="oh-card-dashboard__header oh-card-dashboard__header--divider"
+							>
+								<span class="oh-card-dashboard__title">{% trans "Candidates Per Stage" %}</span>
+								<span class="oh-card-dashboard__title float-end" id="chart1"><ion-icon name="caret-forward"></ion-icon></span>
+							</div>
+							<div class="oh-card-dashboard__body">
+							{% if stage_chart_count %}
+								<canvas id="recruitmentChart1" width="385" height="228"></canvas>
+							{% else %}
+								<div style="height: 362px; display:flex;align-items: center;justify-content: center;" class="">
+									<div style="" class="">
+										<img style="display: block;width: 120px;margin: 20px auto ;" src="{% static 'images/ui/interview.png' %}" class=""/>
+										<h3 style="font-size:16px" class="oh-404__subtitle">{% trans "No recruitment stages currently available." %}</h3>
+									</div>
+								</div>
+							{% endif %}
+							</div>
+						</div>
+					</div>
+					{% if ongoing_recruitments %}
+						<div class="col-12 col-sm-12 col-md-12 col-lg-6	mt-4 ">
+							<div class="oh-card-dashboard__header">
+								<span class="oh-card-dashboard__title">{% trans "Ongoing Recruitments & Hiring Managers" %}</span>
+							</div>
+							<div class="oh-sticky-table float-start">
+								<div class="oh-sticky-table__table">
+									<div class="oh-sticky-table__thead">
+										<div class="oh-sticky-table__tr">
+											<div class="oh-sticky-table__th">{% trans "Recruitment" %}</div>
+											<div class="oh-sticky-table__th">{% trans "Manager" %}</div>
+										</div>
+									</div>
+									<div class="oh-sticky-table__tbody">
+
+										{% for recruitment_title, managers in recruitment_manager_mapping.items %}
+
+										<div class="oh-sticky-table__tr">
+											<div class="oh-sticky-table__sd">{{ recruitment_title }}</div>
+											<div class="oh-sticky-table__td">{{ managers|join:",  " }}</div>
+										</div>
+
+										{% endfor %}
+									</div>
+								</div>
+							</div>
+						</div>
+					{% endif %}
+				</div>
+
+		</div>
+	</div>
+</div>
+
+{# Popup modals for dashboard cards #}
+<div class="oh-modal" id="recruitmentCardModalVacancy" role="dialog" aria-labelledby="recruitmentCardModalVacancy" aria-hidden="true">
+	<div class="oh-modal__dialog" style="max-width: 420px;">
+		<div class="oh-modal__dialog-header">
+			<span class="oh-modal__dialog-title">{% trans "Total Vacancies" %}</span>
+			<button type="button" class="oh-modal__close" aria-label="Close">
+				<ion-icon name="close-outline"></ion-icon>
+			</button>
+		</div>
+		<div class="oh-modal__dialog-body">
+			<p class="mb-2"><strong class="oh-card-dashboard__count">{{ total_vacancy }}</strong> {% trans "open position(s) across all recruitments." %}</p>
+			{% if vacancy_details %}
+				<p class="oh-label mb-1 mt-2">{% trans "Available positions:" %}</p>
+				<ul class="oh-list-custom" style="margin: 0; padding-left: 1.25rem;">
+					{% for item in vacancy_details %}
+						<li class="mb-1">{{ item.title }} — <strong>{{ item.vacancy }}</strong> {% if item.vacancy == 1 %}{% trans "vacancy" %}{% else %}{% trans "vacancies" %}{% endif %}</li>
+					{% endfor %}
+				</ul>
+			{% endif %}
+		</div>
+	</div>
+</div>
+<div class="oh-modal" id="recruitmentCardModalOngoing" role="dialog" aria-labelledby="recruitmentCardModalOngoing" aria-hidden="true">
+	<div class="oh-modal__dialog" style="max-width: 420px;">
+		<div class="oh-modal__dialog-header">
+			<span class="oh-modal__dialog-title">{% trans "Ongoing Recruitments" %}</span>
+			<button type="button" class="oh-modal__close" aria-label="Close">
+				<ion-icon name="close-outline"></ion-icon>
+			</button>
+		</div>
+		<div class="oh-modal__dialog-body">
+			<p class="mb-2"><strong class="oh-card-dashboard__count">{{ ongoing_recruitments }}</strong> {% trans "recruitment(s) currently in progress." %}</p>
+			{% if ongoing_recruitment_details %}
+				<p class="oh-label mb-1 mt-2">{% trans "Recruitments:" %}</p>
+				<ul class="oh-list-custom" style="margin: 0; padding-left: 1.25rem;">
+					{% for item in ongoing_recruitment_details %}
+						<li class="mb-1">{{ item.title }}{% if item.managers %} — {% trans "Manager(s):" %} {{ item.managers|join:", " }}{% endif %}</li>
+					{% endfor %}
+				</ul>
+			{% endif %}
+		</div>
+	</div>
+</div>
+<div class="oh-modal" id="recruitmentCardModalHired" role="dialog" aria-labelledby="recruitmentCardModalHired" aria-hidden="true">
+	<div class="oh-modal__dialog" style="max-width: 420px;">
+		<div class="oh-modal__dialog-header">
+			<span class="oh-modal__dialog-title">{% trans "Hired Candidates" %}</span>
+			<button type="button" class="oh-modal__close" aria-label="Close">
+				<ion-icon name="close-outline"></ion-icon>
+			</button>
+		</div>
+		<div class="oh-modal__dialog-body">
+			<p class="mb-2"><strong class="oh-card-dashboard__count">{{ total_hired_candidates }}</strong> {% trans "candidate(s) hired." %}</p>
+			{% if hired_candidates_list %}
+				<p class="oh-label mb-1 mt-2">{% trans "Candidates:" %}</p>
+				<ul class="oh-list-custom" style="margin: 0; padding-left: 1.25rem;">
+					{% for item in hired_candidates_list %}
+						<li class="mb-1">{{ item.name }} — {{ item.job_position }}</li>
+					{% endfor %}
+				</ul>
+			{% else %}
+				<p class="text-muted mb-0 mt-2">{% trans "No hired candidates yet." %}</p>
+			{% endif %}
+		</div>
+	</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script src="{% static 'dashboard/recruitmentChart.js' %}"></script>
+<script src="{% static 'dashboard/joiningChart.js' %}"></script>
+<script src="{% static 'dashboard/vacancyChart.js' %}"></script>
+<script src="{% static 'dashboard/candidateChart.js' %}"></script>
+
+
+
+<script>
+  var selectyear = document.getElementById("year");
+  var currentYear = new Date().getFullYear();
+
+  // Populate the dropdown with years from 2000 to the current year
+  for (var year = 2000; year <= currentYear; year++) {
+    var option = document.createElement("option");
+    option.value = year;
+    option.text = year;
+    // Set the default value to the current year
+    if (year === currentYear) {
+      option.selected = true;
+    }
+    selectyear.appendChild(option);
+  }
+
+
+</script>
+
+{% endblock content %}

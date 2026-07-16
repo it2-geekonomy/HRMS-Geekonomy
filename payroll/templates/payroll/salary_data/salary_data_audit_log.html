@@ -1,0 +1,83 @@
+{% extends 'index.html' %}
+{% load i18n %}
+{% block content %}
+<main :class="sidebarOpen ? 'oh-main__sidebar-visible' : ''">
+    <section class="oh-wrapper oh-main__topbar">
+        <div class="oh-main__titlebar oh-main__titlebar--left">
+            <h1 class="oh-main__titlebar-title fw-bold">{% trans "Salary Data — Activity log" %}</h1>
+        </div>
+        <div class="oh-main__titlebar-button-container">
+            <a href="{% url 'view-salary-data' %}" class="oh-btn oh-btn--secondary oh-btn--shadow">
+                <ion-icon name="arrow-back-outline" class="me-1"></ion-icon>
+                {% trans "Back to Salary Data" %}
+            </a>
+        </div>
+    </section>
+
+    <section class="oh-wrapper oh-main__content">
+        <div class="oh-card">
+            <div class="oh-card-body">
+                <p class="text-muted small mb-3">
+                    {% trans "Shows who generated salary data or deleted records, with date and time." %}
+                </p>
+                {% if page_obj.object_list %}
+                <div class="oh-sticky-table">
+                    <div class="oh-sticky-table__table">
+                        <div class="oh-sticky-table__thead">
+                            <div class="oh-sticky-table__tr">
+                                <div class="oh-sticky-table__th">{% trans "Date & time" %}</div>
+                                <div class="oh-sticky-table__th">{% trans "User" %}</div>
+                                <div class="oh-sticky-table__th">{% trans "Action" %}</div>
+                                <div class="oh-sticky-table__th">{% trans "Period" %}</div>
+                                <div class="oh-sticky-table__th">{% trans "Details" %}</div>
+                            </div>
+                        </div>
+                        <div class="oh-sticky-table__tbody">
+                            {% for log in page_obj %}
+                            <div class="oh-sticky-table__tr">
+                                <div class="oh-sticky-table__td">{{ log.performed_at|date:"d-m-Y H:i:s" }}</div>
+                                <div class="oh-sticky-table__td">
+                                    {% if log.user %}
+                                        {{ log.user.get_full_name|default:log.user.username }}
+                                        {% if log.user.email %}<span class="text-muted small d-block">{{ log.user.email }}</span>{% endif %}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </div>
+                                <div class="oh-sticky-table__td">{{ log.get_action_display }}</div>
+                                <div class="oh-sticky-table__td">
+                                    {% if log.year and log.month %}
+                                        {{ log.year }}-{{ log.month|stringformat:"02d" }}
+                                    {% elif log.year %}
+                                        {{ log.year }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </div>
+                                <div class="oh-sticky-table__td" style="white-space: pre-wrap; max-width: 480px;">{{ log.summary }}</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% if page_obj.has_other_pages %}
+                <nav class="oh-pagination mt-3 d-flex align-items-center gap-2">
+                    {% if page_obj.has_previous %}
+                    <a class="oh-btn oh-btn--sm oh-btn--secondary" href="?page={{ page_obj.previous_page_number }}">{% trans "Previous" %}</a>
+                    {% endif %}
+                    <span class="small text-muted">
+                        {% trans "Page" %} {{ page_obj.number }} {% trans "of" %} {{ page_obj.paginator.num_pages }}
+                    </span>
+                    {% if page_obj.has_next %}
+                    <a class="oh-btn oh-btn--sm oh-btn--secondary" href="?page={{ page_obj.next_page_number }}">{% trans "Next" %}</a>
+                    {% endif %}
+                </nav>
+                {% endif %}
+                {% else %}
+                <p class="text-muted mb-0">{% trans "No activity logged yet." %}</p>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+</main>
+{% endblock %}

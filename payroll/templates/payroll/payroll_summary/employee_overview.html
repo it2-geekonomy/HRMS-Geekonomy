@@ -1,0 +1,304 @@
+{% extends "index.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{% trans "Employee Overview" %} - {{ employee.get_full_name }}{% endblock title %}
+
+{% block content %}
+<div class="oh-wrapper">
+    <div class="oh-main">
+        <div class="oh-main__body">
+            <!-- Header -->
+            <div class="oh-card oh-card--border-0 mb-4">
+                <div class="oh-card-header">
+                    <div class="oh-card-header__title">
+                        <div class="d-flex align-items-center">
+                            <a href="{% url 'employee-payroll-summary' %}" class="oh-btn oh-btn--light oh-btn--sm me-3">
+                                <i class="oh-icon oh-icon--arrow-left"></i>
+                                {% trans "Back to Summary" %}
+                            </a>
+                            <div>
+                                <h3 class="oh-card-title mb-0">
+                                    <i class="oh-icon oh-icon--user me-2"></i>
+                                    {% trans "Employee Overview" %}
+                                </h3>
+                                <p class="oh-card-subtitle text-muted mb-0">{{ employee.get_full_name }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="oh-card-header__actions">
+                        <span class="badge {% if payroll_summary.status == 'paid' %}bg-success{% elif payroll_summary.status == 'draft' %}bg-warning{% elif payroll_summary.status == 'confirmed' %}bg-info{% else %}bg-secondary{% endif %}">
+                            {{ payroll_summary.status|title }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Employee Information -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="oh-card oh-card--border-0">
+                        <div class="oh-card-header">
+                            <h5 class="oh-card-title">
+                                <i class="oh-icon oh-icon--user me-2"></i>
+                                {% trans "Employee Information" %}
+                            </h5>
+                        </div>
+                        <div class="oh-card-body">
+                            <div class="d-flex align-items-center mb-4">
+                                <img src="{{ employee.get_avatar }}" 
+                                     alt="{{ employee.get_full_name }}" 
+                                     class="oh-avatar oh-avatar--lg me-4">
+                                <div>
+                                    <h4 class="mb-1">{{ employee.get_full_name }}</h4>
+                                    <p class="text-muted mb-0">ID: {{ employee.badge_id|default:"N/A" }}</p>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="info-item">
+                                        <label class="info-label">{% trans "Employee ID:" %}</label>
+                                        <span class="info-value">{{ employee.id }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label class="info-label">{% trans "Email:" %}</label>
+                                        <span class="info-value">{{ employee.email }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label class="info-label">{% trans "Phone:" %}</label>
+                                        <span class="info-value">{{ employee.phone }}</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    {% if work_info %}
+                                    <div class="info-item">
+                                        <label class="info-label">{% trans "Department:" %}</label>
+                                        <span class="info-value">{{ work_info.department_id.department }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label class="info-label">{% trans "Position:" %}</label>
+                                        <span class="info-value">{{ work_info.job_position_id.job_position }}</span>
+                                    </div>
+                                    {% if work_info.date_joining %}
+                                    <div class="info-item">
+                                        <label class="info-label">{% trans "Join Date:" %}</label>
+                                        <span class="info-value">{{ work_info.date_joining }}</span>
+                                    </div>
+                                    {% endif %}
+                                    {% if work_info.employee_type_id %}
+                                    <div class="info-item">
+                                        <label class="info-label">{% trans "Employee Type:" %}</label>
+                                        <span class="info-value">{{ work_info.employee_type_id.employee_type }}</span>
+                                    </div>
+                                    {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="oh-card oh-card--border-0">
+                        <div class="oh-card-header">
+                            <h5 class="oh-card-title">
+                                <i class="oh-icon oh-icon--money me-2"></i>
+                                {% trans "Salary Summary" %}
+                            </h5>
+                        </div>
+                        <div class="oh-card-body">
+                            <div class="salary-summary">
+                                <div class="salary-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="salary-label">{% trans "Basic Pay:" %}</span>
+                                        <span class="salary-value">₹{{ payroll_summary.basic_pay|floatformat:2 }}</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="salary-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="salary-label">{% trans "Gross Salary:" %}</span>
+                                        <span class="salary-value">₹{{ payroll_summary.gross_pay|floatformat:2 }}</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="salary-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="salary-label">{% trans "Total Deductions:" %}</span>
+                                        <span class="salary-value text-danger">₹{{ payroll_summary.total_deductions|floatformat:2 }}</span>
+                                    </div>
+                                </div>
+                                
+                                <hr>
+                                
+                                <div class="salary-item net-salary">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="salary-label"><strong>{% trans "Net Salary:" %}</strong></span>
+                                        <span class="salary-value net-amount">₹{{ payroll_summary.net_pay|floatformat:2 }}</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-4">
+                                    <div class="info-item">
+                                        <label class="info-label">{% trans "Pay Period:" %}</label>
+                                        <span class="info-value">{{ payroll_summary.pay_period }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label class="info-label">{% trans "Status:" %}</label>
+                                        <span class="badge {% if payroll_summary.status == 'paid' %}bg-success{% elif payroll_summary.status == 'draft' %}bg-warning{% elif payroll_summary.status == 'confirmed' %}bg-info{% else %}bg-secondary{% endif %}">
+                                            {{ payroll_summary.status|title }}
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                {% if bank_details %}
+                                <div class="mt-4">
+                                    <h6>{% trans "Bank Details" %}</h6>
+                                    <div class="info-item">
+                                        <label class="info-label">{% trans "Bank Name:" %}</label>
+                                        <span class="info-value">{{ bank_details.bank_name }}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label class="info-label">{% trans "Account Number:" %}</label>
+                                        <span class="info-value">{{ bank_details.account_number|slice:":4" }}****</span>
+                                    </div>
+                                    {% if bank_details.branch %}
+                                    <div class="info-item">
+                                        <label class="info-label">{% trans "Branch:" %}</label>
+                                        <span class="info-value">{{ bank_details.branch }}</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="oh-card oh-card--border-0">
+                        <div class="oh-card-header">
+                            <h5 class="oh-card-title">
+                                <i class="oh-icon oh-icon--settings me-2"></i>
+                                {% trans "Quick Actions" %}
+                            </h5>
+                        </div>
+                        <div class="oh-card-body">
+                            <div class="d-flex gap-3">
+                                <a href="{% url 'employee-leave-attendance' employee.id %}" class="oh-btn oh-btn--primary">
+                                    <i class="oh-icon oh-icon--calendar me-2"></i>
+                                    {% trans "View Leave & Attendance" %}
+                                </a>
+                                <a href="{% url 'employee-payslip-breakdown' employee.id %}" class="oh-btn oh-btn--secondary">
+                                    <i class="oh-icon oh-icon--money me-2"></i>
+                                    {% trans "View Payslip Breakdown" %}
+                                </a>
+                                <button class="oh-btn oh-btn--light" onclick="viewFullPayslip()">
+                                    <i class="oh-icon oh-icon--eye me-2"></i>
+                                    {% trans "View Full Payslip" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function viewFullPayslip() {
+    const year = {{ current_year }};
+    const month = {{ current_month }};
+    window.open(`/payroll/view-payslip/?employee_id={{ employee.id }}&month=${month}&year=${year}`, '_blank');
+}
+</script>
+
+<style>
+.oh-avatar--lg {
+    width: 80px;
+    height: 80px;
+}
+
+.info-item {
+    margin-bottom: 15px;
+}
+
+.info-label {
+    font-weight: 600;
+    color: #6c757d;
+    font-size: 14px;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.info-value {
+    color: #495057;
+    font-size: 15px;
+}
+
+.salary-summary {
+    padding: 10px 0;
+}
+
+.salary-item {
+    margin-bottom: 15px;
+    padding: 10px 0;
+}
+
+.salary-label {
+    font-weight: 500;
+    color: #495057;
+}
+
+.salary-value {
+    font-weight: 600;
+    color: #495057;
+    font-family: 'Courier New', monospace;
+}
+
+.net-salary {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #28a745;
+}
+
+.net-amount {
+    font-size: 1.3em;
+    color: #28a745 !important;
+    font-weight: bold;
+}
+
+.oh-card {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 1px solid #e9ecef;
+}
+
+.oh-card-header {
+    background: #fff;
+    border-bottom: 1px solid #e9ecef;
+    padding: 20px;
+}
+
+.oh-card-body {
+    padding: 20px;
+}
+
+@media (max-width: 768px) {
+    .oh-avatar--lg {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .oh-card-body {
+        padding: 15px;
+    }
+}
+</style>
+{% endblock content %}
+

@@ -1,0 +1,384 @@
+{% load static i18n horillafilters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  {% if not for_pdf %}<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter" media="all">{% endif %}
+  <style>
+    body { 
+      background: #fff;
+      font-family: 'Times New Roman', Times, serif;
+      margin: 10px;
+    }
+    .payslip {
+      background: #fff;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      border: 2px solid #000;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+      border: none;
+      table-layout: fixed;
+    }
+    td {
+      padding: 8px 12px;
+      font-size: 13px;
+      border: none;
+      vertical-align: top;
+    }
+    th {
+      padding: 10px 12px;
+      font-size: 14px;
+      font-weight: bold;
+      background: #f0f0f0;
+      border: none;
+    }
+    .header-title {
+      font-size: 18px;
+      font-weight: bold;
+    }
+    .section-title {
+      font-size: 15px;
+      font-weight: bold;
+    }
+    .net-salary {
+      font-size: 16px;
+    }
+    .net-amount {
+      font-size: 18px;
+    }
+    .amount-words {
+      font-size: 12px;
+    }
+    .footer-text {
+      font-size: 11px;
+    }
+    .no-border {
+      border: none !important;
+    }
+    .summary-table td {
+      border: 1px solid #000;
+      padding: 6px 10px;
+      font-size: 11px;
+    }
+    .summary-table .summary-label {
+      font-weight: bold;
+      text-align: left;
+      white-space: nowrap;
+    }
+    .summary-table .summary-value {
+      font-weight: bold;
+      text-align: center;
+      white-space: nowrap;
+    }
+    table.item-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
+      margin: 0;
+    }
+    table.item-table td {
+      padding: 3px 8px;
+      border-bottom: 1px solid #000;
+      font-size: 12px;
+      vertical-align: middle;
+    }
+    table.item-table .item-label { text-align: left; }
+    table.item-table .item-amt {
+      text-align: right;
+      white-space: nowrap;
+      width: 95px;
+    }
+    table.item-table-total tr td {
+      border-bottom: none;
+    }
+    .footer-disclaimer {
+      max-width: 800px;
+      margin: 8px auto 0;
+      padding: 0;
+      border: none;
+      text-align: right;
+      font-style: italic;
+      font-size: 10px;
+    }
+    .payslip-footer {
+      max-width: 800px;
+      margin: 10px auto 0;
+    }
+    @media print {
+      body { 
+        margin: 0; 
+        padding: 0; 
+        background: #fff !important;
+      }
+      .payslip { 
+        background: #fff !important; 
+        margin: 0 !important;
+        max-width: none !important;
+      }
+      table, tr, td, th { page-break-inside: avoid !important; }
+      @page { size: A4; margin: 5mm; }
+    }
+    /* PDF: one page, readable – not too tight, not 2 pages */
+    body.payslip-pdf-body { margin: 8px; }
+    .payslip-pdf.payslip { padding: 12px 16px; border-width: 1px; }
+    .payslip-pdf .header-title { font-size: 16px; }
+    .payslip-pdf table { margin: 6px 0; }
+    .payslip-pdf td { padding: 5px 8px; font-size: 12px; }
+    .payslip-pdf th { padding: 6px 8px; font-size: 13px; }
+    .payslip-pdf .section-title { font-size: 13px; }
+    .payslip-pdf .amount-words { font-size: 11px; }
+    .payslip-pdf .footer-text { font-size: 10px; }
+  </style>
+  <script>
+    function numberToWords(num) {
+      const ones = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE'];
+      const teens = ['TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
+      const tens = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
+      
+      if (num === 0) return 'ZERO';
+      
+      function convertHundreds(n) {
+        let result = '';
+        if (n > 99) {
+          result += ones[Math.floor(n / 100)] + ' HUNDRED ';
+          n %= 100;
+        }
+        if (n > 19) {
+          result += tens[Math.floor(n / 10)] + ' ';
+          n %= 10;
+        } else if (n > 9) {
+          result += teens[n - 10] + ' ';
+          return result;
+        }
+        if (n > 0) {
+          result += ones[n] + ' ';
+        }
+        return result;
+      }
+      
+      let result = '';
+      if (num >= 100000) {
+        result += convertHundreds(Math.floor(num / 100000)) + 'LAKH ';
+        num %= 100000;
+      }
+      if (num >= 1000) {
+        result += convertHundreds(Math.floor(num / 1000)) + 'THOUSAND ';
+        num %= 1000;
+      }
+      if (num > 0) {
+        result += convertHundreds(num);
+      }
+      
+      return result.trim() + ' RUPEES ONLY';
+    }
+    
+    function printDiv() {
+      // Convert amount to words
+      const netPayElement = document.querySelector('[data-net-pay]');
+      if (netPayElement) {
+        const netPay = parseFloat(netPayElement.getAttribute('data-net-pay'));
+        const wordsElement = document.getElementById('amount-in-words');
+        if (wordsElement) {
+          wordsElement.textContent = 'In Words: ' + numberToWords(netPay);
+        }
+      }
+      
+      const printContents = document.getElementById('printDiv').innerHTML;
+      const originalContents = document.body.innerHTML;
+      document.body.innerHTML = printContents;
+      window.onafterprint = () => { window.location.href = document.referrer; };
+      window.print();
+      document.body.innerHTML = originalContents;
+    }
+    {% if not pdf_kit_render %}
+    window.onload = printDiv;
+    {% endif %}
+  </script>
+</head>
+<body id="printDiv"{% if for_pdf %} class="payslip-pdf-body"{% endif %}>
+    <div class="payslip{% if for_pdf %} payslip-pdf{% endif %}">
+        <!-- Header: table for PDF (pisa doesn't support flex), flex for browser -->
+        {% if for_pdf %}
+        <table style="width: 100%; border: none; margin-bottom: 10px;"><tr>
+          <td style="width: 85px; vertical-align: middle; border: none; padding: 0;">
+            <img src="{{ logo_src }}" alt="Logo" style="height: 60px; width: auto;">
+          </td>
+          <td style="vertical-align: middle; border: none; padding-left: 16px;">
+            <h1 class="header-title" style="margin: 0; line-height: 1.2;">Geekonomy Technology Private Limited</h1>
+            <p style="margin: 4px 0; font-size: 11px; font-weight: 500; line-height: 1.3;">
+              No. 1357, Ground Floor, 9th Cross, ITI Layout, Near Rajashekar Hospital, JP Nagar 1st Phase<br>
+              Bengaluru, Karnataka
+            </p>
+          </td>
+        </tr></table>
+        {% else %}
+        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+          <img src="{% if logo_src %}{{ logo_src }}{% else %}{% static 'images/ui/Geekonomy Favicon Logo.png' %}{% endif %}" alt="Logo" style="height: 80px; width: auto; margin-right: 25px; flex-shrink: 0;">
+          <div style="flex: 1;">
+            <h1 class="header-title" style="margin: 0; line-height: 1.2;">Geekonomy Technology Private Limited</h1>
+            <p style="margin: 8px 0; font-size: 13px; font-weight: 500; line-height: 1.4;">
+              No. 1357, Ground Floor, 9th Cross, ITI Layout, Near Rajashekar Hospital, JP Nagar 1st Phase<br>
+              Bengaluru, Karnataka
+            </p>
+          </div>
+        </div>
+        {% endif %}
+
+    <!-- Employee and Bank Details Side by Side -->
+    <table>
+      <tr>
+        <td style="width: 50%; vertical-align: top;">
+          <table style="width: 100%; border: 1px solid #000;">
+            <tr>
+              <td colspan="2" class="section-title" style="border: 1px solid #000;">Employee Details</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid #000;">Employee Name:</td>
+              <td style="border: 1px solid #000;">{{employee.employee_first_name}} {{employee.employee_last_name}}</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid #000;">Emp Code:</td>
+              <td style="border: 1px solid #000;">{{ employee.badge_id|default:"N/A" }}</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid #000;">Designation:</td>
+              <td style="border: 1px solid #000;">{{employee.employee_work_info.job_position_id.job_position}}</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid #000;">Date of Joining:</td>
+              <td style="border: 1px solid #000;">
+                {% if employee.employee_work_info.date_joining %}
+                  {{employee.employee_work_info.date_joining|date:"d-m-Y"}}
+                {% elif employee.date_joining %}
+                  {{employee.date_joining|date:"d-m-Y"}}
+                {% else %}
+                  N/A
+                {% endif %}
+              </td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid #000;">Pay Slip For the Month:</td>
+              <td style="border: 1px solid #000;">{{payslip.start_date|date:"F Y"}}</td>
+            </tr>
+          </table>
+        </td>
+        <td style="width: 50%; vertical-align: top;">
+          <table style="width: 100%; border: 1px solid #000;">
+            <tr>
+              <td colspan="2" class="section-title" style="border: 1px solid #000;">Bank Details</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid #000;">Bank:</td>
+              <td style="border: 1px solid #000;">{{employee.employee_bank_details.bank_name}}</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid #000;">Bank Branch:</td>
+              <td style="border: 1px solid #000;">{{employee.employee_bank_details.branch}}</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid #000;">Account No.:</td>
+              <td style="border: 1px solid #000;">{{employee.employee_bank_details.account_number}}</td>
+            </tr>
+            <tr>
+              <td style="border: 1px solid #000;">IFSC:</td>
+              <td style="border: 1px solid #000;">{{employee.employee_bank_details.any_other_code1}}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+      <!-- Summary -->
+      <table class="summary-table" style="border: 1px solid #000; width: 100%;">
+        <colgroup><col style="width:28%;"><col style="width:22%;"><col style="width:28%;"><col style="width:22%;"></colgroup>
+        <tr>
+          <td class="summary-label">Gross Wages</td>
+          <td class="summary-value">{{ currency_symbol|default:"₹ " }}{{gross_pay|floatformat:0}}</td>
+          <td class="summary-label">Working Days</td>
+          <td class="summary-value">{{total_working_days|floatformat:0|default:30}}</td>
+        </tr>
+        <tr>
+          <td class="summary-label">LOP Days</td>
+          <td class="summary-value">{{lop_days|floatformat:1|default:0}}</td>
+          <td class="summary-label">Paid Days</td>
+          <td class="summary-value">{{paid_days|floatformat:0|default:30}}</td>
+        </tr>
+      </table>
+
+    <!-- Clear separation -->
+    <div style="height: {% if for_pdf %}10px{% else %}15px{% endif %};"></div>
+
+    <!-- Unified Earnings and Deductions Table -->
+    <table style="width: 100%; border: 1px solid #000; margin-bottom: {% if for_pdf %}12px{% else %}20px{% endif %};">
+      <tr>
+        <th style="padding: {% if for_pdf %}6px 8px{% else %}8px{% endif %}; text-align: center; border: 1px solid #000;">Earnings</th>
+        <th style="padding: {% if for_pdf %}6px 8px{% else %}8px{% endif %}; text-align: center; border: 1px solid #000;">Deductions</th>
+      </tr>
+      
+      <!-- Earnings and Deductions Content: one table layout for screen and email -->
+      <tr>
+        <td style="width: 50%; vertical-align: top; border: 1px solid #000; padding: 0;">
+          <table class="item-table">
+            <tr><td class="item-label">Basic:</td><td class="item-amt">{{ currency_symbol|default:"₹ " }}{{basic_pay|floatformat:0}}</td></tr>
+            {% for allowance in all_allowances %}{% if allowance.title and allowance.amount %}
+            <tr><td class="item-label">{{allowance.title}}:</td><td class="item-amt">{{ currency_symbol|default:"₹ " }}{{allowance.amount|floatformat:0}}</td></tr>
+            {% endif %}{% endfor %}
+          </table>
+        </td>
+        <td style="width: 50%; vertical-align: top; border: 1px solid #000; padding: 0;">
+          <table class="item-table">
+            {% if loss_of_pay %}
+            <tr><td class="item-label">Loss of Pay:</td><td class="item-amt">{{ currency_symbol|default:"₹ " }}{{loss_of_pay|floatformat:0}}</td></tr>
+            {% endif %}
+            {% for deduction in all_deductions %}{% if deduction.title and deduction.amount %}
+            <tr><td class="item-label">{{deduction.title}}:</td><td class="item-amt">{{ currency_symbol|default:"₹ " }}{{deduction.amount|floatformat:0}}</td></tr>
+            {% endif %}{% endfor %}
+            {% if federal_tax %}
+            <tr><td class="item-label">Income Tax:</td><td class="item-amt">{{ currency_symbol|default:"₹ " }}{{federal_tax|floatformat:0}}</td></tr>
+            {% endif %}
+          </table>
+        </td>
+      </tr>
+
+            <!-- Total Earnings and Total Deductions Row -->
+      <tr>
+        <td style="padding: 0; border-top: 1px solid #000;">
+          <table class="item-table item-table-total"><tr><td class="item-label">Total Earnings:</td><td class="item-amt">{{ currency_symbol|default:"₹ " }}{{gross_pay|floatformat:0}}</td></tr></table>
+        </td>
+        <td style="padding: 0; border-top: 1px solid #000;">
+          <table class="item-table item-table-total"><tr><td class="item-label">Total Deductions:</td><td class="item-amt">{{ currency_symbol|default:"₹ " }}{{total_deductions|floatformat:0}}</td></tr></table>
+        </td>
+      </tr>
+      
+      <!-- Net Salary Row -->
+      <tr>
+        <td colspan="2" style="padding: {% if for_pdf %}6px 10px{% else %}10px{% endif %}; border-left: 1px solid #000; border-right: 1px solid #000; border-bottom: 1px solid #000; border-top: 1px solid #000;">
+              <div style="font-size: {% if for_pdf %}14px{% else %}16px{% endif %}; font-weight: bold;">Net Salary: {{ currency_symbol|default:"₹ " }}{{net_pay|floatformat:0}}</div>
+        </td>
+      </tr>
+      
+      <!-- In Words Row -->
+      <tr>
+        <td colspan="2" style="padding: {% if for_pdf %}6px 10px{% else %}10px{% endif %}; border-left: 1px solid #000; border-right: 1px solid #000; border-bottom: 1px solid #000; border-top: none;">
+          <div class="amount-words" id="amount-in-words" data-net-pay="{{net_pay|floatformat:0}}" style="font-weight: bold;">In Words: {% if net_pay_in_words %}{{ net_pay_in_words }}{% else %}Loading...{% endif %}</div>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <p class="footer-disclaimer">This is a system generated payslip and does not require company seal and signature.</p>
+  <div class="payslip-footer">
+    <div class="footer-text">Regards,</div>
+    <div style="font-weight: bold; font-size: 11px; margin: 2px 0;">Geekonomy Technology Pvt. Ltd.</div>
+  </div>
+</body>
+<button type="button" onclick="printDiv()" style="display:none;">print as PDF</button>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"></script>
+</html>

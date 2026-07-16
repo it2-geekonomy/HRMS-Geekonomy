@@ -1,0 +1,93 @@
+{% load i18n %}
+<div class="oh-modal__dialog-header">
+    <h5 class="oh-modal__dialog-title">{% trans "Expense Details" %}</h5>
+    <button type="button" class="oh-modal__close" aria-label="Close">
+        <ion-icon name="close-outline"></ion-icon>
+    </button>
+</div>
+<div class="oh-modal__dialog-body">
+    <table class="oh-table w-100">
+        <tr>
+            <th>{% trans "Added By" %}</th>
+            <td>{{ expense.added_by }}</td>
+        </tr>
+        <tr>
+            <th>{% trans "Date" %}</th>
+            <td>{{ expense.expense_date }}</td>
+        </tr>
+        <tr>
+            <th>{% trans "Description / Purpose" %}</th>
+            <td>{{ expense.description|default:"—" }}</td>
+        </tr>
+        <tr>
+            <th>{% trans "Mode of Payment" %}</th>
+            <td>{{ expense.mode_of_payment|default:"—" }}</td>
+        </tr>
+        <tr>
+            <th>{% trans "Paid By" %}</th>
+            <td>{{ expense.paid_by|default:"—" }}</td>
+        </tr>
+        <tr>
+            <th>{% trans "Categories & Breakup" %}</th>
+            <td>
+                {% if expense.breakups.all %}
+                {% for category, lines in expense.grouped_breakups %}
+                <div class="mb-3">
+                    <strong>{{ category|default:"—" }}</strong>
+                    <table class="oh-table w-100 mb-0 mt-1">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Particular" %}</th>
+                                <th>{% trans "Amount" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for line in lines %}
+                            <tr>
+                                <td>{{ line.particular }}</td>
+                                <td>{{ line.amount }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endfor %}
+                <p class="mb-0"><strong>{% trans "Total" %}:</strong> {{ expense.total_amount }}</p>
+                {% else %}
+                {% trans "None" %}
+                {% endif %}
+            </td>
+        </tr>
+        <tr>
+            <th>{% trans "Receipt / Document" %}</th>
+            <td>
+                {% if expense.attachment %}
+                <a href="{{ expense.attachment.url }}" target="_blank" rel="noopener">{% trans "View attachment" %}</a>
+                {% else %}
+                {% trans "None" %}
+                {% endif %}
+            </td>
+        </tr>
+        <tr>
+            <th>{% trans "Created" %}</th>
+            <td>{{ expense.created_at }}</td>
+        </tr>
+    </table>
+    <div class="d-flex justify-content-between mt-3">
+        <div>
+            {% if previous %}
+            <a hx-get="{% url 'single-expense-view' previous %}?instances_ids={{ expense_ids }}&{{ pd }}"
+                hx-target="#objectDetailsModalTarget" class="oh-btn oh-btn--light-bkg">{% trans "Previous" %}</a>
+            {% endif %}
+            {% if next %}
+            <a hx-get="{% url 'single-expense-view' next %}?instances_ids={{ expense_ids }}&{{ pd }}"
+                hx-target="#objectDetailsModalTarget" class="oh-btn oh-btn--light-bkg">{% trans "Next" %}</a>
+            {% endif %}
+        </div>
+        <a hx-get="{% url 'create-expense' %}?instance_id={{ expense.id }}"
+            hx-target="#objectCreateModalTarget"
+            data-toggle="oh-modal-toggle"
+            data-target="#objectCreateModal"
+            class="oh-btn oh-btn--secondary">{% trans "Edit" %}</a>
+    </div>
+</div>

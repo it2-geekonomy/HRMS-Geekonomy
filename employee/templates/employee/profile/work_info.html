@@ -1,0 +1,194 @@
+{% load i18n %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const departmentSelect = document.querySelector('select[name="department_id"]');
+    const teamSelect = document.querySelector('select[name="team_ids"]');
+    
+    if (departmentSelect && teamSelect) {
+        // Store initially selected teams
+        const initialSelectedTeams = Array.from(teamSelect.selectedOptions).map(option => option.value);
+        
+        departmentSelect.addEventListener('change', function() {
+            const departmentId = this.value;
+            
+            // Clear current teams
+            teamSelect.innerHTML = '';
+            
+            if (departmentId) {
+                // Fetch teams for selected department
+                fetch(`/employee/get-teams-by-department/?department_id=${departmentId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        // Add default empty option
+                        const defaultOption = document.createElement('option');
+                        defaultOption.value = '';
+                        defaultOption.textContent = '---Choose Teams---';
+                        teamSelect.appendChild(defaultOption);
+                        
+                        // Add team options
+                        data.teams.forEach(team => {
+                            const option = document.createElement('option');
+                            option.value = team.id;
+                            option.textContent = team.name;
+                            // Restore selection if this team was previously selected
+                            if (initialSelectedTeams.includes(team.id.toString())) {
+                                option.selected = true;
+                            }
+                            teamSelect.appendChild(option);
+                        });
+                        
+                        // Re-initialize select2 if it's being used
+                        if (typeof $(teamSelect).select2 === 'function') {
+                            $(teamSelect).select2('destroy');
+                            $(teamSelect).select2();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching teams:', error);
+                        // Add error message
+                        const errorOption = document.createElement('option');
+                        errorOption.value = '';
+                        errorOption.textContent = 'Error loading teams';
+                        teamSelect.appendChild(errorOption);
+                    });
+            } else {
+                // Add default empty option when no department selected
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = '---Choose Teams---';
+                teamSelect.appendChild(defaultOption);
+            }
+        });
+        
+        // Trigger change on page load if department is already selected
+        if (departmentSelect.value) {
+            departmentSelect.dispatchEvent(new Event('change'));
+        }
+    }
+});
+</script>
+<div class="oh-general__tab-target oh-profile-section mb-4 d-none" id="work" data-select2-id="select2-data-work">
+    <div class="oh-profile-section__card" data-select2-id="select2-data-29-vht3">
+        <div class="row" data-select2-id="select2-data-27-19z8">
+            <div class="col-12 col-sm-12 col-md-12 col-lg-6" data-select2-id="select2-data-26-o2rs">
+            <div class="oh-input-group" data-select2-id="select2-data-25-5380">
+                <label class="oh-label">{% trans "Job Title" %}</label>
+                {{work_form.job_position_id}}
+            </div>
+            </div>
+            <div class="col-12 col-sm-12 col-md-12 col-lg-6">
+            <div class="oh-input-group">
+                <label class="oh-label">{% trans "Department" %}</label>
+                {{work_form.department_id}}
+            </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12 col-sm-12 col-md-12 col-lg-6">
+            <div class="oh-input-group">
+                <label class="oh-label">{% trans "Teams" %}</label>
+                {{work_form.team_ids}}
+            </div>
+            </div>
+            <div class="col-12 col-sm-12 col-md-12 col-lg-6">
+            <div class="oh-input-group">
+                <label class="oh-label">{% trans "Shift Information" %}</label>
+                {{work_form.shift_id}}
+            </div>
+            </div>
+            <div class="col-12 col-sm-12 col-md-12 col-lg-6">
+            <div class="oh-input-group">
+                <label class="oh-label">{% trans "Work Type" %}</label>
+                {{work_form.work_type_id}}
+            </div>
+            </div>
+        </div>
+        <div class="row" data-select2-id="select2-data-27-95a0">
+            <div class="col-12 col-sm-12 col-md-12 col-lg-6" data-select2-id="select2-data-26-u84a">
+            <div class="oh-input-group" data-select2-id="select2-data-25-5l0x">
+                <label class="oh-label">{% trans "Employee Type" %}</label>
+                {{work_form.employee_type_id}}
+            </div>
+            </div>
+            <div class="col-12 col-sm-12 col-md-12 col-lg-6">
+            <div class="oh-input-group">
+                <label class="oh-label">{% trans "Job Role" %}</label>
+                {{work_form.job_role_id}}
+            </div>
+            </div>
+        </div>
+        <div class="row" data-select2-id="select2-data-39-3q9c">
+            <div class="col-12 col-sm-12 col-md-12 col-lg-6" data-select2-id="select2-data-38-ofph">
+            <div class="oh-input-group" data-select2-id="select2-data-37-p4f9">
+                <label class="oh-label">{% trans "Reporting Manager" %}</label>
+                {{work_form.reporting_manager_id}}
+            </div>
+            </div>
+            <div class="col-12 col-sm-12 col-md-12 col-lg-6">
+            <div class="oh-input-group">
+                <label class="oh-label">{% trans "Company" %}</label>
+                {{work_form.company_id}}
+            </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12 col-sm-12 col-md-12 col-lg-6">
+            <div class="oh-input-group">
+                <label class="oh-label">{% trans "Operation Manager" %}</label>
+                {{work_form.operation_manager_id}}
+            </div>
+            </div>
+            <div class="col-12 col-sm-12 col-md-12 col-lg-6">
+            <div class="oh-input-group">
+                <label class="oh-label">{% trans "Business Manager" %}</label>
+                {{work_form.business_manager_id}}
+            </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12 col-sm-12 col-md-12 col-lg-6">
+            <div class="oh-input-group">
+                <label class="oh-label">{% trans "Work Location" %}</label>
+                {{work_form.location}}
+            </div>
+            </div>
+            <div class="col-12 col-sm-12 col-md-12 col-lg-6">
+            <div class="oh-input-group">
+                <label class="oh-label" for="workEmail">{% trans "Work Email" %}</label>
+                {{work_form.email}}
+            </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12 col-sm-12 col-md-12 col-lg-6">
+            <div class="oh-input-group">
+                <label class="oh-label" for="startDate">{% trans "Joining Date" %}</label>
+                {{work_form.date_joining}}
+            </div>
+            </div>
+            <div class="col-12 col-sm-12 col-md-12 col-lg-6">
+            <div class="oh-input-group">
+                <label class="oh-label" for="endDate">{% trans "Contract End Date" %}</label>
+                {{work_form.contract_end_date}}
+            </div>
+        </div>
+        </div>
+        <div class="row">
+            <div class="col-12 col-sm-12 col-md-12 col-lg-6">
+            <div class="oh-input-group">
+                <label class="oh-label">{% trans "Basic Salary" %}</label>
+                {{work_form.basic_salary}}
+            </div>
+            </div>
+            <div class="col-12 col-sm-12 col-md-12 col-lg-6">
+            <div class="oh-input-group">
+                <label class="oh-label" for="workEmail">{% trans "Salary Per Hour" %}</label>
+                {{work_form.salary_hour}}
+            </div>
+            </div>
+        </div>
+
+
+        </form>
+    </div>
+    </div>

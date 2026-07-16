@@ -1,0 +1,85 @@
+{% load i18n offboarding_filter %}
+<script>
+  function offboardingUpdateStage($element) {
+    submitButton = $element.closest("form").find("input[type=submit]")
+    submitButton.click()
+  }
+</script>
+<div class="oh-card" id="offboardingBody{{offboarding.offboarding.id}}">
+  {% include "offboarding/stage/offboarding_body.html" %}
+</div>
+</div>
+<script>
+  (function() {
+    if (window.offboardingStageDragInited) return;
+    window.offboardingStageDragInited = true;
+    document.body.addEventListener('dragstart', function(e) {
+      var h = e.target.closest('.offboarding-stage-drag-handle');
+      if (!h) return;
+      e.dataTransfer.setData('application/json', JSON.stringify({ stageId: h.dataset.stageId, stageIndex: parseInt(h.dataset.stageIndex, 10) }));
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    document.body.addEventListener('dragover', function(e) {
+      var row = e.target.closest('.offboarding-stage-row');
+      if (!row) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      row.classList.add('offboarding-stage-drag-over');
+    });
+    document.body.addEventListener('dragleave', function(e) {
+      var row = e.target.closest('.offboarding-stage-row');
+      if (!row) return;
+      if (!row.contains(e.relatedTarget)) row.classList.remove('offboarding-stage-drag-over');
+    });
+    document.body.addEventListener('drop', function(e) {
+      var row = e.target.closest('.offboarding-stage-row');
+      if (!row) return;
+      e.preventDefault();
+      document.querySelectorAll('.offboarding-stage-row').forEach(function(r) { r.classList.remove('offboarding-stage-drag-over'); });
+      var toIndex = parseInt(row.dataset.stageIndex, 10);
+      var data = e.dataTransfer.getData('application/json');
+      if (!data) return;
+      try {
+        var payload = JSON.parse(data);
+        var obId = row.dataset.offboardingId;
+        var form = document.getElementById('reorderStageForm' + obId);
+        if (!form || String(payload.stageId) === String(row.dataset.stageId)) return;
+        form.querySelector('[name=stage_id]').value = payload.stageId;
+        form.querySelector('[name=to_index]').value = toIndex;
+        form.requestSubmit();
+      } catch (err) {}
+    });
+  })();
+</script>
+<script>
+  // This lines is used to set default selected stage for exits lines
+
+  function enlargeImage(src,$element) {
+      var enlargeImageContainer = $element.parents().closest("li").find("#enlargeImageContainer")
+      enlargeImageContainer.empty()
+      style = 'width:100%; height:90%; box-shadow: 0 10px 10px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.2); background:white'
+      var enlargedImage = $('<iframe>').attr({ src: src, style: style })
+      var name = $('<span>').text(src.split('/').pop().replace(/_/g, ' '))
+      enlargeImageContainer.append(enlargedImage)
+      enlargeImageContainer.append(name)
+      setTimeout(function () {
+          enlargeImageContainer.show()
+
+          const iframe = document.querySelector('iframe').contentWindow
+          var iframe_document = iframe.document
+          iframe_image = iframe_document.getElementsByTagName('img')[0]
+          $(iframe_image).attr('style', 'width:100%; height:100%;')
+      }, 100)
+  }
+
+  function hideEnlargeImage() {
+      var enlargeImageContainer = $('.enlargeImageContainer')
+      enlargeImageContainer.empty()
+  }
+
+  $(document).on('click', function (event) {
+      if (!$(event.target).closest('#enlargeImageContainer').length) {
+          hideEnlargeImage()
+      }
+  })
+</script>

@@ -1,0 +1,57 @@
+{% load i18n %}
+
+<div class="oh-modal__dialog-header">
+  <span class="oh-modal__dialog-title">{% trans "Send Late Arrival Mail" %}</span>
+  <button type="button" class="oh-modal__close--custom" aria-label="Close"
+    onclick="$(this).parents().closest('.oh-modal--show').toggleClass('oh-modal--show')">
+    <ion-icon name="close-outline"></ion-icon>
+  </button>
+</div>
+
+<div class="oh-modal__dialog-body">
+  {% if messages %}
+  <div class="oh-alert-container mb-3">
+    {% for message in messages %}
+    <div class="oh-alert oh-alert--animated {{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="oh-timeoff-modal__profile-content">
+    <div class="oh-profile mb-2">
+      <div class="oh-profile__avatar">
+        <img src="{{ employee.get_avatar }}" class="oh-profile__image me-2" alt="" />
+      </div>
+      <div class="oh-timeoff-modal__profile-info">
+        <span class="oh-timeoff-modal__user fw-bold">{{ employee.get_full_name }}</span>
+        <span class="oh-timeoff-modal__user m-0" style="font-size: 14px; color: #4d4a4a;">
+          {{ employee_email|default:_("No email on file") }}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <form hx-post="{% url 'late-come-early-out-send-mail' attendance_id %}?{{ pd }}"
+        hx-target="#lateMailModalBody">
+    {% csrf_token %}
+    <div class="oh-input-group mb-3">
+      <label class="oh-label" for="late_mail_subject">{% trans "Subject" %}</label>
+      <input type="text" id="late_mail_subject" name="subject" class="oh-input w-100"
+        value="{{ subject }}" required />
+    </div>
+    <div class="oh-input-group mb-3">
+      <label class="oh-label" for="late_mail_body">{% trans "Message" %}</label>
+      <textarea id="late_mail_body" name="body" class="oh-input w-100" rows="12" required>{{ body }}</textarea>
+    </div>
+    <div class="d-flex flex-wrap gap-2 justify-content-end">
+      <button type="button" class="oh-btn oh-btn--secondary"
+        onclick="$(this).parents().closest('.oh-modal--show').toggleClass('oh-modal--show')">
+        {% trans "Cancel" %}
+      </button>
+      <button type="submit" class="oh-btn oh-btn--secondary" {% if not employee_email %}disabled{% endif %}>
+        <ion-icon name="mail-outline" class="mr-1"></ion-icon>
+        {% trans "Send Mail" %}
+      </button>
+    </div>
+  </form>
+</div>

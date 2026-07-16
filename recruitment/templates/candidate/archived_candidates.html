@@ -1,0 +1,239 @@
+{% extends 'index.html' %}
+{% block content %}
+{% load static i18n recruitmentfilters %}
+<div id="messages" class="oh-alert-container"></div>
+
+<section class="oh-wrapper oh-main__topbar">
+  <div class="oh-main__titlebar oh-main__titlebar--left">
+    <h1 class="oh-main__titlebar-title fw-bold mb-0 text-dark">{% trans "Archived Candidates" %}</h1>
+  </div>
+  <div class="oh-main__titlebar oh-main__titlebar--right">
+    <a href="{% url 'candidate-view' %}" class="oh-btn oh-btn--secondary">
+      <ion-icon name="arrow-back-outline" class="me-1"></ion-icon>{% trans "Back to Candidates" %}
+    </a>
+  </div>
+</section>
+
+<div class="oh-wrapper">
+  {% if data %}
+  <div id="selectedArchivedActions" class="mb-3" style="display: none;">
+    <div class="oh-btn-group">
+      <button type="button" id="bulkRestoreArchived" class="oh-btn oh-btn--secondary">
+        <ion-icon name="arrow-undo-outline" class="me-1"></ion-icon>{% trans "Bulk Restore" %}
+      </button>
+      <button type="button" id="bulkDeleteArchived" class="oh-btn oh-btn--danger">
+        <ion-icon name="trash-outline" class="me-1"></ion-icon>{% trans "Bulk Delete" %}
+      </button>
+    </div>
+  </div>
+  <p class="oh-text--secondary small mb-3">{% trans "Restore candidates to move them back to their recruitment pipeline." %}</p>
+  <div class="oh-sticky-table oh-sticky-table--collapse">
+    <div class="oh-sticky-table__table oh-table--sortable">
+      <div class="oh-sticky-table__thead">
+        <div class="oh-sticky-table__tr">
+          <div class="oh-sticky-table__th" style="width: 50px;">
+            <input type="checkbox" id="allArchived" aria-label="{% trans 'Select all' %}">
+          </div>
+          <div class="oh-sticky-table__th">{% trans "Candidate" %}</div>
+          <div class="oh-sticky-table__th">{% trans "Email" %}</div>
+          <div class="oh-sticky-table__th">{% trans "Job Position" %}</div>
+          <div class="oh-sticky-table__th">{% trans "Recruitment" %}</div>
+          <div class="oh-sticky-table__th" style="width: 160px;">{% trans "Actions" %}</div>
+        </div>
+      </div>
+      <div class="oh-sticky-table__tbody">
+        {% for cand in data %}
+        <div class="oh-sticky-table__tr">
+          <div class="oh-sticky-table__td">
+            <input type="checkbox" class="all-archived-row" id="{{ cand.id }}" value="{{ cand.id }}">
+          </div>
+          <div class="oh-sticky-table__td">
+            <div class="oh-profile oh-profile--md">
+              <div class="oh-profile__avatar mr-1">
+                <img src="{{ cand.get_avatar }}" class="oh-profile__image" alt="" />
+              </div>
+              <span class="oh-profile__name oh-text--dark">{{ cand.name|default:cand.email }}</span>
+            </div>
+          </div>
+          <div class="oh-sticky-table__td">{{ cand.email }}</div>
+          <div class="oh-sticky-table__td">{{ cand.job_position_id|default:"—" }}</div>
+          <div class="oh-sticky-table__td">{{ cand.recruitment_id|default:"—" }}</div>
+          <div class="oh-sticky-table__td">
+            <div class="oh-btn-group">
+              {% if perms.recruitment.change_candidate %}
+              <form method="post" action="{% url 'candidate-restore' cand.id %}" class="d-inline" onsubmit="return confirm('{% trans "Restore this candidate to their recruitment?" %}');">
+                {% csrf_token %}
+                <button type="submit" class="oh-btn oh-btn--secondary oh-btn--sm" title="{% trans 'Restore to Recruitment' %}">
+                  <ion-icon name="arrow-undo-outline"></ion-icon> {% trans "Restore" %}
+                </button>
+              </form>
+              {% endif %}
+              <a href="{% url 'candidate-view-individual' cand.id %}" class="oh-btn oh-btn--light-bkg oh-btn--sm" title="{% trans 'View' %}"><ion-icon name="eye-outline"></ion-icon></a>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {% if data.paginator.num_pages > 1 %}
+  <div class="oh-pagination mt-4">
+    <span class="oh-pagination__page">{% trans "Page" %} {{ data.number }} {% trans "of" %} {{ data.paginator.num_pages }}{% if data.paginator.count %} ({{ data.paginator.count }} {% trans "records" %}){% endif %}.</span>
+    <nav class="oh-pagination__nav">
+      {% if data.has_previous %}
+      <a href="?page={{ data.previous_page_number }}{% if pd %}&{{ pd }}{% endif %}" class="oh-pagination__link">{% trans "Previous" %}</a>
+      {% endif %}
+      {% if data.has_next %}
+      <a href="?page={{ data.next_page_number }}{% if pd %}&{{ pd }}{% endif %}" class="oh-pagination__link">{% trans "Next" %}</a>
+      {% endif %}
+    </nav>
+  </div>
+  {% endif %}
+  {% else %}
+  <div class="oh-empty mt-5">
+    <img src="{% static 'images/ui/search.svg' %}" class="oh-404__image mb-3" alt="" style="max-width: 140px; opacity: 0.85;" />
+    <h1 class="oh-empty__title">{% trans "No archived candidates" %}</h1>
+    <p class="oh-empty__subtitle">{% trans "Candidates you archive from the pipeline or candidate list will appear here. You can restore them to their recruitment at any time." %}</p>
+    <div class="oh-btn-group mt-3">
+      <a href="{% url 'candidate-view' %}" class="oh-btn oh-btn--secondary">
+        <ion-icon name="people-outline" class="me-1"></ion-icon>{% trans "Back to Candidates" %}
+      </a>
+      <a href="{% url 'pipeline' %}?closed=false" class="oh-btn oh-btn--secondary">
+        <ion-icon name="git-branch-outline" class="me-1"></ion-icon>{% trans "Recruitment Pipeline" %}
+      </a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+$(document).ready(function() {
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== "") {
+    const cookies = document.cookie.split(";");
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === name + "=") {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
+$("#allArchived").change(function (e) {
+  var is_checked = $(this).is(":checked");
+  var $rowChecks = $(".oh-sticky-table__tbody .all-archived-row");
+  if (is_checked) {
+    $rowChecks
+      .prop("checked", true)
+      .closest(".oh-sticky-table__tr")
+      .addClass("highlight-selected");
+  } else {
+    $rowChecks
+      .prop("checked", false)
+      .closest(".oh-sticky-table__tr")
+      .removeClass("highlight-selected");
+  }
+  updateArchivedActions();
+});
+
+$(".oh-sticky-table__tbody").on("change", ".all-archived-row", function () {
+  updateArchivedActions();
+});
+
+function updateArchivedActions() {
+  var selectedCount = $(".oh-sticky-table__tbody .all-archived-row:checked").length;
+  if (selectedCount > 0) {
+    $("#selectedArchivedActions").show();
+  } else {
+    $("#selectedArchivedActions").hide();
+  }
+}
+
+$("#bulkDeleteArchived").click(function (e) {
+  e.preventDefault();
+  var ids = [];
+  $(".oh-sticky-table__tbody .all-archived-row:checked").each(function () {
+    ids.push($(this).val());
+  });
+  if (ids.length === 0) {
+    Swal.fire({
+      text: "No rows have been selected.",
+      icon: "warning",
+      confirmButtonText: "Close",
+    });
+    return;
+  }
+  Swal.fire({
+    text: "Do you really want to delete all the selected candidates?",
+    icon: "error",
+    showCancelButton: true,
+    confirmButtonColor: "#008000",
+    cancelButtonColor: "#d33",
+    confirmButtonText: "Confirm",
+  }).then(function (result) {
+    if (result.isConfirmed) {
+      $.ajax({
+        type: "POST",
+        url: "/recruitment/candidate-bulk-delete",
+        data: {
+          csrfmiddlewaretoken: getCookie("csrftoken"),
+          ids: JSON.stringify(ids),
+        },
+        success: function (response, textStatus, jqXHR) {
+          if (jqXHR.status === 200) {
+            location.reload();
+          }
+        },
+      });
+    }
+  });
+});
+
+$("#bulkRestoreArchived").click(function (e) {
+  e.preventDefault();
+  var ids = [];
+  $(".oh-sticky-table__tbody .all-archived-row:checked").each(function () {
+    ids.push($(this).val());
+  });
+  if (ids.length === 0) {
+    Swal.fire({
+      text: "No rows have been selected.",
+      icon: "warning",
+      confirmButtonText: "Close",
+    });
+    return;
+  }
+  Swal.fire({
+    text: "Do you really want to restore all the selected candidates?",
+    icon: "info",
+    showCancelButton: true,
+    confirmButtonColor: "#008000",
+    cancelButtonColor: "#d33",
+    confirmButtonText: "Confirm",
+  }).then(function (result) {
+    if (result.isConfirmed) {
+      $.ajax({
+        type: "POST",
+        url: "/recruitment/candidate-bulk-archive?is_active=True",
+        data: {
+          csrfmiddlewaretoken: getCookie("csrftoken"),
+          ids: JSON.stringify(ids),
+        },
+        success: function (response, textStatus, jqXHR) {
+          if (jqXHR.status === 200) {
+            location.reload();
+          }
+        },
+      });
+    }
+  });
+});
+});
+</script>
+
+{% endblock content %}

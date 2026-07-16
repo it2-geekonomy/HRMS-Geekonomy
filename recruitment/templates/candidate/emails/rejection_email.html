@@ -1,0 +1,79 @@
+{% load i18n %}
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>{% trans "Application Update" %}</title>
+</head>
+
+<body style="margin:0; padding:0; background-color:#f3f6fb; font-family:Arial, Helvetica, sans-serif;">
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f3f6fb; padding:24px 0;">
+    <tr>
+      <td align="center">
+
+        <!-- Main Container -->
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:680px; background:#ffffff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden;">
+          
+          <!-- Header -->
+          <tr>
+            <td align="center" style="padding:20px 24px; border-bottom:1px solid #eef2f7;">
+              
+              {% if logo_cid %}
+                <img src="cid:{{ logo_cid }}" alt="{{ company_name }}" style="height:40px; max-width:220px; display:block;">
+              {% elif logo_url %}
+                <img src="{{ logo_url }}" alt="{{ company_name }}" style="height:40px; max-width:220px; display:block;">
+              {% else %}
+                <span style="font-size:16px; font-weight:bold; color:#111827;">{{ company_name }}</span>
+              {% endif %}
+
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:28px 28px 10px 28px; color:#111827; font-size:14px; line-height:1.7;">
+              
+              <p style="margin:0 0 16px 0;">
+                {% blocktrans %}Dear {{ candidate_name }},{% endblocktrans %}
+              </p>
+
+              <p style="margin:0 0 16px 0;">
+                {% blocktrans %}Thank you for your interest in the {{ job_title }} position at {{ company_name }} and for taking the time to go through our selection process.{% endblocktrans %}
+              </p>
+
+              <p style="margin:0 0 16px 0;">
+                {% blocktrans %}After careful consideration, we regret to inform you that we will not be moving forward with your application at this time.{% endblocktrans %}
+              </p>
+
+              <p style="margin:0 0 16px 0;">
+                {% blocktrans %}We truly appreciate your interest in joining our team and encourage you to apply for future opportunities that match your profile.{% endblocktrans %}
+              </p>
+
+              <p style="margin:0 0 20px 0;">
+                {% blocktrans %}Wishing you all the best in your job search and future career.{% endblocktrans %}
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:0 28px 28px 28px; color:#374151; font-size:14px;">
+              
+              <p style="margin:0 0 4px 0;">{% trans "Best regards," %}</p>
+              <p style="margin:0; font-weight:bold;">{% trans "HR Team" %}</p>
+              <p style="margin:0;">{{ company_name }}</p>
+
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>

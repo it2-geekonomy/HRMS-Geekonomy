@@ -1,0 +1,17 @@
+{% load i18n %}{% load widget_tweaks %}
+<div class="oh-modal__dialog-header">
+  <h2 class="oh-modal__dialog-title">{% trans "Approve Comp-Off Request" %}</h2>
+  <button class="oh-modal__close" aria-label="Close"><ion-icon name="close-outline"></ion-icon></button>
+</div>
+<div class="oh-modal__dialog-body">
+  <p class="mb-2">{% trans "Employee" %}: <strong>{{ comp_off_request.employee_id }}</strong></p>
+  <p class="mb-3">{% trans "Requested days" %}: <strong>{{ comp_off_request.requested_days }}</strong></p>
+  <form hx-post="{% url 'comp-off-request-approve' req_id %}" hx-target="#rejectTarget">
+    <div class="mb-3">
+      <label class="oh-label required-star">{% trans "Comp-Off Days to Assign" %}</label>
+      {{ form.approved_days|add_class:"oh-input w-100" }}{{ form.approved_days.errors }}
+      <small class="text-muted">{% trans "These days will be added to the employee's Comp Off Leave balance." %}</small>
+    </div>
+    <button type="submit" class="oh-btn oh-btn--secondary oh-btn--shadow">{% trans "Approve" %}</button>
+  </form>
+</div>

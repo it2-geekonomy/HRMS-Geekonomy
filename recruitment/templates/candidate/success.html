@@ -1,0 +1,131 @@
+{% extends 'candidate/application_form_component.html' %}
+{% load i18n %}
+{% block content %}
+<style>
+  .application-success-page {
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+  }
+
+  .application-success-icon {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 1.25rem;
+    border-radius: 50%;
+    background: hsl(99, 44%, 97%);
+    border: 2px solid hsl(99, 44%, 47%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: hsl(99, 44%, 40%);
+    font-size: 2.25rem;
+  }
+
+  .application-success-step {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: hsl(99, 44%, 40%);
+    margin: 0 0 0.75rem;
+    text-align: center;
+  }
+
+  .application-success-card {
+    text-align: center;
+    padding: 2rem 1.5rem 2.25rem;
+  }
+
+  .application-success-card .oh-onboarding-card__title {
+    margin-bottom: 0.75rem;
+  }
+
+  .application-success-card .oh-onboarding-card__lead {
+    margin-bottom: 1.5rem;
+    color: hsl(0, 0%, 35%);
+  }
+
+  .application-success-points {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1.5rem;
+    text-align: left;
+    max-width: 420px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .application-success-points li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.9rem;
+    color: hsl(0, 0%, 30%);
+    line-height: 1.5;
+  }
+
+  .application-success-points li ion-icon {
+    flex-shrink: 0;
+    margin-top: 0.15rem;
+    color: hsl(99, 44%, 47%);
+    font-size: 1.1rem;
+  }
+
+  .application-success-note {
+    font-size: 0.85rem;
+    color: hsl(0, 0%, 50%);
+    margin: 0;
+  }
+</style>
+
+{% if messages %}
+<div class="oh-wrapper mt-3">
+  {% for message in messages %}
+  <div class="oh-alert oh-alert--animated {{ message.tags }}">
+    {{ message }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div id="main" class="application-success-page">
+  <div class="oh-wrapper mt-5 mb-5 w-100">
+    <div class="row justify-content-center">
+      <div class="col-12 col-lg-8 col-xl-7">
+        <div class="oh-onboarding-card oh-onboarding-card--top-bar w-100">
+          <div class="oh-onboarding-card__container oh-onboarding-card__container--wide application-success-card">
+            <div class="application-success-icon" aria-hidden="true">
+              <ion-icon name="checkmark-outline"></ion-icon>
+            </div>
+            <p class="application-success-step">{% trans "Application Complete" %}</p>
+            <h1 class="oh-onboarding-card__title oh-onboarding-card__title--h2">
+              {% trans "Thank You for Applying!" %}
+            </h1>
+            <p class="oh-onboarding-card__lead">
+              {% trans "We have received your application successfully." %}
+            </p>
+            <ul class="application-success-points">
+              <li>
+                <ion-icon name="mail-outline"></ion-icon>
+                <span>{% trans "Our recruitment team will review your profile and contact you if it matches the role." %}</span>
+              </li>
+              <li>
+                <ion-icon name="time-outline"></ion-icon>
+                <span>{% trans "Please allow a few business days for us to process your application." %}</span>
+              </li>
+            </ul>
+            <p class="application-success-note">
+              {% trans "You may safely close this window." %}
+            </p>
+          </div>
+        </div>
+        <p class="small text-muted text-center mt-4 mb-0">
+          &copy; {% now 'Y' %} Geekonomy. {% trans "All rights reserved." %}
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

@@ -1,0 +1,357 @@
+{% load i18n %}
+{% load attendancefilters %}
+
+<div class="d-flex flex-row-reverse m-2">
+    <span class="" style="margin-left: 10px">
+        <span
+            class="oh-dot oh-dot--small me-1"
+            style="background-color: #ed4c4c"
+        ></span>
+        {% trans "AR – Attendance Request Raised" %}
+    </span>
+    <span class="" style="margin-left: 10px">
+        <span
+            class="oh-dot oh-dot--small me-1"
+            style="background-color: #ed4c4c"
+        ></span>
+        {% trans "LR – Leave Request" %}
+    </span>
+    <span class="me-3" style="margin-left: 10px">
+        <span
+            class="oh-dot oh-dot--small me-1"
+            style="background-color: #2196F3"
+        ></span>
+        {% trans "Absent (A)" %}
+    </span>
+    <span class="me-3" style="margin-left: 10px">
+        <span
+            class="oh-dot oh-dot--small me-1"
+            style="background-color: #ff9800"
+        ></span>
+        {% trans "Missing Punch" %}
+    </span>
+    <span class="me-3" style="margin-left: 10px">
+        <span
+            class="oh-dot oh-dot--small me-1"
+            style="background-color: #808080"
+        ></span>
+        {% trans "Leave" %}
+    </span>
+    <span class="me-3" style="margin-left: 10px">
+        <span
+            class="oh-dot oh-dot--small me-1"
+            style="background-color: #E1BEE7"
+        ></span>
+        {% trans "Public Holiday" %}
+    </span>
+    <span class="me-3" style="margin-left: 10px">
+        <span
+            class="oh-dot oh-dot--small me-1"
+            style="background-color: #607d8b"
+        ></span>
+        {% trans "Week Off" %}
+    </span>
+    <span class="me-3" style="margin-left: 10px">
+        <span
+            class="oh-dot oh-dot--small me-1"
+            style="background-color: #38c338"
+        ></span>
+        {% trans "Present" %}
+    </span>
+    <span class="me-3" style="margin-left: 10px">
+        <span
+            class="oh-dot oh-dot--small me-1"
+            style="background-color: #43a047"
+        ></span>
+        {% trans "Present + Leave" %}
+    </span>
+    <span class="me-3" style="margin-left: 10px">
+        <span
+            class="oh-dot oh-dot--small me-1"
+            style="background-color: #dfdf52"
+        ></span>
+        {% trans "Half Day Present" %}
+    </span>
+    <span class="me-3" style="margin-left: 10px">
+        <span
+            class="oh-dot oh-dot--small me-1"
+            style="background-color: #dfdf52"
+        ></span>
+        {% trans "Half Day Present + Leave" %}
+    </span>
+    <span class="me-3" style="margin-left: 10px">
+        <span
+            class="oh-dot oh-dot--small me-1"
+            style="background-color: #ff6b6b"
+        ></span>
+        {% trans "Short Presence" %}
+    </span>
+    <span class="me-3" style="margin-left: 10px">
+        <span
+            class="oh-dot oh-dot--small me-1"
+            style="background-color: #ff6b6b"
+        ></span>
+        {% trans "Short Presence + Leave" %}
+    </span>
+</div>
+
+<div class="oh-sticky-table" style="overflow-x: auto;">
+    <table style="min-width: 100%;">
+        <thead>
+            <tr>
+                {% for day in current_month_dates_list %}
+                    <th
+                        class="oh-sticky-table__th
+                        {% if day in leave_dates %}holiday {% else %}header{% endif %}"
+                        style="min-width: 40px; font-size: 14px; font-weight: bold;"
+                    >
+                        {{ day.day }}
+                    </th>
+                {% endfor %}
+            </tr>
+            <tr>
+                {% for day in current_month_dates_list %}
+                    <th
+                        class="oh-sticky-table__th
+                        {% if day in leave_dates %}holiday {% else %}header{% endif %}"
+                        style="font-size: 10px; padding: 4px;"
+                    >
+                        {{ day|date:"D" }}
+                    </th>
+                {% endfor %}
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                {% for work_record in work_records %}
+                    {% with day=current_month_dates_list|get_item:forloop.counter0 %}
+                    <td
+                        class="days {% if day in leave_dates %}holiday{% endif %}"
+                        {% if day in holiday_dates %}title="{{ holiday_dates_with_names|dict_get:day|default:'Public Holiday' }}"
+                        {% elif work_record and work_record.work_record_type == 'FDP' and day|hp_p_key:employee.id in pl_dates %}title="{% trans 'Present + Leave' %}"
+                        {% elif work_record and work_record.work_record_type == 'SP' and day|hp_p_key:employee.id in sp_l_dates %}title="{% trans 'Short Presence + Leave' %}"
+                        {% elif work_record and work_record.title_message %}title="{{ work_record.title_message }}"
+                        {% endif %}
+                        style="text-align:center; cursor:pointer; min-width: 40px; height: 50px; font-size: 13px;
+                        {% if day in holiday_dates and work_record is None %}
+                            background-color: #E1BEE7; color: #4a148c;
+                        {% elif day in holiday_dates and work_record and work_record.work_record_type == 'DFT' %}
+                            background-color: #E1BEE7; color: #4a148c;
+                        {% elif day in leave_dates and work_record is None %}
+                            background-color: #607d8b; color: #fff;
+                        {% elif day in leave_dates and work_record and work_record.work_record_type == 'DFT' %}
+                            background-color: #607d8b; color: #fff;
+                        {% elif day|hp_p_key:employee.id in attendance_request_cell_keys %}
+                            background-color: #ed4c4c; color: #fff;
+                        {% elif day|hp_p_key:employee.id in leave_request_cell_keys %}
+                            background-color: #ed4c4c; color: #fff;
+                        {% elif work_record %}
+                            {% if work_record.work_record_type == 'CONF' %}
+                                background-color: #ed4c4c; color: #fff;
+                            {% elif work_record.work_record_type == 'FDP' %}
+                                {% if day|hp_p_key:employee.id in pl_dates %}
+                                    background-color: #43a047; color: #fff;
+                                {% elif day|hp_p_key:employee.id in hp_l_dates %}
+                                    background-color: #dfdf52; color: #000;
+                                {% else %}
+                                    background-color: #38c338; color: #fff;
+                                {% endif %}
+                            {% elif work_record.work_record_type == 'HDP' %}
+                                background-color: #dfdf52; color: #000;
+                            {% elif work_record.work_record_type == 'SP' %}
+                                background-color: #ff6b6b; color: #fff;
+                            {% elif work_record.work_record_type == 'MP' %}
+                                background-color: #ff9800; color: #fff;
+                            {% elif work_record.work_record_type == 'HD' %}
+                                {% if day in holiday_dates %}
+                                    background-color: #E1BEE7; color: #4a148c;
+                                {% else %}
+                                    background-color: #607d8b; color: #fff;
+                                {% endif %}
+                            {% elif work_record.is_leave_record %}
+                                background-color: #808080; color: #fff;
+                            {% elif work_record.work_record_type == 'ABS' or work_record.work_record_type == 'DFT' %}
+                                {% if effective_from and day >= effective_from and day <= current_date %}
+                                    background-color: #2196F3; color: #fff;
+                                {% endif %}
+                            {% endif %}
+                        {% elif work_record is None %}
+                            {% if effective_from and day >= effective_from and day <= current_date %}
+                                background-color: #2196F3; color: #fff;
+                            {% endif %}
+                        {% endif %}
+                    "
+                    >
+                        <a href="{% if day|hp_p_key:employee.id in attendance_request_cell_keys %}{% url 'request-attendance-view' %}?employee_id={{ employee.id }}&attendance_date={{ day|date:'Y-m-d' }}{% elif work_record and work_record.is_leave_record or work_record and work_record.work_record_type == 'HD' %}{% url 'user-request-view' %}?from_date={{ day|date:'Y-m-d' }}&to_date={{ day|date:'Y-m-d' }}&status=approved{% else %}{% url 'view-my-attendance' %}?attendance_date={{ day|date:'Y-m-d' }}{% endif %}" class="d-block text-decoration-none" style="color: inherit; min-height: 50px; line-height: 50px;" {% if work_record and work_record.work_record_type == 'FDP' and day|hp_p_key:employee.id in pl_dates %}title="{% trans 'Present + Leave' %}"{% endif %}>
+                        {% if day in holiday_dates and work_record is None %}
+                            <div class="fw-bold">
+                                <span>PH</span>
+                            </div>
+                        {% elif day in holiday_dates and work_record and work_record.work_record_type == 'DFT' %}
+                            <div class="fw-bold">
+                                <span>PH</span>
+                            </div>
+                        {% elif day in leave_dates and work_record is None %}
+                            <div class="fw-bold">
+                                <span>WO</span>
+                            </div>
+                        {% elif day in leave_dates and work_record and work_record.work_record_type == 'DFT' %}
+                            <div class="fw-bold">
+                                <span>WO</span>
+                            </div>
+                        {% elif day|hp_p_key:employee.id in attendance_request_cell_keys %}
+                            <div class="fw-bold" title='{% trans "AR – Attendance Request Raised" %}'>
+                                <span>AR</span>
+                            </div>
+                        {% elif day|hp_p_key:employee.id in leave_request_cell_keys %}
+                            <div class="fw-bold" title='{% trans "LR – Leave Request" %}'>
+                                <span>LR</span>
+                            </div>
+                        {% elif work_record %}
+                            {% if work_record.work_record_type == 'CONF' or work_record.work_record_type == 'FDP' or work_record.work_record_type == 'HDP' or work_record.work_record_type == 'SP' or work_record.work_record_type == 'MP' or work_record.is_leave_record or work_record.work_record_type == 'HD' %}
+                            <div
+                                {% if work_record.work_record_type == 'SP' and day|hp_p_key:employee.id in sp_l_dates %}
+                                    title="{% trans 'Short Presence + Leave' %}"
+                                {% elif work_record.title_message %}
+                                    title="{{work_record.title_message}}"
+                                {% endif %}
+                                class="fw-bold"
+                            >
+                                <span>
+                                    {% if work_record.work_record_type == 'CONF' %} AR
+                                    {% elif work_record.work_record_type == 'FDP' %}{% if day|hp_p_key:employee.id in pl_dates %}P/L{% elif day|hp_p_key:employee.id in hp_l_dates %}HP/L{% else %}P{% endif %}
+                                    {% elif work_record.work_record_type == 'HDP' %}{% if day|hp_p_key:employee.id in hp_l_dates %}HP/L{% else %}HP{% endif %}
+                                    {% elif work_record.work_record_type == 'SP' %}{% if day|hp_p_key:employee.id in sp_l_dates %}SP/L{% else %}SP{% endif %}
+                                    {% elif work_record.work_record_type == 'MP' %} MP
+                                    {% elif work_record.work_record_type == 'HD' %}{% if day in holiday_dates %}PH{% else %}WO{% endif %}
+                                    {% elif work_record.is_leave_record %} L
+                                    {% endif %}
+                                </span>
+                            </div>
+                            {% elif work_record.work_record_type == 'ABS' or work_record.work_record_type == 'DFT' %}
+                                {% if effective_from and day >= effective_from and day <= current_date %}
+                                    <div class="fw-bold">
+                                        <span>A</span>
+                                    </div>
+                                {% endif %}
+                            {% endif %}
+                        {% elif work_record is None %}
+                            {% if effective_from and day >= effective_from and day <= current_date %}
+                                <div class="fw-bold">
+                                    <span>A</span>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                        </a>
+                    </td>
+                    {% endwith %}
+                {% endfor %}
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="mt-4 p-3" style="background: #f8f9fa; border-radius: 8px;">
+    <h6 class="mb-3 fw-bold">{% trans "Monthly Summary" %} - {{ employee }}</h6>
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex flex-wrap gap-2">
+                {% with present_count=0 half_day_count=0 absent_count=0 leave_count=0 mp_count=0 %}
+                <div class="d-flex align-items-center px-3 py-2" style="background: #38c338; color: white; border-radius: 6px; min-width: 100px;">
+                    <div class="text-center w-100">
+                        <div style="font-size: 11px;">{% trans "Present" %}</div>
+                        <div class="fw-bold" id="present-count">-</div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center px-3 py-2" style="background: #dfdf52; color: #333; border-radius: 6px; min-width: 100px;">
+                    <div class="text-center w-100">
+                        <div style="font-size: 11px;">{% trans "Half Day" %}</div>
+                        <div class="fw-bold" id="halfday-count">-</div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center px-3 py-2" style="background: #2196F3; color: white; border-radius: 6px; min-width: 100px;">
+                    <div class="text-center w-100">
+                        <div style="font-size: 11px;">{% trans "Absent (A)" %}</div>
+                        <div class="fw-bold" id="nd-count">-</div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center px-3 py-2" style="background: #ff9800; color: white; border-radius: 6px; min-width: 100px;">
+                    <div class="text-center w-100">
+                        <div style="font-size: 11px;">{% trans "Missing Punch" %}</div>
+                        <div class="fw-bold" id="mp-count">-</div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center px-3 py-2" style="background: #808080; color: white; border-radius: 6px; min-width: 100px;">
+                    <div class="text-center w-100">
+                        <div style="font-size: 11px;">{% trans "Leave" %}</div>
+                        <div class="fw-bold" id="leave-count">-</div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center px-3 py-2" style="background: #E1BEE7; color: #4a148c; border-radius: 6px; min-width: 100px;">
+                    <div class="text-center w-100">
+                        <div style="font-size: 11px;">{% trans "Public Holiday" %}</div>
+                        <div class="fw-bold" id="ph-count">-</div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center px-3 py-2" style="background: #607d8b; color: white; border-radius: 6px; min-width: 100px;">
+                    <div class="text-center w-100">
+                        <div style="font-size: 11px;">{% trans "Week Off" %}</div>
+                        <div class="fw-bold" id="wo-count">-</div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center px-3 py-2" style="background: #ed4c4c; color: white; border-radius: 6px; min-width: 100px;">
+                    <div class="text-center w-100">
+                        <div style="font-size: 11px;">{% trans "AR" %}</div>
+                        <div class="fw-bold" id="ar-count">-</div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center px-3 py-2" style="background: #ed4c4c; color: white; border-radius: 6px; min-width: 100px;">
+                    <div class="text-center w-100">
+                        <div style="font-size: 11px;">{% trans "LR" %}</div>
+                        <div class="fw-bold" id="lr-count">-</div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center px-3 py-2" style="background: #ff6b6b; color: white; border-radius: 6px; min-width: 100px;">
+                    <div class="text-center w-100">
+                        <div style="font-size: 11px;">{% trans "SP" %}</div>
+                        <div class="fw-bold" id="sp-count">-</div>
+                    </div>
+                </div>
+                {% endwith %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    // Count work record types
+    let present = 0, halfDay = 0, nd = 0, mp = 0, leave = 0, ph = 0, wo = 0, ar = 0, lr = 0, sp = 0;
+    
+    document.querySelectorAll('.days div.fw-bold span, .days div.fw-bold a').forEach(function(el) {
+        const text = el.textContent.trim();
+        if (text === 'P' || text === 'P/L') present++;
+        else if (text === 'HP' || text === 'HP/L') halfDay++;
+        else if (text === 'A' || text === 'ND') nd++;
+        else if (text === 'MP') mp++;
+        else if (text === 'L') leave++;
+        else if (text === 'PH') ph++;
+        else if (text === 'WO') wo++;
+        else if (text === 'AR') ar++;
+        else if (text === 'LR') lr++;
+        else if (text === 'SP' || text === 'SP/L') sp++;
+    });
+    
+    document.getElementById('present-count').textContent = present;
+    document.getElementById('halfday-count').textContent = halfDay;
+    document.getElementById('nd-count').textContent = nd;
+    document.getElementById('mp-count').textContent = mp;
+    document.getElementById('leave-count').textContent = leave;
+    document.getElementById('ph-count').textContent = ph;
+    document.getElementById('wo-count').textContent = wo;
+    document.getElementById('ar-count').textContent = ar;
+    document.getElementById('lr-count').textContent = lr;
+    document.getElementById('sp-count').textContent = sp;
+})();
+</script>

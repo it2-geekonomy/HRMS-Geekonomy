@@ -1,0 +1,36 @@
+{% load i18n %}
+{% load static %}
+<div class="oh-dropdown__filter-body">
+  <div class="oh-accordion">
+    <div class="oh-accordion-header">{% trans "Employee" %}</div>
+    <div class="oh-accordion-body">
+      <div class="row">
+        <div class="col-sm-12 col-md-12 col-lg-6">
+          <div class="oh-input-group">
+            <label class="oh-label" for="{{ f.form.employee_first_name.id_for_label }}">{% trans "First Name" %}</label>
+            {{ f.form.employee_first_name }}
+          </div>
+        </div>
+        <div class="col-sm-12 col-md-12 col-lg-6">
+          <div class="oh-input-group">
+            <label class="oh-label" for="{{ f.form.employee_last_name.id_for_label }}">{% trans "Last Name" %}</label>
+            {{ f.form.employee_last_name }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="oh-accordion">
+    <div class="oh-accordion-header">{% trans "Advanced" %}</div>
+    <div class="oh-accordion-body">
+      <div class="row">
+        <div class="col-sm-12 col-md-12 col-lg-6">
+          <div class="oh-input-group">
+            <label class="oh-label" for="{{ f.form.is_active.id_for_label }}">{% trans "Is Active" %}?</label>
+            {{ f.form.is_active }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

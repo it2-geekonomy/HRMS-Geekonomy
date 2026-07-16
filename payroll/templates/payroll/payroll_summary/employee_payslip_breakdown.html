@@ -1,0 +1,551 @@
+{% extends "index.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{% trans "Payslip Breakdown" %} - {{ employee.get_full_name }}{% endblock title %}
+
+{% block content %}
+<div class="oh-wrapper">
+    <div class="oh-main">
+        <div class="oh-main__body">
+            <!-- Header -->
+            <div class="oh-card oh-card--border-0 mb-4">
+                <div class="oh-card-header">
+                    <div class="oh-card-header__title">
+                        <div class="d-flex align-items-center">
+                            <a href="{% url 'employee-payroll-summary' %}" class="oh-btn oh-btn--light oh-btn--sm me-3">
+                                <i class="oh-icon oh-icon--arrow-left"></i>
+                                {% trans "Back to Summary" %}
+                            </a>
+                            <div>
+                                <h3 class="oh-card-title mb-0">
+                                    <i class="oh-icon oh-icon--money me-2"></i>
+                                    {% trans "Payslip Breakdown" %}
+                                </h3>
+                                <p class="oh-card-subtitle text-muted mb-0">{{ employee.get_full_name }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="oh-card-header__actions">
+                        <span class="badge bg-primary">{{ current_month_name }} {{ current_year }}</span>
+                    </div>
+                </div>
+                
+                <!-- Month/Year Filter -->
+                <div class="oh-card-body">
+                    <form method="GET" class="oh-form oh-form--horizontal">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="oh-form-group">
+                                    <label class="oh-form-label">{% trans "Month" %}</label>
+                                    <select name="month" class="oh-select oh-select--sm">
+                                        {% for month_num, month_name in months %}
+                                        <option value="{{ month_num }}" {% if current_month == month_num %}selected{% endif %}>
+                                            {{ month_name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="oh-form-group">
+                                    <label class="oh-form-label">{% trans "Year" %}</label>
+                                    <select name="year" class="oh-select oh-select--sm">
+                                        {% for year_option in year_range %}
+                                        <option value="{{ year_option }}" {% if current_year == year_option %}selected{% endif %}>
+                                            {{ year_option }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="oh-form-group">
+                                    <label class="oh-form-label">&nbsp;</label>
+                                    <button type="submit" class="oh-btn oh-btn--primary oh-btn--sm">
+                                        <i class="oh-icon oh-icon--search"></i>
+                                        {% trans "Apply Filter" %}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Current Month Payslip -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="oh-card oh-card--border-0 mb-4">
+                        <div class="oh-card-header">
+                            <h5 class="oh-card-title">
+                                <i class="oh-icon oh-icon--plus me-2"></i>
+                                {% trans "Allowances" %} - {{ current_month_name }} {{ current_year }}
+                            </h5>
+                        </div>
+                        <div class="oh-card-body">
+                            <div class="allowance-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="allowance-label">{% trans "Basic Pay:" %}</span>
+                                    <span class="allowance-value">₹{{ current_payslip_data.basic_pay|floatformat:2 }}</span>
+                                </div>
+                            </div>
+                            
+                            <!-- LOP Days Information -->
+                            <div class="allowance-item lop-info">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="allowance-label">{% trans "LOP Days:" %}</span>
+                                    <span class="allowance-value {% if current_payslip_data.lop_days > 0 %}text-warning{% else %}text-success{% endif %}">
+                                        {% if current_payslip_data.lop_days > 0 %}
+                                            {{ current_payslip_data.lop_days|floatformat:0 }} {% trans "days" %}
+                                        {% else %}
+                                            {% trans "No LOP days" %}
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                {% if current_payslip_data.lop_days > 0 %}
+                                <div class="lop-details">
+                                    <small class="text-muted">
+                                        {% trans "LOP Amount:" %} ₹{{ current_payslip_data.lop_amount|floatformat:2 }}
+                                    </small>
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            {% if current_payslip_data.allowances %}
+                                {% for allowance in current_payslip_data.allowances %}
+                                <div class="allowance-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="allowance-label">{{ allowance.title }}:</span>
+                                        <span class="allowance-value">₹{{ allowance.amount|floatformat:2 }}</span>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="text-center py-4">
+                                    <i class="oh-icon oh-icon--plus oh-icon--3x text-muted mb-3"></i>
+                                    <p class="text-muted">{% trans "No allowances available" %}</p>
+                                </div>
+                            {% endif %}
+                            
+                            <hr>
+                            <div class="allowance-total">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="allowance-label"><strong>{% trans "Gross Salary:" %}</strong></span>
+                                    <span class="allowance-value total-amount">₹{{ current_payslip_data.gross_pay|floatformat:2 }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="oh-card oh-card--border-0 mb-4">
+                        <div class="oh-card-header">
+                            <h5 class="oh-card-title">
+                                <i class="oh-icon oh-icon--minus me-2"></i>
+                                {% trans "Deductions" %} - {{ current_month_name }} {{ current_year }}
+                            </h5>
+                        </div>
+                        <div class="oh-card-body">
+                            {% if current_payslip_data.deductions %}
+                                {% for deduction in current_payslip_data.deductions %}
+                                {% if deduction.title %}
+                                <div class="deduction-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="deduction-label">{{ deduction.title }}:</span>
+                                        <span class="deduction-value">₹{{ deduction.amount|floatformat:2 }}</span>
+                                    </div>
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <div class="text-center py-4">
+                                    <i class="oh-icon oh-icon--minus oh-icon--3x text-muted mb-3"></i>
+                                    <p class="text-muted">{% trans "No deductions available" %}</p>
+                                </div>
+                            {% endif %}
+                            
+                            <hr>
+                            <div class="deduction-total">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="deduction-label"><strong>{% trans "Total Deductions:" %}</strong></span>
+                                    <span class="deduction-value total-deduction">₹{{ current_payslip_data.total_deductions|floatformat:2 }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Net Salary Summary -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="oh-card oh-card--border-0 mb-4">
+                        <div class="oh-card-header">
+                            <h5 class="oh-card-title">
+                                <i class="oh-icon oh-icon--money me-2"></i>
+                                {% trans "Salary Summary" %} - {{ current_month_name }} {{ current_year }}
+                            </h5>
+                        </div>
+                        <div class="oh-card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="summary-item">
+                                        <div class="summary-label">{% trans "Basic Pay" %}</div>
+                                        <div class="summary-value">₹{{ current_payslip_data.basic_pay|floatformat:2 }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="summary-item">
+                                        <div class="summary-label">{% trans "Gross Salary" %}</div>
+                                        <div class="summary-value">₹{{ current_payslip_data.gross_pay|floatformat:2 }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="summary-item">
+                                        <div class="summary-label">{% trans "Total Deductions" %}</div>
+                                        <div class="summary-value text-danger">₹{{ current_payslip_data.total_deductions|floatformat:2 }}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="summary-item net-salary-summary">
+                                        <div class="summary-label"><strong>{% trans "Net Salary" %}</strong></div>
+                                        <div class="summary-value net-amount">₹{{ current_payslip_data.net_pay|floatformat:2 }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="info-item">
+                                            <label class="info-label">{% trans "Status:" %}</label>
+                                            <span class="badge {% if current_payslip_data.status == 'paid' %}bg-success{% elif current_payslip_data.status == 'draft' %}bg-warning{% elif current_payslip_data.status == 'confirmed' %}bg-info{% else %}bg-secondary{% endif %}">
+                                                {{ current_payslip_data.status|title }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="info-item">
+                                            <label class="info-label">{% trans "Pay Period:" %}</label>
+                                            <span class="info-value">
+                                                {% if current_payslip_data.payslip %}
+                                                    {{ current_payslip_data.payslip.start_date }} to {{ current_payslip_data.payslip.end_date }}
+                                                {% else %}
+                                                    {% trans "N/A" %}
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4">
+                                <button class="oh-btn oh-btn--primary" onclick="viewFullPayslip()">
+                                    <i class="oh-icon oh-icon--eye me-2"></i>
+                                    {% trans "View Full Payslip" %}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Monthly Payslip History -->
+            {% if monthly_payslips %}
+            <div class="row">
+                <div class="col-12">
+                    <div class="oh-card oh-card--border-0">
+                        <div class="oh-card-header">
+                            <h5 class="oh-card-title">
+                                <i class="oh-icon oh-icon--history me-2"></i>
+                                {% trans "Monthly Payslip History" %} ({% trans "Last 12 months" %})
+                            </h5>
+                        </div>
+                        <div class="oh-card-body">
+                            <div class="row">
+                                {% for month_data in monthly_payslips %}
+                                <div class="col-md-6 col-lg-4 mb-4">
+                                    <div class="payslip-history-item">
+                                        <div class="history-header">
+                                            <h6 class="mb-1">{{ month_data.month_name }} {{ month_data.year }}</h6>
+                                            <span class="badge {% if month_data.status == 'paid' %}bg-success{% elif month_data.status == 'draft' %}bg-warning{% elif month_data.status == 'confirmed' %}bg-info{% else %}bg-secondary{% endif %}">
+                                                {{ month_data.status|title }}
+                                            </span>
+                                        </div>
+                                        
+                                        <div class="history-details">
+                                            <div class="detail-row">
+                                                <span class="detail-label">{% trans "Basic:" %}</span>
+                                                <span class="detail-value">₹{{ month_data.basic_pay|floatformat:2 }}</span>
+                                            </div>
+                                            <div class="detail-row">
+                                                <span class="detail-label">{% trans "LOP Days:" %}</span>
+                                                <span class="detail-value {% if month_data.lop_days > 0 %}text-warning{% else %}text-success{% endif %}">
+                                                    {% if month_data.lop_days > 0 %}
+                                                        {{ month_data.lop_days|floatformat:0 }} {% trans "days" %}
+                                                    {% else %}
+                                                        {% trans "No LOP" %}
+                                                    {% endif %}
+                                                </span>
+                                            </div>
+                                            <div class="detail-row">
+                                                <span class="detail-label">{% trans "Gross:" %}</span>
+                                                <span class="detail-value">₹{{ month_data.gross_pay|floatformat:2 }}</span>
+                                            </div>
+                                            <div class="detail-row">
+                                                <span class="detail-label">{% trans "Deductions:" %}</span>
+                                                <span class="detail-value text-danger">₹{{ month_data.total_deductions|floatformat:2 }}</span>
+                                            </div>
+                                            <hr>
+                                            <div class="detail-row net-row">
+                                                <span class="detail-label"><strong>{% trans "Net:" %}</strong></span>
+                                                <span class="detail-value net-value">₹{{ month_data.net_pay|floatformat:2 }}</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="history-actions">
+                                            <button class="oh-btn oh-btn--light oh-btn--sm" onclick="viewMonthPayslip('{{ month_data.month }}', '{{ month_data.year }}')">
+                                                <i class="oh-icon oh-icon--eye me-1"></i>
+                                                {% trans "View" %}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Debug Section (can be removed later) -->
+            {% if debug_deduction_titles %}
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="oh-card oh-card--border-0">
+                        <div class="oh-card-header">
+                            <h5 class="oh-card-title">
+                                <i class="oh-icon oh-icon--bug me-2"></i>
+                                {% trans "Debug: All Deduction Titles" %} ({% trans "Remove this section later" %})
+                            </h5>
+                        </div>
+                        <div class="oh-card-body">
+                            <div class="alert alert-info">
+                                <strong>{% trans "LOP Status:" %}</strong> 
+                                {% if current_payslip_data.lop_days > 0 %}
+                                    {{ current_payslip_data.lop_days|floatformat:0 }} {% trans "days" %} (₹{{ current_payslip_data.lop_amount|floatformat:2 }})
+                                {% else %}
+                                    {% trans "No LOP detected" %}
+                                {% endif %}
+                            </div>
+                            <h6>{% trans "All Deduction Titles Found:" %}</h6>
+                            <ul class="list-group">
+                                {% for title in debug_deduction_titles %}
+                                <li class="list-group-item">{{ title }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function viewFullPayslip() {
+    const year = '{{ current_year }}';
+    const month = '{{ current_month }}';
+    window.open(`/payroll/view-payslip/?employee_id={{ employee.id }}&month=${month}&year=${year}`, '_blank');
+}
+
+function viewMonthPayslip(month, year) {
+    window.open(`/payroll/view-payslip/?employee_id={{ employee.id }}&month=${month}&year=${year}`, '_blank');
+}
+</script>
+
+<style>
+.allowance-item, .deduction-item {
+    padding: 12px 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.allowance-item:last-child, .deduction-item:last-child {
+    border-bottom: none;
+}
+
+
+
+.allowance-label, .deduction-label {
+    font-weight: 500;
+    color: #495057;
+}
+
+.allowance-value, .deduction-value {
+    font-weight: 600;
+    color: #495057;
+    font-family: 'Courier New', monospace;
+}
+
+.total-amount {
+    font-size: 1.2em;
+    color: #28a745 !important;
+}
+
+.total-deduction {
+    font-size: 1.2em;
+    color: #dc3545 !important;
+}
+
+.lop-info {
+    background-color: #fff3cd;
+    border-left: 4px solid #ffc107;
+    padding: 12px 15px;
+    border-radius: 4px;
+}
+
+.lop-details {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #ffeaa7;
+}
+
+.summary-item {
+    text-align: center;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.summary-label {
+    font-weight: 600;
+    color: #6c757d;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.summary-value {
+    font-weight: bold;
+    color: #495057;
+    font-size: 18px;
+    font-family: 'Courier New', monospace;
+}
+
+.net-salary-summary {
+    background: #e8f5e8;
+    border-left: 4px solid #28a745;
+}
+
+.net-amount {
+    color: #28a745 !important;
+    font-size: 20px;
+}
+
+.info-item {
+    margin-bottom: 15px;
+}
+
+.info-label {
+    font-weight: 600;
+    color: #6c757d;
+    font-size: 14px;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.info-value {
+    color: #495057;
+    font-size: 15px;
+}
+
+.payslip-history-item {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 20px;
+    background: #f8f9fa;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.history-header {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.history-details {
+    flex-grow: 1;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.detail-label {
+    font-weight: 500;
+    color: #6c757d;
+}
+
+.detail-value {
+    font-weight: 600;
+    color: #495057;
+    font-family: 'Courier New', monospace;
+}
+
+.net-row {
+    font-size: 1.1em;
+}
+
+.net-value {
+    color: #28a745 !important;
+}
+
+.history-actions {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #e9ecef;
+}
+
+.oh-card {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 1px solid #e9ecef;
+}
+
+.oh-card-header {
+    background: #fff;
+    border-bottom: 1px solid #e9ecef;
+    padding: 20px;
+}
+
+.oh-card-body {
+    padding: 20px;
+}
+
+@media (max-width: 768px) {
+    .oh-card-body {
+        padding: 15px;
+    }
+    
+    .summary-item {
+        padding: 15px;
+        margin-bottom: 10px;
+    }
+    
+    .payslip-history-item {
+        padding: 15px;
+    }
+}
+</style>
+{% endblock content %}

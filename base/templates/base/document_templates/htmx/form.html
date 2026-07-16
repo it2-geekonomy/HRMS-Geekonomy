@@ -1,0 +1,62 @@
+{% load i18n %}
+<div class="oh-modal__dialog-header">
+    <span class="oh-modal__dialog-title">
+        {{ form.instance.name|default:_("Add Document Template") }}
+    </span>
+    <button class="oh-modal__close" aria-label="Close">
+        <ion-icon name="close-outline"></ion-icon>
+    </button>
+</div>
+<div class="oh-modal__dialog-body">
+    <form id="documentTemplateForm" hx-post="{{ request.path }}" hx-target="#objectCreateModalTarget" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="oh-input__group">
+            <label class="oh-input__label" for="id_name">{% trans "Template Name" %}</label>
+            {{ form.name }}
+        </div>
+        <div class="oh-input__group">
+            <label class="oh-input__label mt-2" for="id_template_type">{% trans "Template Type" %}</label>
+            {{ form.template_type }}
+        </div>
+        <div class="oh-input__group">
+            <label class="oh-input__label mt-2" for="id_template_file">{% trans "Upload Template (Word .docx)" %}</label>
+            {{ form.template_file }}
+            {% if form.instance.template_file %}<p class="form-hint mt-1">{% trans "Current:" %} {{ form.instance.template_file.name }}</p>{% endif %}
+            <div class="form-hint mt-1" style="font-size: 12px; color: #666;">
+                {% trans "Upload your own Word file. Put placeholders like" %} {% templatetag openbrace %}{% templatetag openbrace %} employee_name {% templatetag closebrace %}{% templatetag closebrace %}, {% templatetag openbrace %}{% templatetag openbrace %} company_name {% templatetag closebrace %}{% templatetag closebrace %}, {% templatetag openbrace %}{% templatetag openbrace %} job_position {% templatetag closebrace %}{% templatetag closebrace %}, {% templatetag openbrace %}{% templatetag openbrace %} agreement_date {% templatetag closebrace %}{% templatetag closebrace %}. {% trans "Generated documents will keep your exact layout and formatting." %}
+            </div>
+        </div>
+        <div class="oh-input__group">
+            <label class="oh-input__label mt-2" for="id_body">{% trans "Template Content (fallback if no file uploaded)" %}</label>
+            {{ form.body }}
+            <div class="form-hint mt-1" style="font-size: 12px; color: #666;">
+                {% trans "Use only when you do not upload a file. Placeholders: employee_name, company_name, job_position, agreement_date, employment_commencement_date, work_location, signatory_name, signatory_designation." %}
+            </div>
+        </div>
+        <div class="oh-input__group">
+            <label class="oh-input__label mt-2" for="id_signatory_name">{% trans "Signatory Name" %}</label>
+            {{ form.signatory_name }}
+        </div>
+        <div class="oh-input__group">
+            <label class="oh-input__label mt-2" for="id_signatory_designation">{% trans "Signatory Designation" %}</label>
+            {{ form.signatory_designation }}
+        </div>
+        <div class="oh-input__group">
+            <label class="oh-input__label mt-2" for="id_company_id">{% trans "Company" %}</label>
+            {{ form.company_id }}
+        </div>
+        {% if duplicate %}
+        <div class="oh-modal__dialog-footer p-0">
+            <button type="submit" class="oh-btn oh-btn--secondary oh-btn--shadow">
+                {% trans "Save Duplicate" %}
+            </button>
+        </div>
+        {% else %}
+        <div class="oh-modal__dialog-footer">
+            <button type="submit" class="oh-btn oh-btn--secondary oh-btn--shadow">
+                {% trans "Save" %}
+            </button>
+        </div>
+        {% endif %}
+    </form>
+</div>

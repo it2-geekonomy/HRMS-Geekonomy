@@ -1,0 +1,206 @@
+{% load i18n %}{% load widget_tweaks %} {% load attendancefilters %}
+{% load static %}
+<div class="oh-general__tab-target" id="personal">
+  <div class="oh-wrapper oh-survey-ques">
+    <div class="row pb-4">
+      <div class="col-12">{{form.non_field_errors}}</div>
+      {% include "survey/survey_other_support.html" %}
+
+      {% for question in questions %}
+
+      {% if question.type == "textarea" %}
+      <div class="survey-q-card"{% if question.is_mandatory %} data-mandatory="1"{% endif %} data-question-type="textarea">
+        {% include "survey/survey_question_header.html" %}
+        <textarea
+          name="{{question.question}}"
+          class="oh-input w-100"
+          id="id_{{question.id}}"
+          rows="4"
+          {% if question.is_mandatory %}required{% endif %}
+        ></textarea>
+      </div>
+      {% elif question.type == "options" %}
+        <div class="survey-q-card survey-choice-with-other"{% if question.is_mandatory %} data-mandatory="1"{% endif %} data-question-type="options">
+          {% include "survey/survey_question_header.html" %}
+          <div class="survey-choice-list">
+            {% for choice in question.choices %}
+            <label class="survey-choice-item">
+              <input
+                type="radio"
+                class="survey-choice-item__input"
+                name="{{ question.question }}"
+                value="{{ choice }}"
+                onchange="surveyOtherToggleChoice(this)"
+                {% if question.is_mandatory and forloop.first %}required{% endif %}
+              />
+              <span class="survey-choice-item__content">
+                <span class="survey-choice-item__mark"></span>
+                <span class="survey-choice-item__label">{{ choice }}</span>
+              </span>
+            </label>
+            {% endfor %}
+            {% if question.allow_other %}
+            <label class="survey-choice-item">
+              <input
+                type="radio"
+                class="survey-choice-item__input"
+                name="{{ question.question }}"
+                value="__other__"
+                onchange="surveyOtherToggleChoice(this)"
+              />
+              <span class="survey-choice-item__content">
+                <span class="survey-choice-item__mark"></span>
+                <span class="survey-choice-item__label">{% trans "Other" %}</span>
+              </span>
+            </label>
+            {% endif %}
+          </div>
+          {% include "survey/survey_other_input.html" %}
+        </div>
+        {% elif question.type == "multiple" %}
+            <div class="survey-q-card survey-choice-with-other"{% if question.is_mandatory %} data-mandatory="1"{% endif %} data-question-type="multiple">
+              {% include "survey/survey_question_header.html" %}
+              <div class="survey-choice-list">
+                {% for choice in question.choices %}
+                <label class="survey-choice-item survey-choice-item--checkbox">
+                  <input
+                    type="checkbox"
+                    class="survey-choice-item__input"
+                    name="multiple_choices_{{ question.question }}"
+                    value="{{ choice }}"
+                    onchange="surveyOtherToggleChoice(this)"
+                    {% if question.is_mandatory and forloop.first %}required{% endif %}
+                  />
+                  <span class="survey-choice-item__content">
+                    <span class="survey-choice-item__mark"></span>
+                    <span class="survey-choice-item__label">{{ choice }}</span>
+                  </span>
+                </label>
+                {% endfor %}
+                {% if question.allow_other %}
+                <label class="survey-choice-item survey-choice-item--checkbox">
+                  <input
+                    type="checkbox"
+                    class="survey-choice-item__input"
+                    name="multiple_choices_{{ question.question }}"
+                    value="__other__"
+                    onchange="surveyOtherToggleChoice(this)"
+                  />
+                  <span class="survey-choice-item__content">
+                    <span class="survey-choice-item__mark"></span>
+                    <span class="survey-choice-item__label">{% trans "Other" %}</span>
+                  </span>
+                </label>
+                {% endif %}
+              </div>
+              {% include "survey/survey_other_input.html" %}
+            </div>
+            {% elif question.type == "percentage" %}
+              <div class="survey-q-card"{% if question.is_mandatory %} data-mandatory="1"{% endif %} data-question-type="percentage">
+                {% include "survey/survey_question_header.html" %}
+                <div class="oh-container oh-container--outline my-2">                  {% comment %} <input class="oh-input oh-input--small oh-input--block px-0" min="0" value="$3.00" > {% endcomment %}
+                  <input
+                  type="number"
+                  class="oh-input oh-input oh-input--small oh-input--block px-0"
+                  style="width: 70px; text-align: center;"
+                  min="0"
+                  value="0"
+                  max="100"
+                  name="percentage_{{question.question}}"
+                  id="id_{{question.id}}"
+                  {% if question.is_mandatory %}required{% endif %}
+                />
+                  <input
+                  type="text"
+                  class="oh-input w-25 oh-input oh-input--small oh-input--block px-0"
+                  value="%"
+                  readonly
+                />
+                </div>
+              </div>
+            {% elif question.type == "file" %}
+              <div class="survey-q-card"{% if question.is_mandatory %} data-mandatory="1"{% endif %} data-question-type="file">
+                {% include "survey/survey_question_header.html" %}                <input
+                  type="file"
+                  class="oh-input w-100"
+                  name="file_{{question.question}}"
+                  id="id_{{question.id}}"
+                  {% if question.is_mandatory %}required{% endif %}
+                />
+              </div>
+            {% elif question.type == "date" %}
+              <div class="survey-q-card"{% if question.is_mandatory %} data-mandatory="1"{% endif %} data-question-type="date">
+                {% include "survey/survey_question_header.html" %}                <input
+                  type="date"
+                  class="oh-input w-100"
+                  name="date_{{question.question}}"
+                  id="id_{{question.id}}"
+                  {% if question.is_mandatory %}required{% endif %}
+                />
+              </div>
+            {% elif question.type == "rating" %}
+              <div class="survey-q-card"{% if question.is_mandatory %} data-mandatory="1"{% endif %} data-question-type="rating">
+                {% include "survey/survey_question_header.html" %}                {% include "rating_input.html" %}
+              </div>
+            {% elif question.type == "checkbox" %}
+              <div class="survey-q-card"{% if question.is_mandatory %} data-mandatory="1"{% endif %} data-question-type="checkbox">
+                {% include "survey/survey_question_header.html" %}                <div class="oh-input-picker-group">
+                  <div class="oh-input-picker oh-input-picker--sm oh-input-picker--selected" style="width: 80px;">
+                    <span>
+                      <ion-icon name="checkmark-circle-outline"></ion-icon>
+                      Yes
+                    </span>
+                    <input type="radio" name="{{ question.question }}" value="Yes" checked>
+                  </div>
+                  <div class="oh-input-picker oh-input-picker--sm" style="width: 80px;">
+                    <span>
+                    <ion-icon name="close-circle-outline"></ion-icon>
+                    No
+                    </span>
+                    <input type="radio" name="{{ question.question }}" value="No">
+                  </div>
+                </div>
+
+              </div>
+            {% else %}
+              <div class="survey-q-card"{% if question.is_mandatory %} data-mandatory="1"{% endif %} data-question-type="{{ question.type }}">
+                {% include "survey/survey_question_header.html" %}                <input
+                  type="{{question.type}}"
+                  class="oh-input w-100"
+                  name="{{question.question}}"
+                  id="id_{{question.id}}"
+                  {% if question.is_mandatory %}required{% endif %}
+                />
+
+              </div>
+            {% endif %} {% endfor %}
+          </div>
+          {% if is_preview %}
+          <div class="survey-preview-banner">
+            <p class="survey-preview-banner__text">
+              {% trans "Preview mode — this is how candidates will see the survey during application." %}
+            </p>
+          </div>
+          {% else %}
+          <div class="survey-submit-wrap">
+            <button
+              type="submit"
+              id="survey-submit-btn"
+              class="oh-btn oh-btn--secondary oh-btn--w-100-resp pl-4 pr-5 survey-submit-btn{% if survey_mandatory %} survey-submit-btn--locked{% endif %}"
+              {% if survey_mandatory %}disabled aria-disabled="true"{% endif %}
+            >
+              {% trans "Submit" %}
+            </button>
+            <p class="survey-submit-note">
+              {% trans "Submit the survey to complete your application." %}
+            </p>
+          </div>
+          {% endif %}
+          <div class="col-sm-12 col-md-12 col-lg-12">
+            <p class="small text-muted text-center mb-0">
+              &copy; {% now 'Y' %} Geekonomy. All rights resevered.
+            </p>
+          </div>      </div>
+    </div>
+  </div>
+</div>

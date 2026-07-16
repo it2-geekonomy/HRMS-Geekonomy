@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        body { margin: 0; padding: 8px; background: #f5f5f5; font-family: sans-serif; }
+        #container { max-width: 900px; margin: 0 auto; }
+        .page-wrap { position: relative; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); background: #fff; }
+        .page-wrap canvas { display: block; width: 100%; height: auto; }
+        .link-overlay { position: absolute; cursor: pointer; z-index: 1; }
+        .link-overlay a { display: block; width: 100%; height: 100%; }
+        #loading { text-align: center; padding: 2rem; color: #666; }
+        #error { color: #c00; padding: 1rem; }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="loading">Loading resume…</div>
+        <div id="error" style="display:none;"></div>
+        <div id="pages"></div>
+    </div>
+    <script>
+(function() {
+    var pdfUrl = "{{ pdf_url|escapejs }}";
+    if (!pdfUrl) {
+        document.getElementById('loading').textContent = 'No resume URL.';
+        return;
+    }
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    function normalizeRect(rect) {
+        if (!rect || !Array.isArray(rect)) return null;
+        var out = [];
+        for (var i = 0; i < 4; i++) {
+            var v = rect[i];
+            out.push(typeof v === 'object' && v !== null && 'num' in v ? v.num : Number(v));
+        }
+        if (out.some(function(n) { return isNaN(n); })) return null;
+        return out;
+    }
+
+    pdfjsLib.getDocument(pdfUrl).promise.then(function(pdf) {
+        document.getElementById('loading').style.display = 'none';
+        var numPages = pdf.numPages;
+        var container = document.getElementById('pages');
+        var scale = 1.5;
+        var renderNext = function(pageNum) {
+            if (pageNum > numPages) return;
+            pdf.getPage(pageNum).then(function(page) {
+                var viewport = page.getViewport({ scale: scale });
+                var div = document.createElement('div');
+                div.className = 'page-wrap';
+                var canvas = document.createElement('canvas');
+                var ctx = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                div.appendChild(canvas);
+                var linkLayer = document.createElement('div');
+                linkLayer.style.position = 'absolute';
+                linkLayer.style.left = '0';
+                linkLayer.style.top = '0';
+                linkLayer.style.width = viewport.width + 'px';
+                linkLayer.style.height = viewport.height + 'px';
+                linkLayer.style.pointerEvents = 'none';
+                div.appendChild(linkLayer);
+                var linkLayerInner = document.createElement('div');
+                linkLayerInner.style.position = 'relative';
+                linkLayerInner.style.width = '100%';
+                linkLayerInner.style.height = '100%';
+                linkLayerInner.style.pointerEvents = 'auto';
+                linkLayer.appendChild(linkLayerInner);
+                container.appendChild(div);
+                page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function() {
+                    return page.getAnnotations();
+                }).then(function(annotations) {
+                    if (!annotations) return;
+                    for (var i = 0; i < annotations.length; i++) {
+                        var ann = annotations[i];
+                        var url = ann.url || (ann.data && ann.data.uri);
+                        if (!url || (ann.subtype && ann.subtype !== 'Link')) continue;
+                        var rect = normalizeRect(ann.rect);
+                        if (!rect) continue;
+                        var vRect = viewport.convertToViewportRectangle(rect);
+                        var x = Math.min(vRect[0], vRect[2]);
+                        var y = Math.min(vRect[1], vRect[3]);
+                        var w = Math.abs(vRect[2] - vRect[0]);
+                        var h = Math.abs(vRect[3] - vRect[1]);
+                        if (w < 1 || h < 1) continue;
+                        var a = document.createElement('a');
+                        a.href = url;
+                        a.target = '_blank';
+                        a.rel = 'noopener noreferrer';
+                        a.style.position = 'absolute';
+                        a.style.left = x + 'px';
+                        a.style.top = y + 'px';
+                        a.style.width = w + 'px';
+                        a.style.height = h + 'px';
+                        linkLayerInner.appendChild(a);
+                    }
+                }).then(function() {
+                    renderNext(pageNum + 1);
+                });
+            }).catch(function(err) {
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').textContent = 'Error loading page ' + pageNum + ': ' + (err && err.message ? err.message : String(err));
+                renderNext(pageNum + 1);
+            });
+        };
+        renderNext(1);
+    }).catch(function(err) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('error').textContent = 'Failed to load PDF: ' + (err && err.message ? err.message : String(err));
+    });
+})();
+    </script>
+</body>
+</html>

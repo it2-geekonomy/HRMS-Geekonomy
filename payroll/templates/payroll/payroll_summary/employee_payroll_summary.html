@@ -1,0 +1,877 @@
+{% extends 'index.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{% trans "Employee Payroll Summary" %}{% endblock title %}
+
+{% block content %}
+<div id="messages"></div>
+
+<section class="oh-wrapper oh-main__topbar" x-data="{searchShow: false}">
+  <div class="oh-main__titlebar oh-main__titlebar--left">
+    <h1 class="oh-main__titlebar-title fw-bold">{% trans "Employee Payroll Summary" %}</h1>
+    <form method="GET" class="d-inline-flex align-items-center ms-3" style="gap: 10px;">
+      <select name="period" class="oh-select oh-select--sm" id="monthSelect" onchange="this.form.submit()" style="min-width: 200px;">
+        <option value="">{% trans "Select Month" %}</option>
+        {% for period in period_options %}
+        <option value="{{ period.value }}" 
+                {% if current_period == period.value %}selected{% endif %}
+                data-year="{{ period.year }}" 
+                data-month="{{ period.month }}">
+          {{ period.label }}
+        </option>
+        {% endfor %}
+      </select>
+      {% if current_filters.search %}
+        <input type="hidden" name="search" value="{{ current_filters.search }}">
+      {% endif %}
+      {% if current_filters.department_id %}
+        <input type="hidden" name="department_id" value="{{ current_filters.department_id }}">
+      {% endif %}
+    </form>
+    <a
+      class="oh-main__titlebar-search-toggle"
+      role="button"
+      aria-label="Toggle Search"
+      @click="searchShow = !searchShow"
+      >
+      <ion-icon
+        name="search-outline"
+        class="oh-main__titlebar-serach-icon md hydrated"
+        role="img"
+        aria-label="search outline"
+      ></ion-icon>
+    </a>
+  </div>
+  <div class="oh-main__titlebar-button-container">
+    <form
+      method="GET"
+      class="filter-form d-flex"
+      id="filterForm"
+    >
+      <div
+        class="oh-input-group oh-input__search-group"
+        :class="searchShow ? 'oh-input__search-group--show' : ''"
+        >
+        <ion-icon
+          name="search-outline"
+          class="oh-input-group__icon oh-input-group__icon--left"
+        ></ion-icon>
+        <input
+          type="text"
+          class="oh-input oh-input__icon"
+          aria-label="Search Input"
+          id="employee-search"
+          name="search"
+          placeholder="{% trans 'Search' %}"
+          value="{{ current_filters.search|default:'' }}"
+        />
+      </div>
+      <div class="oh-dropdown" x-data="{open: false}">
+        <button
+          class="oh-btn ml-2 h-100"
+          @click="open = !open"
+          onclick="event.preventDefault()"
+        >
+          <ion-icon name="filter" class="mr-1"></ion-icon>{% trans "Filter" %}
+          {% if filter_count > 0 %}
+            <span class="badge bg-primary ms-1">{{ filter_count }}</span>
+          {% endif %}
+        </button>
+        <div
+          class="oh-dropdown__menu oh-dropdown__menu--right oh-dropdown__filter p-4"
+          x-show="open"
+          @click.outside="open = false"
+          style="display: none"
+        >
+          <div class="row">
+            <div class="col-md-6">
+              <div class="oh-form-group">
+                <label class="oh-form-label">{% trans "Period" %}</label>
+                <select name="period" class="oh-select oh-select--sm" id="periodSelect" onchange="updatePeriod()">
+                  <option value="">{% trans "Select Period" %}</option>
+                  {% for period in period_options %}
+                  <option value="{{ period.value }}" 
+                          {% if current_period == period.value %}selected{% endif %}
+                          data-year="{{ period.year }}" 
+                          data-month="{{ period.month }}">
+                    {{ period.label }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="oh-form-group">
+                <label class="oh-form-label">{% trans "Department" %}</label>
+                <select name="department_id" class="oh-select oh-select--sm">
+                  <option value="">{% trans "All Departments" %}</option>
+                  {% for dept in departments %}
+                  <option value="{{ dept.id }}" {% if current_filters.department_id == dept.id|stringformat:"s" %}selected{% endif %}>
+                    {{ dept.department }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="oh-form-group">
+                <label class="oh-form-label">{% trans "Start Date" %}</label>
+                <input type="date" name="start_date" class="oh-input oh-input--sm" 
+                       value="{{ current_filters.start_date }}">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="oh-form-group">
+                <label class="oh-form-label">{% trans "End Date" %}</label>
+                <input type="date" name="end_date" class="oh-input oh-input--sm" 
+                       value="{{ current_filters.end_date }}">
+              </div>
+            </div>
+          </div>
+          <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="oh-btn oh-btn--secondary">
+              <i class="oh-icon oh-icon--search me-1"></i>
+              {% trans "Apply" %}
+            </button>
+            <a href="{% url 'employee-payroll-summary' %}" class="oh-btn oh-btn--light">
+              <i class="oh-icon oh-icon--refresh me-1"></i>
+              {% trans "Reset" %}
+            </a>
+          </div>
+        </div>
+      </div>
+      <div class="oh-dropdown" x-data="{open: false}">
+        <button
+          class="oh-btn ml-2 h-100"
+          @click="open = !open"
+          onclick="event.preventDefault()"
+        >
+          <ion-icon name="library-outline" class="mr-1"></ion-icon>
+          {% trans "Group By" %}
+        </button>
+        <div
+          class="oh-dropdown__menu oh-dropdown__menu--right oh-dropdown__filter p-4"
+          x-show="open"
+          @click.outside="open = false"
+          style="display: none"
+        >
+          <div class="oh-accordion">
+            <label>{% trans "Group By" %}</label>
+            <div class="row">
+              <div class="col-md-6">
+                <div class="oh-form-group">
+                  <label class="oh-form-label">{% trans "Department" %}</label>
+                  <input type="checkbox" class="oh-input oh-input__checkbox" disabled>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="oh-form-group">
+                  <label class="oh-form-label">{% trans "Status" %}</label>
+                  <input type="checkbox" class="oh-input oh-input__checkbox" disabled>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="oh-dropdown" x-data="{open: false}">
+        <button
+          class="oh-btn ml-2 h-100"
+          @click="open = !open"
+          onclick="event.preventDefault()"
+        >
+          <ion-icon name="ellipsis-vertical" class="mr-1"></ion-icon>
+          {% trans "Actions" %}
+        </button>
+        <div
+          class="oh-dropdown__menu oh-dropdown__menu--right oh-dropdown__filter p-4"
+          x-show="open"
+          @click.outside="open = false"
+          style="display: none"
+        >
+          <div class="oh-accordion">
+            <a class="dropdown-item" href="#" onclick="exportToPDF()">
+              <i class="oh-icon oh-icon--download me-2"></i>
+              {% trans "PDF" %}
+            </a>
+            <a class="dropdown-item" href="#" onclick="exportToExcel()">
+              <i class="oh-icon oh-icon--download me-2"></i>
+              {% trans "Excel" %}
+            </a>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+</section>
+
+<div class="oh-wrapper">
+    <div class="oh-main">
+        <div class="oh-main__body">
+
+            <!-- Employee List (Collapsed View) -->
+            {% if employee_summaries %}
+                <div class="oh-card oh-card--border-0">
+                    <div class="oh-card-header">
+                        <h5 class="oh-card-title mb-0">
+                            <i class="oh-icon oh-icon--users me-2"></i>
+                            {% trans "Employee List" %} ({{ employee_summaries.paginator.count }} {% trans "employees" %})
+                        </h5>
+                    </div>
+                    <div class="oh-card-body p-0">
+                        <!-- Employee List Table -->
+                        <div class="table-responsive">
+                            <table class="oh-table oh-table--striped mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>{% trans "Employee" %}</th>
+                                        <th>{% trans "Department" %}</th>
+                                        <th>{% trans "Phone Number" %}</th>
+                                        <th>{% trans "Basic Pay" %}</th>
+                                        <th>{% trans "Actions" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for summary in employee_summaries %}
+                                    <tr class="employee-row" data-employee-id="{{ summary.employee.id }}">
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <img src="{{ summary.employee.get_avatar }}" 
+                                                     alt="{{ summary.employee.get_full_name }}" 
+                                                     class="oh-avatar oh-avatar--sm me-3">
+                                                <div>
+                                                    <strong>{{ summary.employee.get_full_name }}</strong>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% if summary.work_info %}
+                                                <span class="badge bg-light text-dark">{{ summary.work_info.department_id.department }}</span>
+                                            {% else %}
+                                                <span class="text-muted">{% trans "N/A" %}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if summary.employee.phone %}
+                                                <span>{{ summary.employee.phone }}</span>
+                                            {% else %}
+                                                <span class="text-muted">{% trans "N/A" %}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="basic-pay" style="font-weight: bold;">
+                                                ₹{{ summary.payroll_summary.basic_pay|floatformat:2 }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button type="button" 
+                                                    class="oh-btn oh-btn--secondary oh-btn--sm view-employee-btn"
+                                                    data-employee-id="{{ summary.employee.id }}"
+                                                    data-employee-name="{{ summary.employee.get_full_name|escapejs }}"
+                                                    title="{% trans 'View Details' %}">
+                                                <i class="oh-icon oh-icon--eye me-1"></i>
+                                                {% trans "View" %}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pagination -->
+                {% if employee_summaries.has_other_pages %}
+                <div class="oh-pagination">
+                    <div class="oh-pagination__info">
+                        {% trans "Showing" %} {{ employee_summaries.start_index }} {% trans "to" %} {{ employee_summaries.end_index }} 
+                        {% trans "of" %} {{ employee_summaries.paginator.count }} {% trans "results" %}
+                    </div>
+                    <div class="oh-pagination__nav">
+                        {% if employee_summaries.has_previous %}
+                        <a href="?page={{ employee_summaries.previous_page_number }}" class="oh-pagination__nav-link">
+                            <i class="oh-icon oh-icon--chevron-left"></i>
+                        </a>
+                        {% endif %}
+                        
+                        <span class="oh-pagination__current">
+                            {% trans "Page" %} {{ employee_summaries.number }} {% trans "of" %} {{ employee_summaries.paginator.num_pages }}{% if employee_summaries.paginator.count %} ({{ employee_summaries.paginator.count }} {% trans "records" %}){% endif %}
+                        </span>
+                        
+                        {% if employee_summaries.has_next %}
+                        <a href="?page={{ employee_summaries.next_page_number }}" class="oh-pagination__nav-link">
+                            <i class="oh-icon oh-icon--chevron-right"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="oh-card oh-card--border-0">
+                    <div class="oh-card-body text-center py-5">
+                        <i class="oh-icon oh-icon--users oh-icon--4x text-muted mb-3"></i>
+                        <h4 class="text-muted">{% trans "No Employee Data Found" %}</h4>
+                        <p class="text-muted">{% trans "No employees with active contracts found for the selected criteria." %}</p>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Period selection handler
+function updatePeriod() {
+    const periodSelect = document.getElementById('periodSelect');
+    const selectedOption = periodSelect.options[periodSelect.selectedIndex];
+    
+    if (selectedOption.value) {
+        const year = selectedOption.dataset.year;
+        const month = selectedOption.dataset.month;
+        
+        const form = document.getElementById('filterForm');
+        const yearInput = document.createElement('input');
+        yearInput.type = 'hidden';
+        yearInput.name = 'year';
+        yearInput.value = year;
+        
+        const monthInput = document.createElement('input');
+        monthInput.type = 'hidden';
+        monthInput.name = 'month';
+        monthInput.value = month;
+        
+        form.appendChild(yearInput);
+        form.appendChild(monthInput);
+        form.submit();
+    }
+}
+
+// Toggle employee details
+function toggleEmployeeDetails(employeeId) {
+    const detailsRow = document.getElementById(`details_${employeeId}`);
+    const chevron = document.getElementById(`chevron_${employeeId}`);
+    const expandBtn = document.querySelector(`[data-employee-id="${employeeId}"]`);
+    
+    if (detailsRow.style.display === 'none') {
+        detailsRow.style.display = 'table-row';
+        chevron.style.transform = 'rotate(180deg)';
+        expandBtn.innerHTML = '<i class="oh-icon oh-icon--chevron-up"></i> Hide';
+    } else {
+        detailsRow.style.display = 'none';
+        chevron.style.transform = 'rotate(0deg)';
+        expandBtn.innerHTML = '<i class="oh-icon oh-icon--chevron-down"></i> Details';
+    }
+}
+
+// Export functions
+function exportToPDF() {
+    const params = new URLSearchParams(window.location.search);
+    params.set('export', 'pdf');
+    window.open('?' + params.toString(), '_blank');
+}
+
+function exportToExcel() {
+    const params = new URLSearchParams(window.location.search);
+    params.set('export', 'excel');
+    window.open('?' + params.toString(), '_blank');
+}
+
+// Clear all filters
+function clearFilters() {
+    window.location.href = '{% url "employee-payroll-summary" %}';
+}
+
+// Auto-submit form when search input changes
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('employee-search');
+    if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                document.getElementById('filterForm').submit();
+            }, 500); // 500ms delay
+        });
+    }
+});
+
+// Drill-down functions
+function viewPayslip(employeeId) {
+    const params = new URLSearchParams(window.location.search);
+    const year = params.get('year') || new Date().getFullYear();
+    const month = params.get('month') || new Date().getMonth() + 1;
+    
+    window.open(`/payroll/view-payslip/?employee_id=${employeeId}&month=${month}&year=${year}`, '_blank');
+}
+
+function viewHistoryPeriod(period, employeeId) {
+    const [year, month] = period.split('-');
+    window.location.href = `{% url 'employee-payroll-summary' %}?year=${year}&month=${month}&employee_id=${employeeId}`;
+}
+
+// Initialize Bootstrap tabs
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof bootstrap !== 'undefined') {
+        var tabList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tab"]'));
+        tabList.forEach(function (tabTriggerEl) {
+            new bootstrap.Tab(tabTriggerEl);
+        });
+    }
+});
+</script>
+
+<style>
+/* Employee List Styles */
+.employee-row {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.employee-row:hover {
+    background-color: #f8f9fa;
+}
+
+.employee-expanded-content {
+    background-color: #f8f9fa;
+    border-top: 2px solid #007bff;
+}
+
+.oh-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.basic-pay, .net-salary {
+    font-family: 'Courier New', monospace;
+}
+
+.badge-id {
+    font-weight: 600;
+    color: #495057;
+}
+
+/* Tab Styles */
+.oh-nav-tabs {
+    border-bottom: 2px solid #e9ecef;
+    margin-bottom: 0;
+    background: white;
+}
+
+.oh-nav-tabs .nav-link {
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #6c757d;
+    font-weight: 500;
+    padding: 12px 20px;
+    transition: all 0.3s ease;
+}
+
+.oh-nav-tabs .nav-link:hover {
+    border-bottom-color: #007bff;
+    color: #007bff;
+    background-color: transparent;
+}
+
+.oh-nav-tabs .nav-link.active {
+    color: #007bff;
+    border-bottom-color: #007bff;
+    background-color: transparent;
+}
+
+/* Info Card Styles */
+.oh-info-card {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-left: 4px solid #007bff;
+    height: 100%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.oh-info-card__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 8px;
+}
+
+.oh-info-card__content p {
+    margin-bottom: 8px;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.oh-info-card__content p:last-child {
+    margin-bottom: 0;
+}
+
+/* Card Styles */
+.oh-card {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 1px solid #e9ecef;
+    transition: box-shadow 0.3s ease;
+}
+
+.oh-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.oh-card-header {
+    background: #fff;
+    border-bottom: 1px solid #e9ecef;
+    padding: 20px;
+}
+
+.oh-card-body {
+    padding: 20px;
+}
+
+/* Pagination Styles */
+.oh-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 30px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.oh-pagination__nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.oh-pagination__nav-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: #007bff;
+    color: white;
+    text-decoration: none;
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+}
+
+.oh-pagination__nav-link:hover {
+    background: #0056b3;
+    color: white;
+}
+
+.oh-pagination__current {
+    font-weight: 600;
+    color: #495057;
+}
+
+/* Button Styles */
+.btn-group .btn {
+    margin-right: 5px;
+}
+
+.btn-group .btn:last-child {
+    margin-right: 0;
+}
+
+.expand-btn {
+    transition: all 0.3s ease;
+}
+
+.expand-btn:hover {
+    background-color: #007bff;
+    color: white;
+}
+
+/* Custom styles for Employee Payroll Summary */
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+    .oh-info-card {
+        margin-bottom: 15px;
+    }
+    
+    .oh-card-body {
+        padding: 15px;
+    }
+    
+    .oh-pagination {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    
+    .oh-nav-tabs .nav-link {
+        padding: 8px 12px;
+        font-size: 14px;
+    }
+    
+    .table-responsive {
+        font-size: 14px;
+    }
+    
+    .basic-pay, .net-salary {
+        font-size: 13px;
+    }
+    
+    .badge-id {
+        font-size: 13px;
+    }
+}
+</style>
+
+<!-- Employee Details Modal -->
+<div class="oh-modal" id="employeeDetailsModal" role="dialog" aria-labelledby="employeeDetailsModalLabel" aria-hidden="true" onclick="if(event.target === this) closeEmployeeModal()">
+    <div class="oh-modal__dialog oh-modal__dialog--max-width-800" onclick="event.stopPropagation()">
+        <div class="oh-modal__dialog-header">
+            <h2 class="oh-modal__dialog-title" id="employeeDetailsModalLabel">
+                <span id="modalEmployeeName">{% trans "Employee Details" %}</span>
+            </h2>
+            <button class="oh-modal__close" aria-label="Close" onclick="closeEmployeeModal()">
+                <ion-icon name="close-outline"></ion-icon>
+            </button>
+        </div>
+        <div class="oh-modal__dialog-body">
+            <div class="mb-3">
+                <label for="detailMonthSelect" class="oh-label">{% trans "Select Month" %}</label>
+                <select id="detailMonthSelect" class="oh-select oh-select--sm" onchange="loadEmployeeMonthData()">
+                    <option value="">{% trans "Select Month" %}</option>
+                    {% for period in period_options %}
+                    <option value="{{ period.value }}" 
+                            data-year="{{ period.year }}" 
+                            data-month="{{ period.month }}">
+                        {{ period.label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div id="employeeDetailsContent">
+                <div class="text-center py-4 text-muted">
+                    <i class="oh-icon oh-icon--calendar oh-icon--2x mb-2"></i>
+                    <p>{% trans "Please select a month to view details" %}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentEmployeeId = null;
+
+function showEmployeeDetails(employeeId, employeeName) {
+    try {
+        currentEmployeeId = employeeId;
+        const modalNameElement = document.getElementById('modalEmployeeName');
+        if (modalNameElement) {
+            modalNameElement.textContent = employeeName;
+        } else {
+            console.error('Modal name element not found');
+        }
+        
+        // Reset month selector to current month
+        const now = new Date();
+        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const monthSelect = document.getElementById('detailMonthSelect');
+        if (monthSelect) {
+            monthSelect.value = currentMonth;
+        } else {
+            console.error('Month select element not found');
+        }
+        
+        // Show modal using oh-modal system
+        const modalElement = document.getElementById('employeeDetailsModal');
+        if (modalElement) {
+            modalElement.classList.add('oh-modal--show');
+            document.body.classList.add('oh-modal-open');
+        } else {
+            console.error('Modal element not found');
+            alert('Modal not found. Please refresh the page.');
+            return;
+        }
+        
+        // Load data for current month
+        loadEmployeeMonthData();
+    } catch (error) {
+        console.error('Error in showEmployeeDetails:', error);
+        alert('Error opening employee details. Please check console for details.');
+    }
+}
+
+function closeEmployeeModal() {
+    const modalElement = document.getElementById('employeeDetailsModal');
+    if (modalElement) {
+        modalElement.classList.remove('oh-modal--show');
+        document.body.classList.remove('oh-modal-open');
+    }
+    currentEmployeeId = null;
+}
+
+// Close modal on ESC key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        const modalElement = document.getElementById('employeeDetailsModal');
+        if (modalElement && modalElement.classList.contains('oh-modal--show')) {
+            closeEmployeeModal();
+        }
+    }
+});
+
+function loadEmployeeMonthData() {
+    if (!currentEmployeeId) return;
+    
+    const monthSelect = document.getElementById('detailMonthSelect');
+    const period = monthSelect.value;
+    
+    if (!period) {
+        document.getElementById('employeeDetailsContent').innerHTML = `
+            <div class="text-center py-4 text-muted">
+                <i class="oh-icon oh-icon--calendar oh-icon--2x mb-2"></i>
+                <p>{% trans "Please select a month to view details" %}</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Show loading
+    document.getElementById('employeeDetailsContent').innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">{% trans "Loading..." %}</span>
+            </div>
+        </div>
+    `;
+    
+    // Fetch data via AJAX
+    fetch(`/payroll/employee-month-details/?employee_id=${currentEmployeeId}&period=${period}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            renderEmployeeDetails(data);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('employeeDetailsContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="oh-icon oh-icon--alert-circle me-2"></i>
+                    {% trans "Error loading employee details. Please try again." %}
+                    <br><small>${error.message || ''}</small>
+                </div>
+            `;
+        });
+}
+
+function renderEmployeeDetails(data) {
+    const content = document.getElementById('employeeDetailsContent');
+    if (!content) return;
+    
+    let html = `
+        <div class="row">
+            <!-- Attendance Data -->
+            <div class="col-md-6 mb-4">
+                <div class="oh-card oh-card--border-0">
+                    <div class="oh-card-header" style="background-color: #3b82f6; color: white;">
+                        <h6 class="oh-card-title mb-0"><i class="oh-icon oh-icon--calendar me-2"></i>{% trans "Attendance Data" %}</h6>
+                    </div>
+                    <div class="oh-card-body">
+                        <div class="mb-3">
+                            <strong>{% trans "Total Working Days" %}:</strong>
+                            <span class="badge bg-info ms-2">${data.attendance.total_working_days || 0} / 30 {% trans "days" %}</span>
+                        </div>
+                        <div class="mb-3">
+                            <strong>{% trans "Days Present" %}:</strong>
+                            <span class="badge bg-success ms-2">${data.attendance.days_present || 0} {% trans "days" %}</span>
+                        </div>
+                        <div>
+                            <strong>{% trans "Total Leaves" %}:</strong>
+                            <div class="mt-2">
+                                <span class="badge bg-success me-2">
+                                    {% trans "Paid" %}: ${data.leaves.paid_leaves || 0.0}
+                                </span>
+                                <span class="badge bg-warning">
+                                    {% trans "Unpaid" %}: ${data.leaves.unpaid_leaves || 0.0}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Payslip Data -->
+            <div class="col-md-6 mb-4">
+                <div class="oh-card oh-card--border-0">
+                    <div class="oh-card-header" style="background-color: #10b981; color: white;">
+                        <h6 class="oh-card-title mb-0"><i class="oh-icon oh-icon--money me-2"></i>{% trans "Payslip Data" %}</h6>
+                    </div>
+                    <div class="oh-card-body">
+    `;
+    
+    html += `
+                        <div class="mb-3">
+                            <strong>{% trans "Total Paid Days" %}:</strong>
+                            <span class="badge bg-success ms-2">${data.payslip.paid_days || 0} {% trans "days" %}</span>
+                        </div>
+                        <div class="mb-3">
+                            <strong>{% trans "Total Working Days" %}:</strong>
+                            <span class="badge bg-info ms-2">${data.payslip.working_days || 0} {% trans "days" %}</span>
+                        </div>
+    `;
+    
+    html += `
+                        <div class="mb-3">
+                            <strong>{% trans "Basic Pay" %}:</strong>
+                            <span class="fw-bold text-primary ms-2">₹${parseFloat(data.payslip.basic_pay || 0).toFixed(2)}</span>
+                        </div>
+                        <div>
+                            <strong>{% trans "Net Pay" %}:</strong>
+                            <span class="fw-bold text-success ms-2" style="font-size: 1.2em;">₹${parseFloat(data.payslip.net_pay || 0).toFixed(2)}</span>
+                        </div>
+                        <div class="mt-3">
+                            <span class="badge ${data.payslip.status === 'paid' ? 'bg-success' : data.payslip.status === 'draft' ? 'bg-warning' : 'bg-secondary'}">
+                                ${data.payslip.status || 'No Payslip Generated'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    content.innerHTML = html;
+}
+
+// Add event listeners for all view buttons
+document.addEventListener('DOMContentLoaded', function() {
+    // Use event delegation for dynamically loaded content
+    document.addEventListener('click', function(event) {
+        if (event.target.closest('.view-employee-btn')) {
+            const button = event.target.closest('.view-employee-btn');
+            const employeeId = button.getAttribute('data-employee-id');
+            const employeeName = button.getAttribute('data-employee-name');
+            if (employeeId && employeeName) {
+                showEmployeeDetails(employeeId, employeeName);
+            }
+        }
+    });
+});
+</script>
+{% endblock content %}

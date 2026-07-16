@@ -1,0 +1,115 @@
+{% extends 'index.html' %}
+{% load i18n %}
+{% block content %}
+<section class="oh-wrapper oh-main__topbar">
+    <div class="oh-main__titlebar oh-main__titlebar--left">
+        <h1 class="oh-main__titlebar-title fw-bold">
+            {% trans "Slack Configuration" %}
+        </h1>
+    </div>
+</section>
+
+<div class="oh-wrapper">
+    <!-- Slack API Configuration -->
+    <div class="oh-card mb-4">
+        <div class="oh-card__header">
+            <h3 class="oh-card__title">{% trans "Slack API Configuration" %}</h3>
+        </div>
+        <div class="oh-card__body">
+            <form method="post" class="oh-form">
+                {% csrf_token %}
+                <div class="oh-input-group">
+                    <label class="oh-label">{% trans "Slack Bot Token" %}</label>
+                    <input 
+                        type="text" 
+                        name="slack_bot_token" 
+                        value="{{ config_form.slack_bot_token.value|default:'' }}"
+                        class="oh-input w-100"
+                        placeholder="xoxb-..."
+                    >
+                    <small class="form-text text-muted">
+                        {% trans "Bot User OAuth Token with users:read scope" %}
+                    </small>
+                </div>
+                <div class="oh-input-group mt-3">
+                    <label class="oh-label d-flex align-items-center">
+                        <input 
+                            type="checkbox" 
+                            name="is_active" 
+                            {% if config_form.is_active.value %}checked{% endif %}
+                            class="oh-checkbox"
+                        >
+                        <span class="ml-2">{% trans "Enable Slack Integration" %}</span>
+                    </label>
+                </div>
+                <div class="oh-modal__dialog-footer p-0 mt-4">
+                    <button type="submit" name="save_config" class="oh-btn oh-btn--secondary">
+                        {% trans "Save Configuration" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Employee Slack Mappings -->
+    <div class="oh-card">
+        <div class="oh-card__header">
+            <h3 class="oh-card__title">{% trans "Employee Slack User ID Mappings" %}</h3>
+        </div>
+        <div class="oh-card__body">
+            <div class="oh-sticky-table">
+                <div class="oh-sticky-table__table">
+                    <div class="oh-sticky-table__thead">
+                        <div class="oh-sticky-table__tr">
+                            <div class="oh-sticky-table__th">{% trans "Employee" %}</div>
+                            <div class="oh-sticky-table__th">{% trans "Email" %}</div>
+                            <div class="oh-sticky-table__th">{% trans "Slack User ID" %}</div>
+                            <div class="oh-sticky-table__th">{% trans "Action" %}</div>
+                        </div>
+                    </div>
+                    <div class="oh-sticky-table__tbody">
+                        {% for employee in employees %}
+                        <div class="oh-sticky-table__tr">
+                            <div class="oh-sticky-table__td">
+                                {{ employee.employee_first_name }} {{ employee.employee_last_name }}
+                            </div>
+                            <div class="oh-sticky-table__td">{{ employee.email }}</div>
+                            <div class="oh-sticky-table__td">
+                                <form method="post" class="d-flex align-items-center" style="gap: 10px;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="employee_id" value="{{ employee.id }}">
+                                    <input 
+                                        type="text" 
+                                        name="slack_user_id" 
+                                        value="{{ employee.slack_user_id|default:'' }}"
+                                        placeholder="U01234ABCD"
+                                        class="oh-input"
+                                        style="width: 150px;"
+                                    >
+                                    <button type="submit" name="save_mappings" class="oh-btn oh-btn--secondary oh-btn--sm">
+                                        {% trans "Save" %}
+                                    </button>
+                                </form>
+                            </div>
+                            <div class="oh-sticky-table__td">
+                                {% if employee.slack_user_id %}
+                                    <span class="oh-badge oh-badge--success">{% trans "Linked" %}</span>
+                                {% else %}
+                                    <span class="oh-badge oh-badge--secondary">{% trans "Not Linked" %}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="oh-sticky-table__tr">
+                            <div class="oh-sticky-table__td" colspan="4">
+                                {% trans "No employees found" %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

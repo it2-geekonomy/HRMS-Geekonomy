@@ -1,0 +1,180 @@
+{% load static %}
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Registration Form</title>
+    <!-- Open Graph meta tags for LinkedIn/social sharing -->
+    <meta property="og:title" content="Geekonomy Recruitment" />
+    <meta property="og:description" content="Apply for open positions at Geekonomy" />
+    <meta property="og:image" content="{{ request.scheme }}://{{ request.META.HTTP_HOST }}{% static 'images/ui/Geekonomy Favicon Logo.png' %}" />
+    <meta property="og:url" content="{{ request.build_absolute_uri }}" />
+    <meta property="og:type" content="website" />
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'images/ui/favicon.png' %}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'images/ui/favicon.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'images/ui/favicon.png' %}">
+
+    <link rel="stylesheet" href="{% static 'build/css/style.min.css' %}" />
+    <style>
+      ul.errorlist {
+        color: #d9534f;
+        background-color: #f0d8d8;
+        border-color: #d6e9c6;
+        padding: 15px;
+        margin-bottom: 20px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+      }
+      ul {
+        list-style-type: none;
+      }
+      .required-star::before {
+        content: "*";
+        padding-left: 5px;
+        color: #000;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+      }
+      #main {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .oh-wrapper {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding-left: 15px !important;
+        padding-right: 15px !important;
+      }
+      .row {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        width: 100% !important;
+      }
+      .col-12 {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        width: 100% !important;
+      }
+      .oh-onboarding-card,
+      .oh-onboarding-preview {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+      }
+      .oh-onboarding-card__container,
+      .oh-onboarding-card__container--wide {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding-left: 15px !important;
+        padding-right: 15px !important;
+      }
+      .oh-wrapper .container,
+      .oh-wrapper .container-fluid {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding-left: 15px !important;
+        padding-right: 15px !important;
+      }
+      #application-form {
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+      .oh-onboarding-card__container--wide {
+        max-width: none !important;
+      }
+      .survey-other-specify {
+        display: none;
+        margin-top: 0.75rem;
+      }
+      .survey-choice-with-other.survey-other-open .survey-other-specify {
+        display: block;
+      }
+    </style>
+    <script>
+      function surveyOtherWrapHasOther(wrap) {
+        if (!wrap) return false;
+        var checkedInputs = wrap.querySelectorAll(
+          'input[type="radio"]:checked, input[type="checkbox"]:checked, select option:checked'
+        );
+        for (var i = 0; i < checkedInputs.length; i += 1) {
+          var value = checkedInputs[i].value;
+          if (value === "__other__" || value === "Other") {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      function surveyOtherApplyState(wrap, showOther) {
+        wrap.classList.toggle("survey-other-open", showOther);
+        var otherInput = wrap.querySelector(".survey-other-text");
+        if (otherInput) {
+          otherInput.required = showOther;
+          if (!showOther) {
+            otherInput.value = "";
+          }
+        }
+      }
+
+      function surveyOtherToggleChoice(inputEl) {
+        if (!inputEl) return;
+        var wrap = inputEl.closest(".survey-choice-with-other");
+        if (!wrap) return;
+        surveyOtherApplyState(wrap, surveyOtherWrapHasOther(wrap));
+      }
+
+      function surveyOtherToggleSelect(selectEl) {
+        if (!selectEl) return;
+        var wrap = selectEl.closest(".survey-choice-with-other");
+        if (!wrap) return;
+        surveyOtherApplyState(wrap, surveyOtherWrapHasOther(wrap));
+      }
+    </script>
+    <script src="{% static '/jquery/jquery.min.js' %}"></script>
+  </head>
+  <body>
+    {% block content %}
+    {% endblock content %}
+
+    <script src="{% static 'build/js/web.frontend.min.js' %}"></script>
+    {% block extra_js %}{% endblock extra_js %}
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll(".survey-choice-with-other").forEach(function (wrap) {
+          surveyOtherApplyState(wrap, surveyOtherWrapHasOther(wrap));
+        });
+        if (window.jQuery) {
+          jQuery(document).on(
+            "change select2:select select2:unselect",
+            ".survey-choice-with-other select",
+            function () {
+              surveyOtherToggleSelect(this);
+            }
+          );
+        }
+      });
+    </script>
+    <script
+      type="module"
+      src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"
+    ></script>
+    <script
+      nomodule
+      src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"
+    ></script>
+    <script></script>
+  </body>
+</html>
+
+  </body>
+</html>

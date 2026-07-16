@@ -1,0 +1,186 @@
+{% extends 'candidate/application_form_component.html' %}
+{% block content %}
+{% load i18n %}
+{% include "survey/candidate_survey_styles.html" %}
+{% if messages %}
+    <div class="oh-wrapper mt-3">
+        {% for message in messages %}
+        <div class="oh-alert oh-alert--animated {{message.tags}}">
+              {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+{% endif %}
+<div id="main">
+    <div class="oh-wrapper mt-5">
+        <div class="row">
+            <div class="col-12">
+                <div class="oh-onboarding-card oh-onboarding-card--top-bar w-100">
+                    <div class="oh-onboarding-card__container oh-onboarding-card__container--wide">
+                        <p class="candidate-survey-step">{% trans "Application Survey" %}</p>
+                        <h1 class="oh-onboarding-card__title oh-onboarding-card__title--h2 mb-2">
+                            {% trans "Complete Your Application" %}
+                        </h1>
+                        <p class="oh-onboarding-card__lead mb-4">
+                            {% blocktrans with name=candidate.name %}
+                            Welcome, <strong>{{ name }}</strong>. Please answer the questions below to finish your application.
+                            {% endblocktrans %}
+                        </p>
+                        {% if recruitment.title %}
+                        <p class="candidate-survey-recruitment mb-4">{{ recruitment.title }}</p>
+                        {% endif %}
+                        <form
+                            id="candidate-survey-form"
+                            action=""
+                            method="post"
+                            enctype="multipart/form-data"
+                            data-survey-mandatory="{% if recruitment.survey_mandatory %}1{% else %}0{% endif %}"
+                        >
+                            {% csrf_token %}
+                            {{ form|safe }}
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+{% block extra_js %}
+<script>
+(function () {
+  function hasTextValue(el) {
+    return el && String(el.value || "").trim() !== "";
+  }
+
+  function isQuestionCardComplete(card) {
+    var type = card.getAttribute("data-question-type");
+
+    if (type === "options") {
+      var selectedOption = card.querySelector(
+        '.survey-choice-list input[type="radio"]:checked'
+      );
+      if (!selectedOption) return false;
+      if (selectedOption.value === "__other__") {
+        return hasTextValue(card.querySelector(".survey-other-text"));
+      }
+      return true;
+    }
+
+    if (type === "multiple") {
+      var selectedBoxes = card.querySelectorAll(
+        '.survey-choice-list input[type="checkbox"]:checked'
+      );
+      if (!selectedBoxes.length) return false;
+      if (
+        card.querySelector(
+          '.survey-choice-list input[type="checkbox"][value="__other__"]:checked'
+        )
+      ) {
+        return hasTextValue(card.querySelector(".survey-other-text"));
+      }
+      return true;
+    }
+
+    if (type === "rating") {
+      return !!card.querySelector('.oh-rate input[type="radio"]:checked');
+    }
+
+    if (type === "file") {
+      var fileInput = card.querySelector('input[type="file"]');
+      return !!(fileInput && fileInput.files && fileInput.files.length);
+    }
+
+    if (type === "percentage" || type === "number") {
+      var numberInput = card.querySelector('input[type="number"]');
+      return !!(numberInput && numberInput.value !== "");
+    }
+
+    if (type === "date") {
+      return hasTextValue(card.querySelector('input[type="date"]'));
+    }
+
+    if (type === "checkbox") {
+      return !!card.querySelector(
+        '.oh-input-picker-group input[type="radio"]:checked'
+      );
+    }
+
+    if (type === "textarea") {
+      return hasTextValue(card.querySelector("textarea"));
+    }
+
+    var textInput = card.querySelector(
+      'input.oh-input:not([type=radio]):not([type=checkbox]):not([type=hidden]):not([type=file]):not([readonly])'
+    );
+    return hasTextValue(textInput);
+  }
+
+  function updateSurveySubmitState() {
+    var form = document.getElementById("candidate-survey-form");
+    var submitBtn = document.getElementById("survey-submit-btn");
+    if (!form || !submitBtn) return;
+    if (form.getAttribute("data-survey-mandatory") !== "1") return;
+
+    var questionCards = form.querySelectorAll(".survey-q-card");
+    var allComplete = true;
+    if (!questionCards.length) {
+      allComplete = true;
+    } else {
+      questionCards.forEach(function (card) {
+        if (!isQuestionCardComplete(card)) {
+          allComplete = false;
+        }
+      });
+    }
+
+    submitBtn.disabled = !allComplete;
+    submitBtn.setAttribute("aria-disabled", allComplete ? "false" : "true");
+    submitBtn.classList.toggle("survey-submit-btn--locked", !allComplete);
+  }
+
+  function scheduleSurveySubmitStateUpdate() {
+    window.requestAnimationFrame(updateSurveySubmitState);
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    var form = document.getElementById("candidate-survey-form");
+    if (!form || form.getAttribute("data-survey-mandatory") !== "1") return;
+
+    updateSurveySubmitState();
+
+    ["input", "change", "keyup"].forEach(function (eventName) {
+      form.addEventListener(eventName, updateSurveySubmitState);
+    });
+
+    form.addEventListener("click", function (event) {
+      if (
+        event.target.closest(
+          ".survey-choice-item, .oh-input-picker, .oh-rate label, .oh-rate input"
+        )
+      ) {
+        scheduleSurveySubmitStateUpdate();
+      }
+    });
+
+    var originalToggle = window.surveyOtherToggleChoice;
+    window.surveyOtherToggleChoice = function (inputEl) {
+      if (typeof originalToggle === "function") {
+        originalToggle(inputEl);
+      }
+      scheduleSurveySubmitStateUpdate();
+    };
+
+    if (window.jQuery) {
+      jQuery(document).on("click", "#candidate-survey-form .oh-input-picker", function () {
+        var pickerInput = this.querySelector('input[type="radio"]');
+        if (pickerInput) {
+          pickerInput.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        scheduleSurveySubmitStateUpdate();
+      });
+    }
+  });
+})();
+</script>
+{% endblock extra_js %}

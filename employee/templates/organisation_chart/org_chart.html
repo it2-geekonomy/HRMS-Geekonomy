@@ -1,0 +1,26 @@
+{% extends 'index.html' %}
+{% block content %}
+{% load i18n %}
+
+<main :class="sidebarOpen ? 'oh-main__sidebar-visible' : ''">
+    <section class="oh-wrapper oh-main__topbar">
+        <div class="oh-main__titlebar oh-main__titlebar--left">
+            <h1 class="oh-main__titlebar-title fw-bold">{% trans "Organization Chart" %}</h1>
+        </div>
+    </section>
+    <div class="oh-wrapper" id="chart_target">
+    </div>
+    {% comment %} Hidden trigger to load full org chart on page load (no manager_id = full chart) {% endcomment %}
+    <div id="chart_load_trigger"
+         hx-post="{% url 'organisation-chart' %}"
+         hx-trigger="load"
+         hx-target="#chart_target"
+         style="display: none;"></div>
+</main>
+<script>
+    $(document).ready(function(e) {
+        var trigger = document.getElementById('chart_load_trigger');
+        if (trigger && typeof htmx !== 'undefined') { htmx.trigger(trigger, 'load'); }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% load i18n %}
+<script>
+  function surveyOtherWrapHasOther(wrap) {
+    if (!wrap) return false;
+    var checkedInputs = wrap.querySelectorAll(
+      'input[type="radio"]:checked, input[type="checkbox"]:checked, select option:checked'
+    );
+    for (var i = 0; i < checkedInputs.length; i += 1) {
+      var input = checkedInputs[i];
+      var value = input.tagName === "OPTION" ? input.value : input.value;
+      if (value === "__other__" || value === "Other") {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function surveyOtherApplyState(wrap, showOther) {
+    wrap.classList.toggle("survey-other-open", showOther);
+    var otherInput = wrap.querySelector(".survey-other-text");
+    if (otherInput) {
+      otherInput.required = showOther;
+      if (!showOther) {
+        otherInput.value = "";
+      }
+    }
+  }
+
+  function surveyOtherToggleChoice(inputEl) {
+    if (!inputEl) return;
+    var wrap = inputEl.closest(".survey-choice-with-other");
+    if (!wrap) return;
+    surveyOtherApplyState(wrap, surveyOtherWrapHasOther(wrap));
+  }
+
+  function surveyOtherToggleSelect(selectEl) {
+    if (!selectEl) return;
+    var wrap = selectEl.closest(".survey-choice-with-other");
+    if (!wrap) return;
+    surveyOtherApplyState(wrap, surveyOtherWrapHasOther(wrap));
+  }
+
+  function surveyOtherInitAll() {
+    document.querySelectorAll(".survey-choice-with-other").forEach(function (wrap) {
+      surveyOtherApplyState(wrap, surveyOtherWrapHasOther(wrap));
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    surveyOtherInitAll();
+    if (window.jQuery) {
+      jQuery(document).on(
+        "change select2:select select2:unselect",
+        ".survey-choice-with-other select",
+        function () {
+          surveyOtherToggleSelect(this);
+        }
+      );
+      setTimeout(surveyOtherInitAll, 300);
+    }
+  });
+</script>

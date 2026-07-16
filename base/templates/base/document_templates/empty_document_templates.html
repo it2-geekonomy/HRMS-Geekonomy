@@ -1,0 +1,52 @@
+{% extends 'index.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block content %}
+<section class="oh-wrapper oh-main__topbar">
+    <div class="oh-main__titlebar oh-main__titlebar--left oh-d-flex-column--resp oh-mb-3--small">
+        <h1 class="oh-main__titlebar-title fw-bold">
+            {% trans "Document Templates" %}
+        </h1>
+    </div>
+    {% if perms.base.add_documenttemplate %}
+    <div class="oh-main__titlebar oh-main__titlebar--right oh-d-flex-column--resp oh-mb-3--small">
+        <a
+            hx-get="{% url 'create-document-template' %}"
+            data-toggle="oh-modal-toggle"
+            data-target="#objectCreateModal"
+            hx-target="#objectCreateModalTarget"
+            class="oh-btn oh-btn--secondary ml-2"
+        >
+            <ion-icon name="add" class="mr-1 md hydrated" role="img" aria-label="add"></ion-icon>
+            {% trans "Create" %}
+        </a>
+        <a href="{% url 'generate-document' %}" class="oh-btn oh-btn--secondary ml-2">
+            <ion-icon name="document-text-outline" class="mr-1 md hydrated" role="img" aria-label="document"></ion-icon>
+            {% trans "Generate Document" %}
+        </a>
+    </div>
+    {% endif %}
+</section>
+
+<div class="oh-wrapper">
+    <div class="oh-card">
+        <div class="oh-card__body text-center py-5">
+            <ion-icon name="document-text-outline" style="font-size: 48px; color: #888;"></ion-icon>
+            <p class="mt-3 mb-2">{% trans "No document templates yet." %}</p>
+            <p class="text-muted small">{% trans "Create an Employment Agreement or other document template. Use placeholders like" %} {% templatetag openbrace %}{% templatetag openbrace %} employee_name {% templatetag closebrace %}{% templatetag closebrace %}, {% templatetag openbrace %}{% templatetag openbrace %} company_name {% templatetag closebrace %}{% templatetag closebrace %} {% trans "and generate PDF or Word for any employee." %}</p>
+            {% if perms.base.add_documenttemplate %}
+            <a
+                hx-get="{% url 'create-document-template' %}"
+                data-toggle="oh-modal-toggle"
+                data-target="#objectCreateModal"
+                hx-target="#objectCreateModalTarget"
+                class="oh-btn oh-btn--secondary mt-3"
+            >
+                {% trans "Create first template" %}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

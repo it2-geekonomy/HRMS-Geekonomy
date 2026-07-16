@@ -1,0 +1,42 @@
+{% load i18n %}
+
+{% for field in form %}
+    {% if field.name == "mode_of_payment" %}
+    <div class="row mb-2">
+        <div class="col-md-6">
+            <div class="oh-input-group">
+                <label class="oh-label {% if field.field.required %}required-star{% endif %}" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                <div class="text-danger small mt-1">
+                    {% for error in field.errors %}<div>{{ error }}</div>{% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="oh-input-group">
+                <label class="oh-label {% if form.paid_by.field.required %}required-star{% endif %}" for="{{ form.paid_by.id_for_label }}">{{ form.paid_by.label }}</label>
+                {{ form.paid_by }}
+                {% if form.paid_by.errors %}
+                <div class="text-danger small mt-1">
+                    {% for error in form.paid_by.errors %}<div>{{ error }}</div>{% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% elif field.name == "paid_by" %}
+    {% else %}
+    <div class="oh-input-group mb-2">
+        <label class="oh-label {% if field.field.required %}required-star{% endif %}" for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<span class="text-muted small">{{ field.help_text }}</span>{% endif %}
+        {% if field.errors %}
+        <div class="text-danger small mt-1">
+            {% for error in field.errors %}<div>{{ error }}</div>{% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+{% endfor %}

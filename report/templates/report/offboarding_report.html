@@ -1,0 +1,297 @@
+{% extends "index.html" %}
+{% block content %}
+{% load static %}
+{% load i18n %}
+{% include 'filter_tags.html' %}
+
+<div class="oh-wrapper mt-3">
+
+    <div class="d-flex mt-3 mb-3" style='justify-content: space-between;
+        align-items: center;'>
+        <h1 class="oh-main__titlebar-title fw-bold">
+          {% trans "Offboarding Reports" %}
+        </h1>
+
+        <div style="display:inline-flex;">
+            <form id="filterForm" onsubmit="event.preventDefault(); loadFilteredPivotData();" class="me-3" style="margin-top: 10px;">
+                <div class="oh-main__titlebar oh-main__titlebar--right">
+                    <div class="oh-main__titlebar-button-container">
+                        <div class="oh-dropdown" x-data="{open: false}">
+                            <button
+                                class="oh-btn ml-2"
+                                @click="open = !open"
+                                onclick="event.preventDefault()"
+                            >
+                                <ion-icon name="filter" class="mr-1"></ion-icon>{% trans "Filter" %}
+                            </button>
+                            <div
+                                class="oh-dropdown__menu oh-dropdown__menu--right oh-dropdown__filter p-4"
+                                x-show="open"
+                                @click.outside="open = false"
+                                style="display: none"
+                            >
+                                <div class="oh-dropdown__filter-body">
+                                    <div class="oh-accordion">
+                                        <div class="oh-accordion-header">{% trans "Resignation Letters" %}</div>
+                                        <div class="oh-accordion-body">
+                                            <div class="row">
+                                                <div class="col-sm-12 col-md-12 col-lg-6">
+                                                    <div class="oh-input-group">
+                                                        <label class="oh-label" for="{{ form.employee_id.id_for_label }}">{% trans "Employee" %}</label>
+                                                        {{ form.employee_id }}
+                                                    </div>
+                                                </div>
+                                                <div class="col-sm-12 col-md-12 col-lg-6">
+                                                    <div class="oh-input-group">
+                                                        <label class="oh-label" for="{{ form.status.id_for_label }}">{% trans "Status" %}</label>
+                                                        {{ form.status }}
+                                                    </div>
+                                                </div>
+                                                <div class="col-sm-12 col-md-12 col-lg-6">
+                                                    <div class="oh-input-group">
+                                                        <label class="oh-label" for="{{ form.planned_to_leave_on.id_for_label }}">{% trans "Planned to leave on" %}</label>
+                                                        {{ form.planned_to_leave_on }}
+                                                    </div>
+                                                </div>
+                                                <div class="col-sm-12 col-md-12 col-lg-6">
+                                                    <div class="oh-input-group">
+                                                        <label class="oh-label" for="{{ form.employee_id__employee_work_info__department_id.id_for_label }}">{% trans "Department" %}</label>
+                                                        {{ form.employee_id__employee_work_info__department_id }}
+                                                    </div>
+                                                </div>
+                                                <div class="col-sm-12 col-md-12 col-lg-6">
+                                                    <div class="oh-input-group">
+                                                        <label class="oh-label" for="{{ form.employee_id__employee_work_info__job_position_id.id_for_label }}">{% trans "Job Position" %}</label>
+                                                        {{ form.employee_id__employee_work_info__job_position_id }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="oh-dropdown__filter-footer">
+                                    <button
+                                        type="button"
+                                        class="oh-btn oh-btn--secondary oh-btn--small w-100 filterButton"
+                                        onclick="loadFilteredPivotData();"
+                                    >
+                                        {% trans "Filter" %}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <button id="export-btn" class="oh-btn oh-btn--secondary" style="margin-top: 10px;">
+                <ion-icon name="download-outline" class="mr-1 md hydrated" role="img" aria-label="download"></ion-icon>
+                {% trans "Export Table" %}
+            </button>
+        </div>
+    </div>
+
+    <!-- Month-wise selection -->
+    <div class="d-flex align-items-center flex-wrap gap-3 mb-3">
+        <span class="ms-1 fw-bold" style="font-size:16px;">{% trans "View month-wise:" %}</span>
+        <select id="month-select" class="oh-select oh-select--sm" style="width: 140px;">
+            {% for num, name in months %}
+            <option value="{{ num }}" {% if num == current_month %}selected{% endif %}>{{ name }}</option>
+            {% endfor %}
+        </select>
+        <select id="year-select" class="oh-select oh-select--sm" style="width: 100px;">
+            {% for y in years %}
+            <option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+        <span class="ms-2 fw-bold" style="font-size:16px;">{% trans "Report:" %}</span>
+        <select id="model-select" class="oh-select oh-select--sm" style="width: 200px;">
+            <option value="resignation_letters">{% trans "Resignation Letters" %}</option>
+            <option value="exit_process">{% trans "Exit Process" %}</option>
+        </select>
+        <button type="button" class="oh-btn oh-btn--secondary oh-btn--sm" id="apply-month-btn">
+            {% trans "Apply" %}
+        </button>
+    </div>
+
+    <!-- Pivot Container -->
+    <div id="pivot-container" class="mb-5" style="width: 100%; overflow-x: auto;">
+        <div id="pivot-resignation" class="pivot-wrapper" style="display:none; width: 100%; overflow-x: auto;"></div>
+        <div id="pivot-exit" class="pivot-wrapper" style="display:none; width: 100%; overflow-x: auto;"></div>
+    </div>
+</div>
+
+<script>
+    $(function () {
+        function getMonthYearParams() {
+            return "month=" + $("#month-select").val() + "&year=" + $("#year-select").val();
+        }
+
+        function loadPivotData(model) {
+            const monthYear = getMonthYearParams();
+            const url = `offboarding-pivot?model=${model}&${monthYear}`;
+
+            $(".pivot-wrapper").hide();
+
+            let containerId = "";
+            let rowsConfig = [];
+
+            if (model === "resignation_letters") {
+                containerId = "pivot-resignation";
+                rowsConfig = ["Name", "Department", "Job Position", "Planned to leave on", "Status", "Requested on", "Company"];
+            } else if (model === "exit_process") {
+                containerId = "pivot-exit";
+                rowsConfig = ["Name", "Department", "Stage", "Notice starts", "Notice ends", "Company"];
+            }
+
+            $("#" + containerId).show();
+
+            $.getJSON(url, function (data) {
+                let plotlyRenderers = $.pivotUtilities.plotly_renderers;
+                $("#" + containerId).pivotUI(data, {
+                    rows: rowsConfig,
+                    cols: [],
+                    aggregatorName: "Count",
+                    rendererName: "Table",
+                    onRefresh: function (config) {
+                        let currentRenderer = config.rendererName;
+                        if (["Table", "Table Barchart", "Heatmap", "Row Heatmap", "Col Heatmap"].includes(currentRenderer)) {
+                            $("#export-btn").show();
+                        } else {
+                            $("#export-btn").hide();
+                        }
+                    },
+                    renderers: $.extend($.pivotUtilities.renderers, plotlyRenderers),
+                });
+            });
+        }
+
+        window.loadFilteredPivotData = function () {
+            const selectedModel = $("#model-select").val();
+            const formData = $("#filterForm").serialize();
+            const monthYear = getMonthYearParams();
+            const url = `offboarding-pivot?model=${selectedModel}&${monthYear}&${formData}`;
+
+            $(".pivot-wrapper").hide();
+
+            let containerId = "";
+            let rowsConfig = [];
+
+            if (selectedModel === "resignation_letters") {
+                containerId = "pivot-resignation";
+                rowsConfig = ["Name", "Department", "Job Position", "Planned to leave on", "Status", "Requested on", "Company"];
+            } else if (selectedModel === "exit_process") {
+                containerId = "pivot-exit";
+                rowsConfig = ["Name", "Department", "Stage", "Notice starts", "Notice ends", "Company"];
+            }
+
+            $("#" + containerId).show();
+
+            $.getJSON(url, function (data) {
+                const plotlyRenderers = $.pivotUtilities.plotly_renderers;
+                $("#" + containerId).pivotUI(data, {
+                    rows: rowsConfig,
+                    cols: [],
+                    aggregatorName: "Count",
+                    rendererName: "Table",
+                    onRefresh: function (config) {
+                        const currentRenderer = config.rendererName;
+                        if (["Table", "Table Barchart", "Heatmap", "Row Heatmap", "Col Heatmap"].includes(currentRenderer)) {
+                            $("#export-btn").show();
+                        } else {
+                            $("#export-btn").hide();
+                        }
+                    },
+                    renderers: $.extend($.pivotUtilities.renderers, plotlyRenderers),
+                });
+            });
+        };
+
+        loadPivotData("resignation_letters");
+
+        $("#model-select").on("change", function () {
+            loadPivotData($(this).val());
+        });
+
+        $("#apply-month-btn").on("click", function () {
+            loadPivotData($("#model-select").val());
+        });
+
+        $("#month-select, #year-select").on("change", function () {
+            loadPivotData($("#model-select").val());
+        });
+
+        $("#export-btn").on("click", function () {
+            let visiblePivot = $(".pivot-wrapper:visible .pvtTable").closest(".pivot-wrapper");
+            if (visiblePivot.length) {
+                exportTableToExcel(visiblePivot.attr("id"), "offboarding_report.xlsx");
+            }
+        });
+
+        async function exportTableToExcel(containerId, filename) {
+            let table = document.querySelector(`#${containerId} .pvtTable`);
+            if (!table) {
+                alert("No table found to export.");
+                return;
+            }
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet("Offboarding Report");
+            const baseRow = 2;
+            const baseCol = 2;
+            let currentRow = baseRow;
+
+            const timestamp = new Date().toLocaleDateString('en-GB') + ' ' +
+                new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+            const monthYearLabel = $("#month-select option:selected").text() + " " + $("#year-select").val();
+            worksheet.getCell(currentRow, baseCol).value = "Offboarding Report - " + monthYearLabel + " (Generated: " + timestamp + ")";
+            worksheet.getCell(currentRow, baseCol).font = { bold: true, size: 12 };
+            currentRow += 2;
+
+            const cellMap = {};
+            const allRows = Array.from(table.rows);
+            const lastRowIndex = allRows.length - 1;
+
+            allRows.forEach((row, rowIndex) => {
+                let colIndex = baseCol;
+                Array.from(row.cells).forEach((cell) => {
+                    while (cellMap[`${currentRow + rowIndex}-${colIndex}`]) colIndex++;
+                    const rowspan = parseInt(cell.getAttribute("rowspan")) || 1;
+                    const colspan = parseInt(cell.getAttribute("colspan")) || 1;
+                    const cellValue = cell.textContent.trim();
+                    const excelCell = worksheet.getCell(currentRow + rowIndex, colIndex);
+                    excelCell.value = cellValue;
+                    excelCell.font = { bold: rowIndex === 0 || rowIndex === lastRowIndex, size: rowIndex === 0 ? 12 : 11 };
+                    excelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowIndex === 0 ? 'FF545454' : rowIndex === lastRowIndex ? 'FFFFE599' : 'FFF5F5F5' } };
+                    excelCell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+                    excelCell.alignment = { horizontal: "center", vertical: "middle" };
+                    if (rowspan > 1 || colspan > 1) {
+                        worksheet.mergeCells(currentRow + rowIndex, colIndex, currentRow + rowIndex + rowspan - 1, colIndex + colspan - 1);
+                        for (let r = 0; r < rowspan; r++)
+                            for (let c = 0; c < colspan; c++)
+                                cellMap[`${currentRow + rowIndex + r}-${colIndex + c}`] = true;
+                    } else {
+                        cellMap[`${currentRow + rowIndex}-${colIndex}`] = true;
+                    }
+                    colIndex++;
+                });
+            });
+
+            worksheet.columns.forEach(column => {
+                let maxLength = 2;
+                column.eachCell({ includeEmpty: true }, cell => {
+                    const value = cell.value ? cell.value.toString() : '';
+                    maxLength = Math.max(maxLength, value.length);
+                });
+                column.width = maxLength + 3;
+            });
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+        }
+    });
+</script>
+{% endblock content %}

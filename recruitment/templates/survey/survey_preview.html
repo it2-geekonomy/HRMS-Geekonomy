@@ -1,0 +1,54 @@
+{% extends 'index.html' %}
+{% block content %}
+{% load i18n %}
+{% include "survey/candidate_survey_styles.html" %}
+<style>
+  .survey-template-preview-page {
+    max-width: 920px;
+    margin: 0 auto;
+  }
+  .survey-template-preview-back {
+    margin-bottom: 1rem;
+  }
+</style>
+
+{% if messages %}
+<div class="oh-wrapper mt-3">
+  {% for message in messages %}
+  <div class="oh-alert oh-alert--animated {{ message.tags }}">
+    {{ message }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="oh-wrapper survey-template-preview-page mb-5">
+  <div class="survey-template-preview-back">
+    <a href="{% url 'recruitment-survey-question-template-view' %}" class="oh-btn oh-btn--light-bkg">
+      <ion-icon name="arrow-back-outline" class="me-1"></ion-icon>
+      {% trans "Back to Survey Templates" %}
+    </a>
+  </div>
+
+  <div class="oh-onboarding-card oh-onboarding-card--top-bar w-100">
+    <div class="oh-onboarding-card__container oh-onboarding-card__container--wide">
+      <p class="candidate-survey-step">{% trans "Survey Preview" %}</p>
+      <h1 class="oh-onboarding-card__title oh-onboarding-card__title--h2 mb-2">
+        {{ template }}
+      </h1>
+      <p class="oh-onboarding-card__lead mb-4">
+        {% trans "Review how this survey will appear to applicants before assigning it to a recruitment." %}
+      </p>
+
+      <form action="" method="post" enctype="multipart/form-data" onsubmit="return false;">
+        {% csrf_token %}
+        {{ form|safe }}
+      </form>
+    </div>
+  </div>
+
+  <p class="small text-muted text-center mt-4 mb-0">
+    &copy; {% now 'Y' %} Geekonomy. {% trans "All rights reserved." %}
+  </p>
+</div>
+{% endblock content %}

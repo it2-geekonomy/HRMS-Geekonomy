@@ -1,0 +1,44 @@
+{% load i18n %}
+{% load attendancefilters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>{% trans "Attendance Calendar" %} – {{ title }}</title>
+    <style type="text/css">
+        body { font-family: Arial, sans-serif; font-size: 9px; padding: 10px; }
+        h1 { font-size: 14px; margin-bottom: 8px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+        th, td { border: 1px solid #333; padding: 4px 6px; text-align: center; }
+        th { background-color: #e0e0e0; font-weight: bold; }
+        td.employee-cell { text-align: left; max-width: 180px; }
+    </style>
+</head>
+<body>
+    <h1>{% trans "Attendance Calendar" %} – {{ title }}</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>{% trans "Employee" %}</th>
+                {% for col in date_columns %}
+                <th>{{ col }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in data_rows %}
+            <tr>
+                <td class="employee-cell">{{ row.Employee }}</td>
+                {% for col in date_columns %}
+                {% with cell_val=row|dict_get:col %}
+                {% with style=cell_styles|dict_get:cell_val %}
+                <td {% if style %}style="background-color: {{ style.bg_color }}; color: {{ style.font_color }}"{% endif %}>{{ cell_val }}</td>
+                {% endwith %}
+                {% endwith %}
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

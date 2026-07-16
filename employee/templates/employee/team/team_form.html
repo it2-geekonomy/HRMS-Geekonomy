@@ -1,0 +1,83 @@
+{% load i18n %}
+<div class="oh-modal__dialog-header">
+	<!-- <h5 class="oh-modal__dialog-title">
+		{% if team.id %}{% trans "Update Team" %}{% else %}{% trans "Create Teams" %}{% endif %}
+	</h5>
+	<button class="oh-modal__close" aria-label="Close">
+		<ion-icon name="close-outline"></ion-icon>
+	</button> -->
+</div>
+<div class="oh-modal__dialog-body">
+	<form id="multiTeamForm" hx-post="{{ request.get_full_path }}" hx-target="{% if team.id %}#objectUpdateModalTarget{% else %}#objectCreateModalTarget{% endif %}">
+		{% csrf_token %} 
+		{% if form.non_field_errors %}
+			<div class="alert alert-danger">
+				{{ form.non_field_errors }}
+			</div>
+		{% endif %}
+		
+		<div class="mb-3">
+			<label for="id_department_id" class="form-label">{% trans "Department:" %}</label>
+			{{ form.department_id }}
+			{% if form.department_id.errors %}
+				<div class="text-danger small mt-1">{{ form.department_id.errors }}</div>
+			{% endif %}
+		</div>
+		
+		<div class="mb-3">
+			<label class="form-label">{% if team.id %}{% trans "Team Name:" %}{% else %}{% trans "Team Names:" %}{% endif %}</label>
+			{% if team.id %}
+				{{ form.team_name }}
+				{% if form.team_name.errors %}
+					<div class="text-danger small mt-1">{{ form.team_name.errors }}</div>
+				{% endif %}
+			{% else %}
+				<div id="teamNamesContainer">
+					<div class="d-flex gap-2 mb-3">
+						<input type="text" name="team_names[]" class="oh-input w-100" placeholder="{% trans 'Enter team name' %}" required>
+						<button type="button" class="oh-btn oh-btn--secondary" style="height: 48px;" onclick="addTeamNameField()" title="{% trans 'Add more teams' %}">
+							<ion-icon name="add-outline"></ion-icon> {% trans "Add" %}
+						</button>
+					</div>
+				</div>
+				<small class="form-text text-muted">{% trans "Add multiple team names using the + icon" %}</small>
+			{% endif %}
+		</div>
+		
+		<div class="oh-modal__dialog-footer">
+			<button type="submit" class="oh-btn oh-btn--secondary">
+				{% if team.id %}{% trans "Update" %}{% else %}{% trans "Save All Teams" %}{% endif %}
+			</button>
+		</div>
+	</form>
+</div>
+
+<script>
+function addTeamNameField() {
+	const container = document.getElementById('teamNamesContainer');
+	const newField = document.createElement('div');
+	newField.className = 'd-flex gap-2 mb-3';
+	newField.innerHTML = `
+		<input type="text" name="team_names[]" class="oh-input w-100" placeholder="{% trans 'Enter team name' %}" required>
+		<button type="button" class="oh-btn oh-btn--danger-outline" style="height: 48px;" onclick="removeTeamNameField(this)" title="{% trans 'Remove' %}">
+			<ion-icon name="remove-outline"></ion-icon>
+		</button>
+	`;
+	container.appendChild(newField);
+}
+
+function removeTeamNameField(button) {
+	const container = document.getElementById('teamNamesContainer');
+	if (container.children.length > 1) {
+		button.parentElement.remove();
+	}
+}
+
+$(document).ready(function() {
+	// Initialize select2 for department dropdown
+	$('.oh-select-2').select2({
+		theme: 'bootstrap4',
+		width: '100%'
+	});
+});
+</script>

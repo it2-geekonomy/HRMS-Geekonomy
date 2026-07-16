@@ -1,0 +1,97 @@
+{% extends 'candidate/application_form_component.html' %}
+{% load i18n %}
+{% block content %}
+<style>
+  .application-unavailable-page {
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+  }
+
+  .application-unavailable-icon {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 1.25rem;
+    border-radius: 50%;
+    background: hsl(38, 100%, 97%);
+    border: 2px solid hsl(38, 90%, 55%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: hsl(38, 80%, 42%);
+    font-size: 2rem;
+  }
+
+  .application-unavailable-step {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: hsl(38, 80%, 42%);
+    margin: 0 0 0.75rem;
+    text-align: center;
+  }
+
+  .application-unavailable-card {
+    text-align: center;
+    padding: 2rem 1.5rem 2.25rem;
+  }
+
+  .application-unavailable-card .oh-onboarding-card__title {
+    margin-bottom: 0.75rem;
+  }
+
+  .application-unavailable-card .oh-onboarding-card__lead {
+    margin-bottom: 1rem;
+    color: hsl(0, 0%, 35%);
+  }
+
+  .application-unavailable-recruitment {
+    font-size: 0.9rem;
+    color: hsl(0, 0%, 45%);
+    margin: 0 0 1rem;
+  }
+
+  .application-unavailable-note {
+    font-size: 0.85rem;
+    color: hsl(0, 0%, 50%);
+    margin: 0;
+  }
+</style>
+
+<div id="main" class="application-unavailable-page">
+  <div class="oh-wrapper mt-5 mb-5 w-100">
+    <div class="row justify-content-center">
+      <div class="col-12 col-lg-8 col-xl-7">
+        <div class="oh-onboarding-card oh-onboarding-card--top-bar w-100">
+          <div class="oh-onboarding-card__container oh-onboarding-card__container--wide application-unavailable-card">
+            <div class="application-unavailable-icon" aria-hidden="true">
+              <ion-icon name="lock-closed-outline"></ion-icon>
+            </div>
+            <p class="application-unavailable-step">{% trans "Applications Closed" %}</p>
+            <h1 class="oh-onboarding-card__title oh-onboarding-card__title--h2">
+              {% if recruitment.closed %}
+              {% trans "This Position Is Closed" %}
+              {% else %}
+              {% trans "Applications Not Available" %}
+              {% endif %}
+            </h1>
+            {% if recruitment.title %}
+            <p class="application-unavailable-recruitment">{{ recruitment.title }}</p>
+            {% endif %}
+            <p class="oh-onboarding-card__lead">
+              {{ message }}
+            </p>
+            <p class="application-unavailable-note">
+              {% trans "Please check our open positions page for other opportunities, or contact us if you have questions." %}
+            </p>
+          </div>
+        </div>
+        <p class="small text-muted text-center mt-4 mb-0">
+          &copy; {% now 'Y' %} Geekonomy. {% trans "All rights reserved." %}
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

@@ -1,0 +1,89 @@
+{% load i18n %} {% load basefilters %}
+
+<div style="display: none;">{{ filter_dict }}</div>
+<script>
+  var formButton = "#expenseFilterForm .filterButton";
+
+  window.clearExpenseFilterFromTag = function (element) {
+    let field_id = element.attr("data-x-field");
+    if (field_id === "archived") {
+      $("#expenseArchivedInput").val("0");
+    } else {
+      $(`#expenseFilterForm [name='${field_id}']`).val("");
+      $(`#expenseFilterForm [name='${field_id}']`).change();
+      let elementId = $(`#expenseFilterForm [name='${field_id}']:last`).attr("id");
+      let spanElement = $(
+        `#expenseFilterForm .oh-dropdown__filter-body #select2-id_${field_id}-container, #select2-${elementId}-container`
+      );
+      if (spanElement.length) {
+        spanElement.attr("title", "---------");
+        spanElement.text("---------");
+      }
+    }
+    $(formButton).click();
+  }
+
+  window.clearExpenseAllFilters = function () {
+    $('[role="tooltip"]').remove();
+    $("#expenseFilterForm input[name='search']").val("");
+    $("#expenseArchivedInput").val("0");
+    $("#expenseFilterForm .oh-dropdown__filter-body select").val("").change();
+    $("#expenseFilterForm .oh-dropdown__filter-body input[type='date']").val("");
+    let field_ids = $("[data-x-field]");
+    for (var i = 0; i < field_ids.length; i++) {
+      let item_id = field_ids[i].getAttribute("data-x-field");
+      if (item_id === "archived") continue;
+      $(`#expenseFilterForm [name='${item_id}']`).val("");
+      $(`#expenseFilterForm [name='${item_id}']`).change();
+      let elementId = $(`#expenseFilterForm [name='${item_id}']:last`).attr("id");
+      let spanElement = $(
+        `#expenseFilterForm .oh-dropdown__filter-body #select2-id_${item_id}-container, #select2-${elementId}-container`
+      );
+      if (spanElement.length) {
+        spanElement.attr("title", "---------");
+        spanElement.text("---------");
+      }
+    }
+    localStorage.removeItem("savedFilters");
+    var url = window.location.href.split("?")[0];
+    window.history.replaceState({}, document.title, url);
+    $(formButton).click();
+  }
+
+  function fieldLabel(value, field) {
+    if (field === "field") {
+      return $(`option[value="${value}"]`).html();
+    }
+    return value;
+  }
+
+  (function renderExpenseFilterTags() {
+    var nav = $("#filterTagContainerSectionNav");
+    var tags = $(`
+    {% if filter_dict %}
+    <span class="oh-titlebar__tag oh-titlebar__tag--custom">{% trans 'Filters' %}:</span>
+    {% endif %}
+    {% for field, values in filter_dict.items %}
+    {% if values %}
+    {% with translation_field=field|filter_field %}
+    <span class="oh-titlebar__tag filter-field">
+      {% trans translation_field %} :
+      {% for value in values %}
+        ${fieldLabel("{{ value }}", "{{ field }}")}
+      {% endfor %}
+      <button type="button" class="oh-titlebar__tag-close" onclick="clearExpenseFilterFromTag($(this))" data-x-field="{{ field }}">
+        <ion-icon name="close-outline" class="md hydrated close-icon" aria-label="close outline"></ion-icon>
+      </button>
+    </span>
+    {% endwith %}
+    {% endif %}
+    {% endfor %}
+    {% if filter_dict %}
+    <span class="oh-titlebar__tag oh-titlebar__tag--custom" title="{% trans 'Clear All' %}" role="button" onclick="clearExpenseAllFilters();">
+      <ion-icon class="close-icon" name="close-outline"></ion-icon>
+    </span>
+    {% endif %}
+    `);
+    nav.html(tags);
+  })();
+</script>

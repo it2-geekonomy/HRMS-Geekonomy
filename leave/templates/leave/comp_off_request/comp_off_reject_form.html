@@ -1,0 +1,14 @@
+{% load i18n %}{% load widget_tweaks %}
+<div class="oh-modal__dialog-header">
+  <h2 class="oh-modal__dialog-title">{% trans "Reject Comp-Off Request" %}</h2>
+  <button class="oh-modal__close" aria-label="Close"><ion-icon name="close-outline"></ion-icon></button>
+</div>
+<div class="oh-modal__dialog-body">
+  <form hx-post="{% url 'comp-off-request-reject' req_id %}" hx-target="#rejectTarget">
+    <div class="mb-3">
+      <label class="oh-label required-star">{% trans "Rejection Reason" %}</label>
+      {{ form.reason }}{{ form.reason.errors }}
+    </div>
+    <button type="submit" class="oh-btn oh-btn--danger oh-btn--shadow">{% trans "Reject" %}</button>
+  </form>
+</div>

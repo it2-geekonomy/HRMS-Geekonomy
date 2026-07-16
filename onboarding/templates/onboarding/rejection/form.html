@@ -1,0 +1,42 @@
+{% load i18n %}
+<form hx-post="{% url 'add-to-rejected-candidates' %}?candidate_id={{ reject_candidate_id|default:form.candidate_id.value }}">
+    {{ form.as_p }}
+</form>
+{% if reject_candidate_id %}
+<div id="rejectionEmailPreviewWrap" class="mt-3" style="display: none;">
+    <p class="fw-semibold mb-1">{% trans "Email preview" %}</p>
+    <p class="small text-muted mb-2">{% trans "This is how the rejection email will look for this candidate (actual send uses the same content)." %}</p>
+    <iframe id="rejectionEmailPreviewFrame" class="w-100" style="height: 420px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff;" title="{% trans 'Rejection email preview' %}"></iframe>
+</div>
+{% endif %}
+<script>
+(function () {
+    var wrap = document.getElementById("rejectionEmailPreviewWrap");
+    var frame = document.getElementById("rejectionEmailPreviewFrame");
+    var previewUrl = "{% url 'preview-rejection-email' %}?candidate_id={{ reject_candidate_id|urlencode }}";
+    function syncPreview() {
+        var send = document.querySelector('#rejectModalBody input[name="send_email"], #rejectReasonModalBody input[name="send_email"], input[name="send_email"]');
+        if (!wrap || !frame || !send) return;
+        if (send.checked) {
+            wrap.style.display = "block";
+            if (!frame.getAttribute("data-loaded")) {
+                frame.src = previewUrl;
+                frame.setAttribute("data-loaded", "1");
+            }
+        } else {
+            wrap.style.display = "none";
+        }
+    }
+    document.body.addEventListener("change", function (e) {
+        if (e.target && e.target.name === "send_email") syncPreview();
+    });
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", syncPreview);
+    } else {
+        syncPreview();
+    }
+})();
+</script>
+<script>
+    $("form[hx-post] .col-md-6").removeClass("col-md-6");
+</script>
