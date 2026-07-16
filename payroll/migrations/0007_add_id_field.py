@@ -1,6 +1,7 @@
-# Add explicit id field to SalaryDataArrearsLog
+# Historical workaround — SalaryDataArrearsLog already gets an auto id in 0005.
+# Keep as a no-op so fresh installs do not hit DuplicateColumn on "id".
 
-from django.db import migrations, models
+from django.db import migrations
 
 
 class Migration(migrations.Migration):
@@ -9,10 +10,4 @@ class Migration(migrations.Migration):
         ("payroll", "0005_salarydataarrearslog"),
     ]
 
-    operations = [
-        migrations.AddField(
-            model_name="salarydataarrearslog",
-            name="id",
-            field=models.AutoField(primary_key=True, serialize=False),
-        ),
-    ]
+    operations = []
