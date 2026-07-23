@@ -270,12 +270,12 @@ function initializeSummernote(candId,searchWords,) {
               >
             </li>
             {% endif %}
-            {% if perms.base.change_slackconfiguration %}
+            {% if perms.employee.change_employee %}
             <li class="oh-sidebar__submenu-item">
               <a
-              href="{% url 'slack-configuration' %}"
+              href="{% url 'teams-configuration' %}"
               class="oh-sidebar__submenu-link"
-              >{% trans "Slack Configuration" %}</a
+              >{% trans "Teams Configuration" %}</a
               >
             </li>
             {% endif %}

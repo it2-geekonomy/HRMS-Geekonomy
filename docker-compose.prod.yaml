@@ -59,6 +59,11 @@ services:
       DB_HOST: "horilla-db"
       DB_PORT: "5432"
 
+      # Microsoft Teams Online/Offline (Graph Presence API) — set in .env, never hardcode
+      TEAMS_CLIENT_ID: ${TEAMS_CLIENT_ID:-}
+      TEAMS_CLIENT_SECRET: ${TEAMS_CLIENT_SECRET:-}
+      TEAMS_TENANT_ID: ${TEAMS_TENANT_ID:-}
+
       SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
       CRM_API_KEY: ${CRM_API_KEY:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}

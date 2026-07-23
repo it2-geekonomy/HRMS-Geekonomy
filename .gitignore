@@ -163,3 +163,5 @@ Thumbs.db
 # DB dumps (from live)
 live_dump.dump
 *.dump
+horilla_media_backup.tar.gz
+*_media_backup.tar.gz

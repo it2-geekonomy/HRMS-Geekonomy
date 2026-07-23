@@ -198,9 +198,16 @@ CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 
 LOGIN_URL = "/login"
 
-# Slack Online/Offline: Bot User OAuth Token with users:read. presence_change is not
-# in "Subscribe to bot events"; we poll users.getPresence via sync_slack_presence.
+# Slack Online/Offline (legacy): Bot User OAuth Token with users:read.
+# Prefer Teams when TEAMS_* credentials are set (see below).
 SLACK_BOT_TOKEN = env("SLACK_BOT_TOKEN", default=None)
+
+# Microsoft Teams Online/Offline via Graph Presence API (app-only).
+# Azure app needs Application permissions: Presence.Read.All, User.Read.All (admin consent).
+TEAMS_CLIENT_ID = env("TEAMS_CLIENT_ID", default=None)
+TEAMS_CLIENT_SECRET = env("TEAMS_CLIENT_SECRET", default=None)
+TEAMS_TENANT_ID = env("TEAMS_TENANT_ID", default=None)
+
 
 # Email configuration
 # When RESEND_API_KEY is set, ConfiguredEmailBackend sends via Resend API

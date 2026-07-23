@@ -148,7 +148,11 @@ if not any(
     Initializes and starts background tasks using APScheduler when the server is running.
     """
     from employee.slack_presence import sync_slack_presence, sync_slack_users
-
+    from employee.teams_presence import (
+        sync_teams_presence,
+        sync_teams_users,
+        teams_configured,
+    )
     scheduler = BackgroundScheduler()
     scheduler.add_job(update_experience, "interval", hours=4)
     scheduler.add_job(block_unblock_disciplinary, "interval", seconds=25)
@@ -160,7 +164,29 @@ if not any(
         replace_existing=True,
         misfire_grace_time=3600,
     )
-    if getattr(settings, "SLACK_BOT_TOKEN", None):
+      # Prefer Teams presence when Azure app credentials are configured
+    if teams_configured():
+        scheduler.add_job(
+            sync_teams_presence,
+            "interval",
+            minutes=3,
+            id="sync_teams_presence",
+            replace_existing=True,
+            misfire_grace_time=120,
+        )
+        scheduler.add_job(
+            sync_teams_users,
+            "interval",
+            hours=24,
+            id="sync_teams_users",
+            replace_existing=True,
+        )
+        try:
+            sync_teams_users()
+            sync_teams_presence()
+        except Exception:
+            pass
+    elif getattr(settings, "SLACK_BOT_TOKEN", None):
         scheduler.add_job(
             sync_slack_presence,
             "interval",
@@ -169,6 +195,7 @@ if not any(
             replace_existing=True,
             misfire_grace_time=120,  # allow run up to 2 min late if previous run was slow
         )
+        
         scheduler.add_job(sync_slack_users, "interval", hours=24)  # nightly: re-link by email
         # Run once at startup so it works without manual commands
         try:

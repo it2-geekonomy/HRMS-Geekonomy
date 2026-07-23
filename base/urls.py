@@ -1052,6 +1052,11 @@ urlpatterns = [
         name="slack-configuration",
     ),
     path(
+        "configuration/teams-configuration",
+        views.teams_configuration,
+        name="teams-configuration",
+    ),
+    path(
         "configuration/holidays-excel-template",
         views.holidays_excel_template,
         name="holidays-excel-template",

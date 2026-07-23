@@ -20,6 +20,7 @@ from employee.models import (
     PolicyMultipleFile,
     SlackPresence,
     Team,
+    TeamsPresence,
 )
 
 # Register your models here.
@@ -53,6 +54,7 @@ class EmployeeAdmin(admin.ModelAdmin):
         "employee_first_name",
         "employee_last_name",
         "employee_user_id",
+        "teams_user_id",
         "slack_user_id",
         "is_active",
     )
@@ -86,6 +88,20 @@ class SlackPresenceAdmin(admin.ModelAdmin):
     list_filter = ("presence",)
     readonly_fields = ("slack_user_id", "presence", "updated_at")
     search_fields = ("slack_user_id",)
+
+
+@admin.register(TeamsPresence)
+class TeamsPresenceAdmin(admin.ModelAdmin):
+    list_display = ("teams_user_id", "presence", "availability", "activity", "updated_at")
+    list_filter = ("presence", "availability")
+    readonly_fields = (
+        "teams_user_id",
+        "presence",
+        "availability",
+        "activity",
+        "updated_at",
+    )
+    search_fields = ("teams_user_id",)
 
 
 @admin.register(Team)

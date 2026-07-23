@@ -120,6 +120,7 @@ from employee.models import (
     NoteFiles,
     SlackPresence,
     Team,
+    TeamsPresence,
 )
 from horilla.decorators import (
     hx_request_required,
@@ -1044,9 +1045,9 @@ def paginator_qry(qryset, page_number):
 
 def _set_slack_online_on_employee_list(employee_list):
     """
-    Set _slack_online on each employee in the list from SlackPresence (one query).
-    Used by employee view and filter view so check_online() uses same Slack source as dashboard.
-    Handles both paginated lists of Employee and group-by (list of dicts with 'list' Page of employees).
+    Set _slack_online on each employee from TeamsPresence (preferred) or SlackPresence.
+    Used by employee view so check_online() matches dashboard Online/Offline.
+    Handles paginated lists and group-by (list of dicts with 'list' Page).
     """
     if hasattr(employee_list, "object_list"):
         employee_list = employee_list.object_list
@@ -1065,6 +1066,22 @@ def _set_slack_online_on_employee_list(employee_list):
         raw = emps
     emps = [e for e in raw if isinstance(e, Employee)]
     if not emps:
+        return
+
+    teams_linked = [e for e in emps if (getattr(e, "teams_user_id", None) or "").strip()]
+    if teams_linked:
+        teams_ids = [e.teams_user_id for e in teams_linked]
+        online_teams_ids = set(
+            TeamsPresence.objects.filter(
+                teams_user_id__in=teams_ids, presence="active"
+            ).values_list("teams_user_id", flat=True)
+        )
+        for emp in emps:
+            tid = (getattr(emp, "teams_user_id", None) or "").strip()
+            if tid:
+                setattr(emp, "_slack_online", tid in online_teams_ids)
+            else:
+                setattr(emp, "_slack_online", False)
         return
     linked = [e for e in emps if (getattr(e, "slack_user_id", None) or "").strip()]
     slack_ids = [e.slack_user_id for e in linked]

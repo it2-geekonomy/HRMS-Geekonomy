@@ -683,20 +683,29 @@ class AttendanceRequestReGroup:
 
 def get_working_today(queryset, _name, value):
     """
-    Employee view Online/Offline filter — uses Slack presence, not attendance.
-    Online: linked slack_user_id with SlackPresence.presence == active.
-    Offline: everyone else (no Slack ID, away, or unknown presence).
+    Employee view Online/Offline filter — Teams presence preferred, else Slack.
+    Online: linked user with presence == active.
+    Offline: everyone else.
     """
-    from employee.models import SlackPresence
+    from employee.models import SlackPresence, TeamsPresence
 
-    online_slack_ids = SlackPresence.objects.filter(
-        presence="active"
-    ).values_list("slack_user_id", flat=True)
-    online_employee_ids = queryset.filter(
-        slack_user_id__isnull=False,
-    ).exclude(slack_user_id="").filter(
-        slack_user_id__in=online_slack_ids
-    ).values_list("id", flat=True)
+    teams_linked = queryset.filter(teams_user_id__isnull=False).exclude(teams_user_id="")
+    if teams_linked.exists():
+        online_teams_ids = TeamsPresence.objects.filter(
+            presence="active"
+        ).values_list("teams_user_id", flat=True)
+        online_employee_ids = teams_linked.filter(
+            teams_user_id__in=online_teams_ids
+        ).values_list("id", flat=True)
+    else:
+        online_slack_ids = SlackPresence.objects.filter(
+            presence="active"
+        ).values_list("slack_user_id", flat=True)
+        online_employee_ids = queryset.filter(
+            slack_user_id__isnull=False,
+        ).exclude(slack_user_id="").filter(
+            slack_user_id__in=online_slack_ids
+        ).values_list("id", flat=True)
 
     if value:
         queryset = queryset.filter(id__in=online_employee_ids)

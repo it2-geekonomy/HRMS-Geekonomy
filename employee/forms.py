@@ -169,7 +169,8 @@ class EmployeeForm(ModelForm):
             "is_from_onboarding",
             "is_directly_converted",
             "is_active",
-            "slack_user_id",  # Set automatically from Slack by email (sync_slack_users / post_save)
+            "slack_user_id",  # Managed via Slack/Teams sync, not employee form
+            "teams_user_id",  # Managed only in Teams Configuration
         )
         widgets = {
             "dob": TextInput(attrs={"type": "date", "id": "dob"}),

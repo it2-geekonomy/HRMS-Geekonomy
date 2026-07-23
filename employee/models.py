@@ -73,6 +73,17 @@ class Employee(models.Model):
         verbose_name=_("Slack User ID"),
         help_text=_("Slack user ID (e.g. U01234ABCD) for presence in Online Employees."),
     )
+    teams_user_id = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        unique=True,
+        db_index=True,
+        verbose_name=_("Teams User ID"),
+        help_text=_(
+            "Microsoft Entra object ID for Teams presence (Online/Offline on employee view)."
+        ),
+    )
     employee_user_id = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
@@ -466,15 +477,22 @@ class Employee(models.Model):
 
     def check_online(self):
         """
-        Check if the employee is online. Uses Slack presence when employee has
-        slack_user_id (same source as dashboard Online/Offline). Otherwise
-        falls back to attendance-based (clocked in, not clocked out today).
+        Check if the employee is online. Prefers Teams presence when linked,
+        then Slack. Otherwise falls back to attendance-based (clocked in).
         """
         # Use batch-set value from view when present (avoids N+1 on list pages)
         cached = getattr(self, "_slack_online", None)
         if cached is not None:
             return cached
-        # Prefer Slack-based status when linked (same as dashboard)
+        # Prefer Teams (current presence source) when linked
+        if self.teams_user_id:
+            presence = (
+                TeamsPresence.objects.filter(teams_user_id=self.teams_user_id)
+                .values_list("presence", flat=True)
+                .first()
+            )
+            return presence == "active"
+        # Legacy Slack-based status when linked
         if self.slack_user_id:
             presence = (
                 SlackPresence.objects.filter(slack_user_id=self.slack_user_id)
@@ -690,6 +708,29 @@ class SlackPresence(models.Model):
 
     def __str__(self):
         return f"{self.slack_user_id}: {self.presence}"
+
+class TeamsPresence(models.Model):
+    """
+    Stores Microsoft Teams presence from Graph getPresencesByUserId.
+    Maps to Employee via Employee.teams_user_id (Entra object ID).
+    """
+
+    teams_user_id = models.CharField(max_length=64, unique=True, db_index=True)
+    presence = models.CharField(
+        max_length=20,
+        choices=[("active", "Active"), ("away", "Away")],
+        default="away",
+    )
+    availability = models.CharField(max_length=50, blank=True, default="")
+    activity = models.CharField(max_length=50, blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Teams Presence")
+        verbose_name_plural = _("Teams Presences")
+
+    def __str__(self):
+        return f"{self.teams_user_id}: {self.presence} ({self.availability})"
 
 
 class EmployeeTag(HorillaModel):

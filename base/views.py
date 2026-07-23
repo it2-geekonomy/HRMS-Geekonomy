@@ -8073,3 +8073,94 @@ def slack_configuration(request):
         "slack_config": slack_config,
     }
     return render(request, "base/slack_configuration.html", context)
+
+
+@login_required
+@permission_required("employee.change_employee")
+def teams_configuration(request):
+    """
+    Manage Teams Online/Offline: show Azure config status, sync buttons,
+    and employee -> Entra object ID mappings.
+    """
+    from django.conf import settings
+
+    from employee.models import Employee, TeamsPresence
+    from employee.teams_presence import (
+        sync_teams_presence,
+        sync_teams_users,
+        teams_configured,
+    )
+
+    if request.method == "POST":
+        if "sync_users" in request.POST:
+            if not teams_configured():
+                messages.error(
+                    request,
+                    _("Teams is not configured. Set TEAMS_* values in .env"),
+                )
+            else:
+                n = sync_teams_users()
+                messages.success(
+                    request,
+                    _("Linked/updated Teams user ID for %(n)s employee(s).")
+                    % {"n": n},
+                )
+            return HttpResponseRedirect(request.path)
+        if "sync_presence" in request.POST:
+            if not teams_configured():
+                messages.error(
+                    request,
+                    _("Teams is not configured. Set TEAMS_* values in .env"),
+                )
+            else:
+                n = sync_teams_presence()
+                messages.success(
+                    request,
+                    _("Synced Teams presence for %(n)s user(s).") % {"n": n},
+                )
+            return HttpResponseRedirect(request.path)
+        if "save_mappings" in request.POST:
+            employee_id = request.POST.get("employee_id")
+            teams_user_id = (request.POST.get("teams_user_id") or "").strip() or None
+            if employee_id:
+                employee = Employee.objects.filter(id=employee_id).first()
+                if employee:
+                    employee.teams_user_id = teams_user_id
+                    employee.save(update_fields=["teams_user_id"])
+                    messages.success(
+                        request, _("Employee Teams mapping updated successfully")
+                    )
+                else:
+                    messages.error(request, _("Employee not found"))
+            return HttpResponseRedirect(request.path)
+
+    employees = list(
+        Employee.objects.filter(is_active=True).order_by("employee_first_name")
+    )
+    teams_ids = [
+        e.teams_user_id for e in employees if (e.teams_user_id or "").strip()
+    ]
+    presence_map = {
+        p.teams_user_id: p
+        for p in TeamsPresence.objects.filter(teams_user_id__in=teams_ids)
+    }
+    for emp in employees:
+        tid = (emp.teams_user_id or "").strip()
+        p = presence_map.get(tid) if tid else None
+        if p:
+            emp.teams_status = "online" if p.presence == "active" else "offline"
+            emp.teams_availability = p.availability or ""
+        else:
+            emp.teams_status = None
+            emp.teams_availability = ""
+
+    client_id = (getattr(settings, "TEAMS_CLIENT_ID", None) or "").strip()
+    tenant_id = (getattr(settings, "TEAMS_TENANT_ID", None) or "").strip()
+
+    context = {
+        "teams_configured": teams_configured(),
+        "client_id_display": client_id or "—",
+        "tenant_id_display": tenant_id or "—",
+        "employees": employees,
+    }
+    return render(request, "base/teams_configuration.html", context)

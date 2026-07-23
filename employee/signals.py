@@ -10,13 +10,17 @@ from base.models import EmployeeShift
 
 
 @receiver(post_save, sender=Employee)
-def link_new_employee_to_slack(sender, instance, created, **kwargs):
+def link_new_employee_to_presence(sender, instance, created, **kwargs):
     """
-    When a new employee is created with an email, try to set slack_user_id from
-    Slack (users.list match by email). Slack User ID is not shown in the form;
-    it is set automatically.
+    When a new employee is created with an email, link Teams (preferred) or Slack
+    user id automatically. IDs are not shown on the form.
     """
     if not created:
+        return
+    from employee.teams_presence import link_employee_to_teams, teams_configured
+
+    if teams_configured():
+        link_employee_to_teams(instance)
         return
     from employee.slack_presence import link_employee_to_slack
 

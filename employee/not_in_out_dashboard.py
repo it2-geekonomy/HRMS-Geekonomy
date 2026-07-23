@@ -38,20 +38,31 @@ def paginator_qry(qryset, page_number):
 @manager_can_enter("employee.view_employee")
 def not_in_yet(request):
     """
-    Offline Employees: when Slack is used, only slack-linked with presence "away".
-    Fallback: attendance-based (not clocked in or already clocked out).
-    Uses SlackPresence from DB only; sync_slack_presence runs in scheduler every 3 min.
+    Offline Employees: Teams presence preferred, else Slack, else attendance.
     """
-    from employee.models import SlackPresence
+    from employee.models import SlackPresence, TeamsPresence
 
     page_number = request.GET.get("page")
     previous_data = request.GET.urlencode()
 
     base_qs = EmployeeFilter({}).qs.filter(is_active=True)
+    teams_linked = base_qs.filter(teams_user_id__isnull=False).exclude(teams_user_id="")
+    use_teams = teams_linked.exists()
     slack_linked = base_qs.filter(slack_user_id__isnull=False).exclude(slack_user_id="")
-    use_slack = slack_linked.exists()
+    use_slack = (not use_teams) and slack_linked.exists()
 
-    if use_slack:
+    if use_teams:
+        all_teams = list(teams_linked)
+        teams_ids = [e.teams_user_id for e in all_teams]
+        presences = {
+            p.teams_user_id: p.presence
+            for p in TeamsPresence.objects.filter(teams_user_id__in=teams_ids)
+        }
+        emps = [e for e in all_teams if presences.get(e.teams_user_id) != "active"]
+        for e in emps:
+            e.slack_status = "Offline"
+        emps = sorted(emps, key=lambda e: e.get_full_name() or "")
+    elif use_slack:
         all_slack = list(slack_linked)
         slack_ids = [e.slack_user_id for e in all_slack]
         presences = {
@@ -83,18 +94,30 @@ def not_in_yet(request):
 @manager_can_enter("employee.view_employee")
 def not_out_yet(request):
     """
-    Online Employees: uses Slack presence when employees have slack_user_id set.
-    Fallback: when no one is linked to Slack, uses attendance (not clocked out today) as "Online".
-    Uses SlackPresence from DB only; sync_slack_presence runs in scheduler every 3 min.
+    Online Employees: Teams presence preferred, else Slack, else attendance.
     """
-    from employee.models import SlackPresence
+    from employee.models import SlackPresence, TeamsPresence
 
     base_qs = EmployeeFilter({}).qs.filter(is_active=True)
-    # Prefer Slack: only use Slack when at least one employee has slack_user_id
+    teams_linked = base_qs.filter(teams_user_id__isnull=False).exclude(teams_user_id="")
+    use_teams = teams_linked.exists()
     slack_linked = base_qs.filter(slack_user_id__isnull=False).exclude(slack_user_id="")
-    use_slack = slack_linked.exists()
+    use_slack = (not use_teams) and slack_linked.exists()
 
-    if use_slack:
+    if use_teams:
+        emps = list(teams_linked)
+        teams_ids = [e.teams_user_id for e in emps]
+        presences = {
+            p.teams_user_id: p.presence
+            for p in TeamsPresence.objects.filter(teams_user_id__in=teams_ids)
+        }
+        for emp in emps:
+            emp.slack_status = (
+                "Online" if presences.get(emp.teams_user_id) == "active" else "Offline"
+            )
+        emps = [e for e in emps if e.slack_status == "Online"]
+        emps = sorted(emps, key=lambda e: e.get_full_name() or "")
+    elif use_slack:
         emps = list(slack_linked)
         slack_ids = [e.slack_user_id for e in emps]
         presences = {
