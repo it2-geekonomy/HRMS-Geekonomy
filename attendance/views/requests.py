@@ -1489,12 +1489,11 @@ def _attendance_request_log_row_matches_search(row, needle: str) -> bool:
 @login_required
 def attendance_request_logs_view(request):
     """
-    Attendance request logs (approved + rejected) from:
-    1) AttendanceRequestLog — full detail when present.
-    2) EmailLog — employee notification emails sent on approval (ConfiguredEmailBackend
-       logs them). Fills gaps when a log row was never written but the approval email ran.
+    Attendance request logs (approved + rejected) from AttendanceRequestLog.
 
-    Does not use Attendance.is_validate_request_approved alone (biometric sync misuses it).
+    Fast path: filter + paginate in the database, then hydrate request-note /
+    snapshot detail only for the current page. EmailLog gap-filling is opt-in
+    (?email_gaps=1) because scanning thousands of mail rows made this page slow.
     """
     base = AttendanceRequestLog.objects.filter(
         action__in=[AttendanceRequestLog.ACTION_APPROVED, AttendanceRequestLog.ACTION_REJECTED],
@@ -1512,26 +1511,37 @@ def attendance_request_logs_view(request):
     logs_qs = logs_qs | base.filter(employee_id__employee_user_id=request.user)
     logs_qs = logs_qs.distinct().order_by("-performed_at")
 
-    covered_pairs = set(
-        logs_qs.exclude(attendance_id__isnull=True).values_list(
-            "employee_id",
-            "attendance_id__attendance_date",
+    search_q = (request.GET.get("q") or "").strip()
+    if search_q:
+        logs_qs = logs_qs.filter(
+            Q(employee_id__employee_first_name__icontains=search_q)
+            | Q(employee_id__employee_last_name__icontains=search_q)
+            | Q(employee_id__badge_id__icontains=search_q)
+            | Q(description__icontains=search_q)
+            | Q(employee_request_note__icontains=search_q)
+            | Q(performed_by__username__icontains=search_q)
+            | Q(performed_by__first_name__icontains=search_q)
+            | Q(performed_by__last_name__icontains=search_q)
+            | Q(performed_by__email__icontains=search_q)
         )
-    )
 
-    # Rows may have empty employee_request_note (legacy or edge cases). Prefer note
-    # snapshotted on the latest "requested" log for the same attendance.
-    att_ids_for_notes = list(
-        logs_qs.exclude(attendance_id__isnull=True)
-        .values_list("attendance_id", flat=True)
-        .distinct()
-    )
+    paginator = Paginator(logs_qs, get_pagination())
+    page_obj = paginator.get_page(request.GET.get("page") or 1)
+    page_logs = list(page_obj.object_list)
+
+    # Requested-note / snapshot lookup only for this page (not the full history).
+    att_ids_for_notes = [
+        log.attendance_id_id for log in page_logs if log.attendance_id_id
+    ]
     requested_from_by_att_id = {}
     if att_ids_for_notes:
         for req_log in (
             AttendanceRequestLog.objects.filter(
                 attendance_id__in=att_ids_for_notes,
-                action__in=[AttendanceRequestLog.ACTION_REQUESTED, AttendanceRequestLog.ACTION_EDITED],
+                action__in=[
+                    AttendanceRequestLog.ACTION_REQUESTED,
+                    AttendanceRequestLog.ACTION_EDITED,
+                ],
             )
             .order_by("-performed_at")
             .only(
@@ -1548,26 +1558,28 @@ def attendance_request_logs_view(request):
             requested_from_by_att_id[aid] = req_log
 
     combined_rows = []
-    for log in logs_qs:
+    for log in page_logs:
         display_note = (log.employee_request_note or "").strip()
         if not display_note and log.attendance_id_id:
             req_log = requested_from_by_att_id.get(log.attendance_id_id)
             if req_log:
                 display_note = (req_log.employee_request_note or "").strip()
-        req_log = requested_from_by_att_id.get(log.attendance_id_id) if log.attendance_id_id else None
+        req_log = (
+            requested_from_by_att_id.get(log.attendance_id_id)
+            if log.attendance_id_id
+            else None
+        )
         requested_snap = None
         if req_log and req_log.requested_data_snapshot:
             requested_snap = req_log.requested_data_snapshot
         elif log.requested_data_snapshot:
             requested_snap = log.requested_data_snapshot
-        # Backward-compatible fallback for older rows (before snapshot fields existed)
         if not requested_snap and log.attendance_id_id:
             requested_snap = parse_attendance_requested_data(
                 getattr(log.attendance_id, "requested_data", None)
             )
 
         attendance_snap = log.attendance_snapshot
-        # Backward-compatible fallback for older rows
         if not attendance_snap and log.attendance_id_id:
             try:
                 attendance_snap = log.attendance_id.serialize()
@@ -1585,85 +1597,83 @@ def attendance_request_logs_view(request):
             )
         )
 
-    # Supplement APPROVED from mail logs (one row per employee+attendance_date not already covered).
-    # Owner copy: "Your attendance request for {date} has been approved" (to = employee).
-    # Manager/HR copy: "Attendance request by {name} for {date} has been approved".
-    owner_subj_q = Q(subject__icontains="Your attendance request") & Q(
-        subject__icontains="has been approved"
-    )
-    by_name_subj_q = Q(subject__icontains="Attendance request by") & Q(
-        subject__icontains="has been approved"
-    )
-    email_candidates = (
-        EmailLog.objects.filter(status="sent")
-        .filter(owner_subj_q | by_name_subj_q)
-        .exclude(subject__icontains="rejected")
-        .order_by("-created_at")[:5000]
-    )
-    by_full, by_first_last = _employee_name_lookup_maps()
-    seen_email_pair = set()
-    for el in email_candidates:
-        subj = el.subject or ""
-        emp = None
-        att_date = None
-
-        owner_date = _parse_attendance_date_from_owner_approval_subject(subj)
-        if owner_date is not None:
-            att_date = owner_date
-            emp = _employee_from_recipient_email(el.to)
-
-        if not emp:
-            name_part, by_name_date = (
-                _parse_employee_and_date_from_by_name_approval_subject(subj)
-            )
-            if by_name_date and name_part:
-                att_date = by_name_date
-                emp = _resolve_employee_from_subject_name(
-                    name_part, by_full, by_first_last
+    # Optional legacy gap-fill from approval emails (slow). Off by default.
+    if request.GET.get("email_gaps", "").lower() in ("1", "true", "yes"):
+        covered_pairs = set()
+        for row in combined_rows:
+            log = row.log
+            if log.attendance_id_id and log.employee_id_id:
+                covered_pairs.add(
+                    (log.employee_id_id, log.attendance_id.attendance_date)
                 )
-
-        if not att_date or not emp:
-            continue
-        if not _employee_visible_for_attendance_logs(request, emp):
-            continue
-        key = (emp.id, att_date)
-        if key in covered_pairs or key in seen_email_pair:
-            continue
-        seen_email_pair.add(key)
-        attendance = (
-            Attendance.objects.filter(employee_id=emp, attendance_date=att_date)
-            .order_by("-id")
-            .first()
+        owner_subj_q = Q(subject__icontains="Your attendance request") & Q(
+            subject__icontains="has been approved"
         )
-        att_pk = attendance.id if attendance else None
-        combined_rows.append(
-            SimpleNamespace(
-                kind="email",
-                sort_at=el.created_at,
-                log=None,
-                employee=emp,
-                attendance_date=att_date,
-                performed_at=el.created_at,
-                performed_by_display=_approver_display_for_email_recovery_row(
-                    att_pk, el.body or ""
-                ),
-                attendance_pk=att_pk,
-                email_note=True,
-                attendance=attendance,
-                action=AttendanceRequestLog.ACTION_APPROVED,
+        by_name_subj_q = Q(subject__icontains="Attendance request by") & Q(
+            subject__icontains="has been approved"
+        )
+        email_candidates = (
+            EmailLog.objects.filter(status="sent")
+            .filter(owner_subj_q | by_name_subj_q)
+            .exclude(subject__icontains="rejected")
+            .order_by("-created_at")[:200]
+        )
+        by_full, by_first_last = _employee_name_lookup_maps()
+        seen_email_pair = set()
+        for el in email_candidates:
+            subj = el.subject or ""
+            emp = None
+            att_date = None
+
+            owner_date = _parse_attendance_date_from_owner_approval_subject(subj)
+            if owner_date is not None:
+                att_date = owner_date
+                emp = _employee_from_recipient_email(el.to)
+
+            if not emp:
+                name_part, by_name_date = (
+                    _parse_employee_and_date_from_by_name_approval_subject(subj)
+                )
+                if by_name_date and name_part:
+                    att_date = by_name_date
+                    emp = _resolve_employee_from_subject_name(
+                        name_part, by_full, by_first_last
+                    )
+
+            if not att_date or not emp:
+                continue
+            if not _employee_visible_for_attendance_logs(request, emp):
+                continue
+            key = (emp.id, att_date)
+            if key in covered_pairs or key in seen_email_pair:
+                continue
+            seen_email_pair.add(key)
+            attendance = (
+                Attendance.objects.filter(employee_id=emp, attendance_date=att_date)
+                .order_by("-id")
+                .first()
             )
-        )
+            att_pk = attendance.id if attendance else None
+            combined_rows.append(
+                SimpleNamespace(
+                    kind="email",
+                    sort_at=el.created_at,
+                    log=None,
+                    employee=emp,
+                    attendance_date=att_date,
+                    performed_at=el.created_at,
+                    performed_by_display=_approver_display_for_email_recovery_row(
+                        att_pk, el.body or ""
+                    ),
+                    attendance_pk=att_pk,
+                    email_note=True,
+                    attendance=attendance,
+                    action=AttendanceRequestLog.ACTION_APPROVED,
+                )
+            )
+        combined_rows.sort(key=lambda r: r.sort_at, reverse=True)
 
-    combined_rows.sort(key=lambda r: r.sort_at, reverse=True)
-
-    search_q = (request.GET.get("q") or "").strip()
-    if search_q:
-        combined_rows = [
-            r for r in combined_rows if _attendance_request_log_row_matches_search(r, search_q)
-        ]
-
-    paginator = Paginator(combined_rows, get_pagination())
-    page_obj = paginator.get_page(request.GET.get("page") or 1)
+    page_obj.object_list = combined_rows
 
     return render(
         request,
