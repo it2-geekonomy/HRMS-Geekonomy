@@ -4086,6 +4086,7 @@ def probation_employees_view(request):
     List employees in probation. Default: active only (no action taken).
     Filter: Active, Extended, Confirmed, Rejected, All.
     After Extend/Confirm/Reject, employee is archived (only visible when filtered).
+    Extend stores a new Probation Will Complete Date (months or manual date).
     """
     today = timezone.now().date()
     status_filter = request.GET.get("status", "active").lower()
@@ -4138,15 +4139,32 @@ def probation_employees_view(request):
         if not work_info or not work_info.date_joining:
             continue
         join_date = work_info.date_joining
-        probation_will_complete_date = join_date + relativedelta(months=3)
-        show_actions = today >= probation_will_complete_date and not work_info.probation_action
+        default_end = join_date + relativedelta(months=3)
+        probation_will_complete_date = work_info.probation_end_date or default_end
+        # Actions on Active when end date reached; also on Extended when new end date reached
+        show_actions = False
+        if work_info.probation_action is None:
+            show_actions = today >= probation_will_complete_date
+        elif work_info.probation_action == "extended":
+            show_actions = today >= probation_will_complete_date
+
+        can_revert = False
+        revert_days_left = 0
+        if work_info.probation_action in ("confirmed", "extended", "rejected") and work_info.probation_action_date:
+            days_since = (today - work_info.probation_action_date).days
+            if 0 <= days_since < 5:
+                can_revert = True
+                revert_days_left = 5 - days_since
         probation_list.append({
             "employee": emp,
             "joining_date": join_date,
             "probation_will_complete_date": probation_will_complete_date,
+            "default_probation_end": default_end,
             "show_extend_confirm": show_actions,
             "probation_action": work_info.probation_action,
             "probation_action_date": work_info.probation_action_date,
+            "can_revert": can_revert,
+            "revert_days_left": revert_days_left,
         })
     return render(
         request,
@@ -4217,14 +4235,72 @@ def probation_confirm(request, emp_id):
 @require_http_methods(["POST"])
 def probation_extend(request, emp_id):
     """
-    On Extend: archive from list (probation extended).
+    Extend probation: set new Probation Will Complete Date via months or manual date,
+    then mark action as extended.
     """
-    emp = _set_probation_action(request, emp_id, "extended")
+    emp = get_object_or_404(Employee, id=emp_id, is_active=True)
+    work_info = getattr(emp, "employee_work_info", None)
+    if not work_info or not work_info.date_joining:
+        messages.error(request, _("Employee work info or joining date is missing."))
+        return redirect("probation-employees-view")
+
+    join_date = work_info.date_joining
+    current_end = work_info.probation_end_date or (join_date + relativedelta(months=3))
+    mode = (request.POST.get("extend_mode") or "months").strip().lower()
+    new_end = None
+
+    if mode == "date":
+        raw = (request.POST.get("probation_end_date") or "").strip()
+        if not raw:
+            messages.error(request, _("Please choose a probation end date."))
+            return redirect("probation-employees-view")
+        try:
+            new_end = date.fromisoformat(raw)
+        except ValueError:
+            messages.error(request, _("Invalid date format. Use YYYY-MM-DD."))
+            return redirect("probation-employees-view")
+    else:
+        try:
+            months = int(request.POST.get("extend_months") or 0)
+        except (TypeError, ValueError):
+            months = 0
+        if months < 1 or months > 24:
+            messages.error(
+                request,
+                _("Please choose how many months to extend (1–24)."),
+            )
+            return redirect("probation-employees-view")
+        new_end = current_end + relativedelta(months=months)
+
+    if new_end <= current_end:
+        messages.error(
+            request,
+            _(
+                "New Probation Will Complete Date must be after the current date "
+                "(%(current)s)."
+            )
+            % {"current": current_end.strftime("%d/%m/%Y")},
+        )
+        return redirect("probation-employees-view")
+
+    work_info.probation_end_date = new_end
+    work_info.probation_action = "extended"
+    work_info.probation_action_date = timezone.now().date()
+    work_info.save(
+        update_fields=[
+            "probation_end_date",
+            "probation_action",
+            "probation_action_date",
+        ]
+    )
     messages.success(
         request,
-        _("Probation has been extended for %(name)s.") % {"name": emp},
+        _(
+            "Probation extended for %(name)s. New Probation Will Complete Date: %(end)s."
+        )
+        % {"name": emp, "end": new_end.strftime("%d/%m/%Y")},
     )
-    return redirect("probation-employees-view")
+    return redirect(f"{reverse('probation-employees-view')}?status=extended")
 
 
 @login_required
@@ -4239,6 +4315,98 @@ def probation_reject(request, emp_id):
         request,
         _("Probation has been rejected for %(name)s.") % {"name": emp},
     )
+    return redirect("probation-employees-view")
+
+
+@login_required
+@permission_required("employee.view_employee")
+@require_http_methods(["POST"])
+def probation_revert(request, emp_id):
+    """
+    Undo Extend / Confirm / Reject within 5 days: clear probation_action so the
+    employee returns to Active. For Confirm only, also undo leave switch (remove
+    EL/CL/SL and restore Probation Leave). For Extend, also clear custom end date.
+    """
+    emp = get_object_or_404(Employee, id=emp_id, is_active=True)
+    work_info = getattr(emp, "employee_work_info", None)
+    previous_action = getattr(work_info, "probation_action", None) if work_info else None
+    if not work_info or previous_action not in ("confirmed", "extended", "rejected"):
+        messages.error(
+            request,
+            _("Only Extended, Confirmed, or Rejected employees can be reverted."),
+        )
+        return redirect("probation-employees-view")
+
+    today = timezone.now().date()
+    action_date = work_info.probation_action_date
+    if not action_date or (today - action_date).days >= 5:
+        messages.error(
+            request,
+            _(
+                "Revert is only allowed within 5 days of the action. "
+                "That window has expired for %(name)s."
+            )
+            % {"name": emp},
+        )
+        status_q = previous_action or "active"
+        return redirect(f"{reverse('probation-employees-view')}?status={status_q}")
+
+    work_info.probation_action = None
+    work_info.probation_action_date = None
+    update_fields = ["probation_action", "probation_action_date"]
+    # Revert Extend also restores default complete date (joining + 3 months)
+    if previous_action == "extended":
+        work_info.probation_end_date = None
+        update_fields.append("probation_end_date")
+    work_info.save(update_fields=update_fields)
+
+    action_label = {
+        "confirmed": _("Confirm"),
+        "extended": _("Extend"),
+        "rejected": _("Reject"),
+    }.get(previous_action, previous_action)
+
+    # Leave undo only when undoing Confirm
+    if previous_action == "confirmed" and apps.is_installed("leave"):
+        try:
+            from leave.probation_leave import (
+                revert_employee_from_regular_to_probation_leave,
+            )
+
+            result = revert_employee_from_regular_to_probation_leave(emp)
+            if result.get("error"):
+                messages.warning(
+                    request,
+                    _(
+                        "%(action)s reverted for %(name)s, but leave restore had an issue: %(err)s."
+                    )
+                    % {"action": action_label, "name": emp, "err": result["error"]},
+                )
+            else:
+                messages.success(
+                    request,
+                    _(
+                        "%(action)s reverted for %(name)s. Regular leave removed and "
+                        "Probation Leave restored. Employee is back on Active."
+                    )
+                    % {"action": action_label, "name": emp},
+                )
+        except Exception as e:
+            messages.warning(
+                request,
+                _(
+                    "%(action)s reverted for %(name)s. Leave could not be fully restored: %(err)s."
+                )
+                % {"action": action_label, "name": emp, "err": str(e)},
+            )
+    else:
+        messages.success(
+            request,
+            _(
+                "%(action)s reverted for %(name)s. Employee is back on Active."
+            )
+            % {"action": action_label, "name": emp},
+        )
     return redirect("probation-employees-view")
 
 

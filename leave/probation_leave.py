@@ -203,3 +203,60 @@ def switch_employee_from_probation_to_regular_leave(employee):
     except Exception as e:
         result["error"] = str(e)
     return result
+
+
+REGULAR_LEAVE_NAMES = (
+    "Earned Leave",
+    "Earned Leave (EL)",
+    "Casual Leave",
+    "Casual Leave (CL)",
+    "Sick Leave",
+    "Sick Leave (SL)",
+)
+
+
+def revert_employee_from_regular_to_probation_leave(employee):
+    """
+    Undo Confirm leave switch: remove EL/CL/SL and restore Probation Leave (1 day
+    for current month). Used when HR reverts a mistaken confirmation.
+    """
+    today = timezone.now().date()
+    result = {"removed_regular": False, "restored_pl": False, "error": None}
+    try:
+        with transaction.atomic():
+            regular_types = LeaveType.objects.filter(name__in=REGULAR_LEAVE_NAMES)
+            if regular_types.exists():
+                deleted, _ = AvailableLeave.objects.filter(
+                    employee_id=employee,
+                    leave_type_id__in=regular_types,
+                ).delete()
+                result["removed_regular"] = deleted > 0
+
+            pl_type = LeaveType.objects.filter(name__in=PROBATION_LEAVE_NAMES).first()
+            if not pl_type:
+                result["error"] = (
+                    "Probation Leave type not found. Create it in Leave > Leave Types."
+                )
+                return result
+
+            next_1st = (today + relativedelta(months=1)).replace(day=1)
+            pl_leave, created = AvailableLeave.objects.get_or_create(
+                employee_id=employee,
+                leave_type_id=pl_type,
+                defaults={
+                    "available_days": 1,
+                    "assigned_date": today,
+                    "reset_date": next_1st,
+                },
+            )
+            if not created:
+                pl_leave.available_days = 1
+                pl_leave.assigned_date = today
+                pl_leave.reset_date = next_1st
+                pl_leave.save(
+                    update_fields=["available_days", "assigned_date", "reset_date"]
+                )
+            result["restored_pl"] = True
+    except Exception as e:
+        result["error"] = str(e)
+    return result

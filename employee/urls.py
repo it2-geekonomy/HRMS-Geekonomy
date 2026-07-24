@@ -69,6 +69,11 @@ urlpatterns = [
         views.probation_reject,
         name="probation-reject",
     ),
+    path(
+        "probation-employees/revert/<int:emp_id>/",
+        views.probation_revert,
+        name="probation-revert",
+    ),
     path("employee-view-new", views.employee_view_new, name="employee-view-new"),
     path(
         "employee-view-update/<int:obj_id>/",

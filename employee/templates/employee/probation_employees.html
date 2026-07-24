@@ -9,7 +9,7 @@
     <h1 class="oh-main__titlebar-title fw-bold">{% trans "Probation Employees" %}</h1>
   </div>
   <p class="mt-2 text-muted">
-    {% trans "Employees in probation based on joining date. After 3 months, Extend, Confirm or Reject actions are available. Archived employees appear only when filtered." %}
+    {% trans "Employees in probation based on joining date. After 3 months, Extend, Confirm or Reject actions are available. Extend lets you add months or set a manual end date. Any action can be reverted within 5 days." %}
   </p>
   <form method="get" action="{% url 'probation-employees-view' %}" class="mb-3 d-flex align-items-center gap-2">
     <label class="oh-label mb-0">{% trans "Filter" %}:</label>
@@ -55,33 +55,69 @@
             <div class="oh-sticky-table__td">{{ item.joining_date|date:"d/m/Y" }}</div>
             <div class="oh-sticky-table__td">{{ item.probation_will_complete_date|date:"d/m/Y" }}</div>
             <div class="oh-sticky-table__td oh-sticky-table__right">
-              {% if status_filter == "active" %}
+              {% if status_filter == "active" or status_filter == "extended" %}
                 {% if item.show_extend_confirm %}
                 <div class="oh-btn-group">
-                  <form action="{% url 'probation-extend' item.employee.id %}" method="post" class="d-inline">
-                    {% csrf_token %}
-                    <button type="submit" class="oh-btn oh-btn--secondary oh-btn--small">{% trans "Extend" %}</button>
-                  </form>
-                  <form action="{% url 'probation-confirm' item.employee.id %}" method="post" class="d-inline">
+                  <button
+                    type="button"
+                    class="oh-btn oh-btn--secondary oh-btn--small probation-extend-btn"
+                    data-emp-id="{{ item.employee.id }}"
+                    data-emp-name="{{ item.employee }}"
+                    data-current-end="{{ item.probation_will_complete_date|date:'Y-m-d' }}"
+                    data-current-end-display="{{ item.probation_will_complete_date|date:'d/m/Y' }}"
+                    data-extend-url="{% url 'probation-extend' item.employee.id %}"
+                  >{% trans "Extend" %}</button>
+                  <form action="{% url 'probation-confirm' item.employee.id %}" method="post" class="d-inline probation-action-form" data-confirm-title="{% trans 'Confirm Employee' %}" data-confirm-text="{% blocktrans with name=item.employee %}Confirm {{ name }}? Probation Leave will be removed and Earned Leave, Sick Leave, and Casual Leave will be assigned.{% endblocktrans %}">
                     {% csrf_token %}
                     <button type="submit" class="oh-btn oh-btn--warning oh-btn--small">{% trans "Confirm" %}</button>
                   </form>
-                  <form action="{% url 'probation-reject' item.employee.id %}" method="post" class="d-inline">
+                  <form action="{% url 'probation-reject' item.employee.id %}" method="post" class="d-inline probation-action-form" data-confirm-title="{% trans 'Reject Probation' %}" data-confirm-text="{% blocktrans with name=item.employee %}Reject probation for {{ name }}? They will move to Rejected status. You can revert within 5 days.{% endblocktrans %}">
                     {% csrf_token %}
                     <button type="submit" class="oh-btn oh-btn--danger oh-btn--small">{% trans "Reject" %}</button>
                   </form>
                 </div>
-                {% else %}
+                {% elif status_filter == "active" %}
                 <div class="oh-btn-group">
                   <button type="button" class="oh-btn oh-btn--secondary oh-btn--small" disabled title="{% trans 'Available after probation completes' %}">{% trans "Extend" %}</button>
                   <button type="button" class="oh-btn oh-btn--warning oh-btn--small" disabled title="{% trans 'Available after probation completes' %}">{% trans "Confirm" %}</button>
                   <button type="button" class="oh-btn oh-btn--danger oh-btn--small" disabled title="{% trans 'Available after probation completes' %}">{% trans "Reject" %}</button>
                 </div>
                 {% endif %}
-              {% else %}
-                {% if item.probation_action_date %}
-                <span class="badge oh-badge--secondary">{{ item.probation_action_date|date:"d/m/Y" }}</span>
+                {% if status_filter == "extended" %}
+                <div class="oh-btn-group d-flex align-items-center gap-2 flex-wrap justify-content-end mt-1">
+                  {% if item.probation_action_date %}
+                  <span class="badge oh-badge--secondary">{{ item.probation_action_date|date:"d/m/Y" }}</span>
+                  {% endif %}
+                  {% if item.can_revert %}
+                  <form action="{% url 'probation-revert' item.employee.id %}" method="post" class="d-inline probation-action-form" data-confirm-title="{% trans 'Revert Action' %}" data-confirm-text="{% blocktrans with name=item.employee days=item.revert_days_left %}Revert extend for {{ name }}? Probation Will Complete Date returns to default (joining + 3 months). {{ days }} day(s) left to revert.{% endblocktrans %}">
+                    {% csrf_token %}
+                    <button type="submit" class="oh-btn oh-btn--info oh-btn--small">{% trans "Revert" %}</button>
+                  </form>
+                  {% else %}
+                  <button type="button" class="oh-btn oh-btn--info oh-btn--small" disabled title="{% trans 'Revert available only within 5 days of the action' %}">{% trans "Revert" %}</button>
+                  {% endif %}
+                </div>
                 {% endif %}
+              {% elif status_filter == "confirmed" or status_filter == "rejected" or status_filter == "all" %}
+                <div class="oh-btn-group d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                  {% if item.probation_action_date %}
+                  <span class="badge oh-badge--secondary">{{ item.probation_action_date|date:"d/m/Y" }}</span>
+                  {% endif %}
+                  {% if item.probation_action %}
+                    {% if item.can_revert %}
+                    <form action="{% url 'probation-revert' item.employee.id %}" method="post" class="d-inline probation-action-form" data-confirm-title="{% trans 'Revert Action' %}" data-confirm-text="{% if item.probation_action == 'confirmed' %}{% blocktrans with name=item.employee days=item.revert_days_left %}Revert confirmation for {{ name }}? EL/CL/SL will be removed and Probation Leave restored. {{ days }} day(s) left to revert.{% endblocktrans %}{% elif item.probation_action == 'extended' %}{% blocktrans with name=item.employee days=item.revert_days_left %}Revert extend for {{ name }}? Probation Will Complete Date returns to default. {{ days }} day(s) left to revert.{% endblocktrans %}{% else %}{% blocktrans with name=item.employee days=item.revert_days_left %}Revert this action for {{ name }}? They will return to Active. {{ days }} day(s) left to revert.{% endblocktrans %}{% endif %}">
+                      {% csrf_token %}
+                      <button type="submit" class="oh-btn oh-btn--info oh-btn--small" title="{% blocktrans with days=item.revert_days_left %}{{ days }} day(s) left to revert{% endblocktrans %}">
+                        {% trans "Revert" %}
+                      </button>
+                    </form>
+                    {% else %}
+                    <button type="button" class="oh-btn oh-btn--info oh-btn--small" disabled title="{% trans 'Revert available only within 5 days of the action' %}">
+                      {% trans "Revert" %}
+                    </button>
+                    {% endif %}
+                  {% endif %}
+                </div>
               {% endif %}
             </div>
           </div>
@@ -102,4 +138,205 @@
     </div>
   </div>
 </div>
+
+{# Extend probation modal #}
+<div class="oh-modal" id="probationExtendModal" role="dialog" aria-hidden="true">
+  <div class="oh-modal__dialog" style="max-width: 480px;">
+    <div class="oh-modal__dialog-header">
+      <h5 class="oh-modal__dialog-title">{% trans "Extend Probation" %}</h5>
+      <button type="button" class="oh-modal__close" id="probationExtendModalClose" aria-label="Close">
+        <ion-icon name="close-outline"></ion-icon>
+      </button>
+    </div>
+    <div class="oh-modal__dialog-body">
+      <p class="mb-2" id="probationExtendEmpName"></p>
+      <p class="text-muted small mb-3">
+        {% trans "Current Probation Will Complete Date" %}:
+        <strong id="probationExtendCurrentEnd"></strong>
+      </p>
+      <form id="probationExtendForm" method="post" action="">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="oh-label d-block mb-2">{% trans "How do you want to extend?" %}</label>
+          <label class="me-3">
+            <input type="radio" name="extend_mode" value="months" checked id="extendModeMonths" />
+            {% trans "By months" %}
+          </label>
+          <label>
+            <input type="radio" name="extend_mode" value="date" id="extendModeDate" />
+            {% trans "Manual date" %}
+          </label>
+        </div>
+        <div class="mb-3" id="extendMonthsWrap">
+          <label class="oh-label" for="extendMonths">{% trans "Extend by (months)" %}</label>
+          <select name="extend_months" id="extendMonths" class="oh-input w-100">
+            {% for m in "123456"|make_list %}
+            <option value="{{ m }}">{{ m }} {% if m == "1" %}{% trans "month" %}{% else %}{% trans "months" %}{% endif %}</option>
+            {% endfor %}
+            <option value="9">9 {% trans "months" %}</option>
+            <option value="12">12 {% trans "months" %}</option>
+          </select>
+        </div>
+        <div class="mb-3 d-none" id="extendDateWrap">
+          <label class="oh-label" for="extendEndDate">{% trans "New Probation Will Complete Date" %}</label>
+          <input type="date" name="probation_end_date" id="extendEndDate" class="oh-input w-100" />
+        </div>
+        <p class="small text-muted mb-3">
+          {% trans "New date will be" %}: <strong id="probationExtendPreview">—</strong>
+        </p>
+        <div class="d-flex flex-row-reverse gap-2">
+          <button type="submit" class="oh-btn oh-btn--secondary">{% trans "Save" %}</button>
+          <button type="button" class="oh-btn oh-btn--light" id="probationExtendCancel">{% trans "Cancel" %}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    function addMonths(isoDate, months) {
+      var parts = isoDate.split("-");
+      var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      var day = d.getDate();
+      d.setMonth(d.getMonth() + months);
+      // Handle month overflow (e.g. Jan 31 + 1 month)
+      if (d.getDate() < day) {
+        d.setDate(0);
+      }
+      var y = d.getFullYear();
+      var m = String(d.getMonth() + 1).padStart(2, "0");
+      var dd = String(d.getDate()).padStart(2, "0");
+      return y + "-" + m + "-" + dd;
+    }
+    function formatDisplay(iso) {
+      if (!iso) return "—";
+      var p = iso.split("-");
+      return p[2] + "/" + p[1] + "/" + p[0];
+    }
+
+    var modal = document.getElementById("probationExtendModal");
+    var form = document.getElementById("probationExtendForm");
+    var currentEndIso = "";
+
+    function updatePreview() {
+      var mode = (form.querySelector('input[name="extend_mode"]:checked') || {}).value;
+      var preview = document.getElementById("probationExtendPreview");
+      if (mode === "date") {
+        preview.textContent = formatDisplay(document.getElementById("extendEndDate").value);
+      } else {
+        var months = parseInt(document.getElementById("extendMonths").value, 10) || 0;
+        preview.textContent = formatDisplay(addMonths(currentEndIso, months));
+      }
+    }
+
+    function setModeUI() {
+      var mode = (form.querySelector('input[name="extend_mode"]:checked') || {}).value;
+      document.getElementById("extendMonthsWrap").classList.toggle("d-none", mode !== "months");
+      document.getElementById("extendDateWrap").classList.toggle("d-none", mode !== "date");
+      updatePreview();
+    }
+
+    function openExtendModal(btn) {
+      currentEndIso = btn.getAttribute("data-current-end") || "";
+      form.action = btn.getAttribute("data-extend-url") || "";
+      document.getElementById("probationExtendEmpName").textContent =
+        btn.getAttribute("data-emp-name") || "";
+      document.getElementById("probationExtendCurrentEnd").textContent =
+        btn.getAttribute("data-current-end-display") || formatDisplay(currentEndIso);
+      document.getElementById("extendModeMonths").checked = true;
+      document.getElementById("extendMonths").value = "1";
+      var minDate = currentEndIso;
+      var dateInput = document.getElementById("extendEndDate");
+      dateInput.min = minDate;
+      dateInput.value = addMonths(currentEndIso, 1);
+      setModeUI();
+      modal.classList.add("oh-modal--show");
+      modal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeExtendModal() {
+      modal.classList.remove("oh-modal--show");
+      modal.setAttribute("aria-hidden", "true");
+    }
+
+    document.querySelectorAll(".probation-extend-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        openExtendModal(btn);
+      });
+    });
+    document.getElementById("probationExtendModalClose").addEventListener("click", closeExtendModal);
+    document.getElementById("probationExtendCancel").addEventListener("click", closeExtendModal);
+    form.querySelectorAll('input[name="extend_mode"]').forEach(function (el) {
+      el.addEventListener("change", setModeUI);
+    });
+    document.getElementById("extendMonths").addEventListener("change", updatePreview);
+    document.getElementById("extendEndDate").addEventListener("change", updatePreview);
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var mode = (form.querySelector('input[name="extend_mode"]:checked') || {}).value;
+      var text;
+      if (mode === "date") {
+        text = "{% trans 'Extend probation with manual date' %}: " + formatDisplay(document.getElementById("extendEndDate").value) + "?";
+      } else {
+        text = "{% trans 'Extend probation by' %} " + document.getElementById("extendMonths").value + " {% trans 'month(s)' %}? {% trans 'New date' %}: " + document.getElementById("probationExtendPreview").textContent;
+      }
+      function doSubmit() {
+        form.submit();
+      }
+      if (typeof Swal === "undefined") {
+        if (window.confirm(text)) doSubmit();
+        return;
+      }
+      Swal.fire({
+        title: "{% trans 'Extend Probation' %}",
+        text: text,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonColor: "#008000",
+        cancelButtonColor: "#d33",
+        confirmButtonText: "{% trans 'Yes, continue' %}",
+        cancelButtonText: "{% trans 'Cancel' %}",
+      }).then(function (result) {
+        if (result.isConfirmed) doSubmit();
+      });
+    });
+  })();
+
+  document.addEventListener("submit", function (e) {
+    var form = e.target;
+    if (!form || !form.classList || !form.classList.contains("probation-action-form")) {
+      return;
+    }
+    if (form.dataset.confirmed === "1") {
+      return;
+    }
+    e.preventDefault();
+    var title = form.getAttribute("data-confirm-title") || "Confirm";
+    var text = form.getAttribute("data-confirm-text") || "Are you sure?";
+    if (typeof Swal === "undefined") {
+      if (window.confirm(text)) {
+        form.dataset.confirmed = "1";
+        form.submit();
+      }
+      return;
+    }
+    Swal.fire({
+      title: title,
+      text: text,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#008000",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "{% trans 'Yes, continue' %}",
+      cancelButtonText: "{% trans 'Cancel' %}",
+    }).then(function (result) {
+      if (result.isConfirmed) {
+        form.dataset.confirmed = "1";
+        form.submit();
+      }
+    });
+  });
+</script>
 {% endblock %}

@@ -872,6 +872,15 @@ class EmployeeWorkInformation(models.Model):
     probation_action_date = models.DateField(
         blank=True, null=True, verbose_name=_("Probation Action Date")
     )
+    probation_end_date = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name=_("Probation Will Complete Date"),
+        help_text=_(
+            "Optional override. Default is joining date + 3 months. "
+            "Updated when probation is extended."
+        ),
+    )
     basic_salary = models.IntegerField(
         null=True, blank=True, default=0, verbose_name=_("Basic Salary")
     )
