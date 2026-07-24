@@ -4176,14 +4176,25 @@ def probation_employees_view(request):
     )
 
 
-def _set_probation_action(request, emp_id, action):
-    """Set probation_action on employee work info and redirect."""
+def _set_probation_action(request, emp_id, action, save_complete_date=False):
+    """
+    Set probation_action on employee work info.
+    If save_complete_date=True (Confirm/Reject), persist the current Probation Will
+    Complete Date (stored override or joining + 3 months) into probation_end_date.
+    """
     emp = get_object_or_404(Employee, id=emp_id, is_active=True)
     work_info = getattr(emp, "employee_work_info", None)
     if work_info:
         work_info.probation_action = action
         work_info.probation_action_date = timezone.now().date()
-        work_info.save(update_fields=["probation_action", "probation_action_date"])
+        update_fields = ["probation_action", "probation_action_date"]
+        if save_complete_date and work_info.date_joining:
+            # Same date shown on Probation Employees list
+            work_info.probation_end_date = work_info.probation_end_date or (
+                work_info.date_joining + relativedelta(months=3)
+            )
+            update_fields.append("probation_end_date")
+        work_info.save(update_fields=update_fields)
     return emp
 
 
@@ -4192,10 +4203,10 @@ def _set_probation_action(request, emp_id, action):
 @require_http_methods(["POST"])
 def probation_confirm(request, emp_id):
     """
-    On Confirm: set probation_action to confirmed, then automatically remove
-    Probation Leave (PL) and assign Earned Leave (EL), Sick Leave (SL), Casual Leave (CL).
+    On Confirm: set probation_action to confirmed, save Probation Will Complete Date,
+    then remove Probation Leave (PL) and assign EL / SL / CL.
     """
-    emp = _set_probation_action(request, emp_id, "confirmed")
+    emp = _set_probation_action(request, emp_id, "confirmed", save_complete_date=True)
     if apps.is_installed("leave"):
         try:
             from leave.probation_leave import switch_employee_from_probation_to_regular_leave
@@ -4310,7 +4321,7 @@ def probation_reject(request, emp_id):
     """
     On Reject: archive from list (probation rejected).
     """
-    emp = _set_probation_action(request, emp_id, "rejected")
+    emp = _set_probation_action(request, emp_id, "rejected", save_complete_date=True)
     messages.success(
         request,
         _("Probation has been rejected for %(name)s.") % {"name": emp},
@@ -4353,12 +4364,14 @@ def probation_revert(request, emp_id):
 
     work_info.probation_action = None
     work_info.probation_action_date = None
-    update_fields = ["probation_action", "probation_action_date"]
-    # Revert Extend also restores default complete date (joining + 3 months)
-    if previous_action == "extended":
-        work_info.probation_end_date = None
-        update_fields.append("probation_end_date")
-    work_info.save(update_fields=update_fields)
+    work_info.probation_end_date = None
+    work_info.save(
+        update_fields=[
+            "probation_action",
+            "probation_action_date",
+            "probation_end_date",
+        ]
+    )
 
     action_label = {
         "confirmed": _("Confirm"),
