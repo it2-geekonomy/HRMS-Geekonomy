@@ -608,11 +608,11 @@ def monthly_leave_days(month, year):
         if july_18_2026 not in leave_dates:
             leave_dates.append(july_18_2026)
 
-    # Temporary override: July 25, 2026 as working day for July 2026 only (remove from WO)
+    # Temporary override: July 25, 2026 as WO for July 2026 only
     if year == 2026 and month == 7:
         july_25_2026 = date(2026, 7, 25)
-        if july_25_2026 in leave_dates:
-            leave_dates.remove(july_25_2026)
+        if july_25_2026 not in leave_dates:
+            leave_dates.append(july_25_2026)
 
     return leave_dates
 
