@@ -2396,6 +2396,29 @@ def delete_comment_file(request):
     return HttpResponse(script)
 
 
+def _build_leave_request_cell_map(leave_requests_queryset, month_dates_set):
+    """
+    Map calendar cell keys (employee_id_date) to pending leave request ids for LR links.
+    """
+    leave_request_cell_keys = set()
+    leave_request_cell_urls = {}
+    for lr in leave_requests_queryset.values("id", "employee_id", "start_date", "end_date"):
+        emp_id = lr["employee_id"]
+        start_date = lr["start_date"]
+        end_date = lr["end_date"] or start_date
+        if not start_date:
+            continue
+        current_date = start_date
+        while current_date <= end_date:
+            if current_date in month_dates_set:
+                key = f"{emp_id}_{current_date.isoformat()}"
+                leave_request_cell_keys.add(key)
+                if key not in leave_request_cell_urls:
+                    leave_request_cell_urls[key] = lr["id"]
+            current_date += timedelta(days=1)
+    return leave_request_cell_keys, leave_request_cell_urls
+
+
 @login_required
 def work_records(request):
     today = date.today()
@@ -2620,18 +2643,9 @@ def work_records_change_month(request):
         Q(start_date__in=month_dates)
         | Q(end_date__in=month_dates)
     )
-    leave_request_cell_keys = set()
-    for lr in leave_requests_queryset.values_list("employee_id", "start_date", "end_date"):
-        emp_id, start_date, end_date = lr
-        if start_date and end_date:
-            # Add all dates in the leave request range
-            current_date = start_date
-            while current_date <= end_date:
-                if current_date in month_dates_set:
-                    leave_request_cell_keys.add(f"{emp_id}_{current_date.isoformat()}")
-                current_date += timedelta(days=1)
-        elif start_date and start_date in month_dates_set:
-            leave_request_cell_keys.add(f"{emp_id}_{start_date.isoformat()}")
+    leave_request_cell_keys, leave_request_cell_urls = _build_leave_request_cell_map(
+        leave_requests_queryset, month_dates_set
+    )
 
     paginator = Paginator(list(data.items()), get_pagination())
     page = paginator.get_page(request.GET.get("page"))
@@ -2649,6 +2663,7 @@ def work_records_change_month(request):
         "sp_l_dates": sp_l_dates,
         "attendance_request_cell_keys": attendance_request_cell_keys,
         "leave_request_cell_keys": leave_request_cell_keys,
+        "leave_request_cell_urls": leave_request_cell_urls,
         "pd": previous_data,
         "current_date": date.today(),
         "f": employee_filter_form,
@@ -2798,18 +2813,9 @@ def my_work_records_change_month(request):
         Q(start_date__in=month_dates)
         | Q(end_date__in=month_dates)
     )
-    leave_request_cell_keys = set()
-    for lr in leave_requests_queryset.values_list("employee_id", "start_date", "end_date"):
-        emp_id, start_date, end_date = lr
-        if start_date and end_date:
-            # Add all dates in the leave request range
-            current_date = start_date
-            while current_date <= end_date:
-                if current_date in month_dates_set:
-                    leave_request_cell_keys.add(f"{emp_id}_{current_date.isoformat()}")
-                current_date += timedelta(days=1)
-        elif start_date and start_date in month_dates_set:
-            leave_request_cell_keys.add(f"{emp_id}_{start_date.isoformat()}")
+    leave_request_cell_keys, leave_request_cell_urls = _build_leave_request_cell_map(
+        leave_requests_queryset, month_dates_set
+    )
 
     context = {
         "current_month_dates_list": month_dates,
@@ -2825,6 +2831,7 @@ def my_work_records_change_month(request):
         "sp_l_dates": sp_l_dates,
         "attendance_request_cell_keys": attendance_request_cell_keys,
         "leave_request_cell_keys": leave_request_cell_keys,
+        "leave_request_cell_urls": leave_request_cell_urls,
         "pd": previous_data,
         "current_date": date.today(),
     }

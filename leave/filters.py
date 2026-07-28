@@ -308,6 +308,7 @@ class UserLeaveRequestFilter(FilterSet):
         fields = {
             "leave_type_id": ["exact"],
             "status": ["exact"],
+            "id": ["exact"],
         }
 
     def __init__(self, data=None, queryset=None, *, request=None, prefix=None):

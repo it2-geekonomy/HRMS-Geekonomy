@@ -184,6 +184,7 @@
 
                 {% for work_record in work_records %}
                     {% with day=current_month_dates_list|get_item:forloop.counter0 %}
+                    {% with cell_key=day|hp_p_key:employee.id %}
                     <td
                         class="days {% if work_record and work_record.date in leave_dates or work_record is None and day in leave_dates %}holiday{% endif %}"
                         {% if day in holiday_dates %}title="{{ holiday_dates_with_names|dict_get:day|default:'Public Holiday' }}"
@@ -263,7 +264,7 @@
                             </div>
                         {% elif day|hp_p_key:employee.id in leave_request_cell_keys %}
                             <div class="fw-bold" title='{% trans "LR – Leave Request" %}'>
-                                <a class="text-decoration-none" role="button">LR</a>
+                                <a class="text-decoration-none" role="button" onclick="window.location.href='{% url 'request-view' %}?id={{ leave_request_cell_urls|dict_get:cell_key }}';">LR</a>
                             </div>
                         {% elif work_record %}
                             {% if work_record.work_record_type == 'CONF' or work_record.work_record_type == 'FDP' or work_record.work_record_type == 'HDP' or work_record.work_record_type == 'SP' or work_record.work_record_type == 'MP' or work_record.is_leave_record or work_record.work_record_type == 'HD' %}
@@ -302,18 +303,19 @@
                             {% elif work_record.work_record_type == 'ABS' or work_record.work_record_type == 'DFT' %}
                                 {% if effective_from and day >= effective_from and day <= current_date %}
                                     <div class="fw-bold">
-                                        <a class="text-decoration-none" role="button">A</a>
+                                        <a class="text-decoration-none" role="button" onclick="window.location.href='{% url 'request-view' %}?employee_id={{ employee.id }}&from_date={{ day|date:'Y-m-d' }}&to_date={{ day|date:'Y-m-d' }}';">A</a>
                                     </div>
                                 {% endif %}
                             {% endif %}
                         {% elif work_record is None %}
                             {% if effective_from and day >= effective_from and day <= current_date %}
                                 <div class="fw-bold">
-                                    <a class="text-decoration-none" role="button">A</a>
+                                    <a class="text-decoration-none" role="button" onclick="window.location.href='{% url 'request-view' %}?employee_id={{ employee.id }}&from_date={{ day|date:'Y-m-d' }}&to_date={{ day|date:'Y-m-d' }}';">A</a>
                                 </div>
                             {% endif %}
                         {% endif %}
                     </td>
+                    {% endwith %}
                     {% endwith %}
                 {% endfor %}
             </tr>

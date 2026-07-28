@@ -126,6 +126,7 @@
             <tr>
                 {% for work_record in work_records %}
                     {% with day=current_month_dates_list|get_item:forloop.counter0 %}
+                    {% with cell_key=day|hp_p_key:employee.id %}
                     <td
                         class="days {% if day in leave_dates %}holiday{% endif %}"
                         {% if day in holiday_dates %}title="{{ holiday_dates_with_names|dict_get:day|default:'Public Holiday' }}"
@@ -183,7 +184,7 @@
                         {% endif %}
                     "
                     >
-                        <a href="{% if day|hp_p_key:employee.id in attendance_request_cell_keys %}{% url 'request-attendance-view' %}?employee_id={{ employee.id }}&attendance_date={{ day|date:'Y-m-d' }}{% elif work_record and work_record.is_leave_record or work_record and work_record.work_record_type == 'HD' %}{% url 'user-request-view' %}?from_date={{ day|date:'Y-m-d' }}&to_date={{ day|date:'Y-m-d' }}&status=approved{% else %}{% url 'view-my-attendance' %}?attendance_date={{ day|date:'Y-m-d' }}{% endif %}" class="d-block text-decoration-none" style="color: inherit; min-height: 50px; line-height: 50px;" {% if work_record and work_record.work_record_type == 'FDP' and day|hp_p_key:employee.id in pl_dates %}title="{% trans 'Present + Leave' %}"{% endif %}>
+                        <a href="{% if cell_key in leave_request_cell_keys and leave_request_cell_urls|dict_get:cell_key %}{% url 'user-request-view' %}?id={{ leave_request_cell_urls|dict_get:cell_key }}{% elif cell_key in attendance_request_cell_keys %}{% url 'request-attendance-view' %}?employee_id={{ employee.id }}&attendance_date={{ day|date:'Y-m-d' }}{% elif work_record and work_record.work_record_type == 'ABS' %}{% url 'user-request-view' %}?from_date={{ day|date:'Y-m-d' }}&to_date={{ day|date:'Y-m-d' }}{% elif work_record and work_record.work_record_type == 'DFT' and effective_from and day >= effective_from and day <= current_date %}{% url 'user-request-view' %}?from_date={{ day|date:'Y-m-d' }}&to_date={{ day|date:'Y-m-d' }}{% elif work_record is None and effective_from and day >= effective_from and day <= current_date %}{% url 'user-request-view' %}?from_date={{ day|date:'Y-m-d' }}&to_date={{ day|date:'Y-m-d' }}{% elif work_record and work_record.is_leave_record or work_record and work_record.work_record_type == 'HD' %}{% url 'user-request-view' %}?from_date={{ day|date:'Y-m-d' }}&to_date={{ day|date:'Y-m-d' }}&status=approved{% else %}{% url 'view-my-attendance' %}?attendance_date={{ day|date:'Y-m-d' }}{% endif %}" class="d-block text-decoration-none" style="color: inherit; min-height: 50px; line-height: 50px;" {% if work_record and work_record.work_record_type == 'FDP' and day|hp_p_key:employee.id in pl_dates %}title="{% trans 'Present + Leave' %}"{% endif %}>
                         {% if day in holiday_dates and work_record is None %}
                             <div class="fw-bold">
                                 <span>PH</span>
@@ -245,6 +246,7 @@
                         {% endif %}
                         </a>
                     </td>
+                    {% endwith %}
                     {% endwith %}
                 {% endfor %}
             </tr>
