@@ -1,0 +1,90 @@
+{% load i18n %}
+<div class="oh-modal__dialog-header pb-0">
+    <h2 class="oh-modal__dialog-title">
+        {% trans "Sync Attendance" %}
+    </h2>
+    <button class="oh-modal__close" aria-label="Close">
+        <ion-icon name="close-outline"></ion-icon>
+    </button>
+</div>
+<div class="oh-modal__dialog-body">
+    <form id="biometricSyncAttendanceForm"
+        {% if bulk %}
+            hx-post="{% url 'biometric-device-bulk-sync-attendance' %}"
+        {% else %}
+            hx-post="{% url 'biometric-device-sync-attendance' device.id %}"
+        {% endif %}
+        hx-target="#BiometricDeviceTestFormTarget"
+        class="oh-profile-section p-3 pt-0">
+        {% csrf_token %}
+        {% if bulk %}
+            {% for device_id in selected_device_ids %}
+                <input type="hidden" name="selected_device_ids" value="{{ device_id }}">
+            {% endfor %}
+            <p class="text-muted mb-3">
+                {% trans "Devices" %}:
+                {% for d in devices %}{{ d.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+            </p>
+        {% else %}
+            <p class="text-muted mb-3">
+                {% trans "Device" %}: <strong>{{ device.name }}</strong>
+                ({{ device.machine_ip }}:{{ device.port }})
+            </p>
+        {% endif %}
+
+        <div class="mb-3">
+            <label class="oh-label d-block">{% trans "Sync mode" %}</label>
+            <label class="d-block mb-2">
+                <input type="radio" name="sync_mode" value="recent" checked
+                    onchange="toggleBiometricSyncRange(false)">
+                {% trans "Recent sync (last ~20 days)" %}
+            </label>
+            <label class="d-block">
+                <input type="radio" name="sync_mode" value="range"
+                    onchange="toggleBiometricSyncRange(true)">
+                {% trans "Date range" %}
+            </label>
+        </div>
+
+        <div id="biometricSyncDateRange" style="display:none;">
+            <div class="row">
+                <div class="col-sm-6 mb-3">
+                    <label class="oh-label" for="syncFromDate">{% trans "From date" %}</label>
+                    <input class="oh-input w-100" type="date" id="syncFromDate"
+                        name="from_date" value="{{ default_from }}">
+                </div>
+                <div class="col-sm-6 mb-3">
+                    <label class="oh-label" for="syncToDate">{% trans "To date" %}</label>
+                    <input class="oh-input w-100" type="date" id="syncToDate"
+                        name="to_date" value="{{ default_to }}">
+                </div>
+            </div>
+            <p class="text-muted small mb-0">
+                {% trans "Max 60 days. Use this after device downtime or IP changes." %}
+            </p>
+        </div>
+
+        <div class="oh-modal__dialog-footer p-0 pt-3">
+            <button type="submit" id="biometricSyncSubmitBtn" class="oh-btn oh-btn--secondary oh-btn--shadow">
+                {% trans "Sync Attendance" %}
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    function toggleBiometricSyncRange(show) {
+        document.getElementById("biometricSyncDateRange").style.display = show ? "block" : "none";
+    }
+    (function () {
+        var form = document.getElementById("biometricSyncAttendanceForm");
+        if (!form) return;
+        form.addEventListener("htmx:beforeRequest", function () {
+            var btn = document.getElementById("biometricSyncSubmitBtn");
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "{% trans 'Syncing…' %}";
+            }
+        });
+    })();
+</script>

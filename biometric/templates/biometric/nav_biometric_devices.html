@@ -50,11 +50,11 @@
                             <li class="oh-dropdown__item">
                                 <div id="selectedDevicesContainer"></div>
                                 <a href="#" class="oh-dropdown__link" hx-on:click="updateSelectedDevices()"
-                                    hx-get="{% url 'biometric-device-bulk-fetch-logs' %}"
-                                    hx-include="#selectedDevicesContainer" hx-trigger="click delay:1s"
+                                    hx-get="{% url 'biometric-device-bulk-sync-attendance' %}"
+                                    hx-include="#selectedDevicesContainer"
                                     hx-target="#BiometricDeviceTestFormTarget" data-toggle="oh-modal-toggle"
                                     data-target="#BiometricDeviceTestModal">
-                                    {% trans "Fetch Logs" %}
+                                    {% trans "Sync Attendance" %}
                                 </a>
                             </li>
                         </ul>

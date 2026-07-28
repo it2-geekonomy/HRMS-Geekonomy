@@ -9,12 +9,14 @@ registered on biometric devices.
 import json
 import logging
 from datetime import datetime, timedelta
+from io import StringIO
 from threading import Event, Thread
 from urllib.parse import parse_qs, unquote
 
 import pytz
 from apscheduler.schedulers.background import BackgroundScheduler
 from django.contrib import messages
+from django.core.management import call_command
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
@@ -674,6 +676,105 @@ def render_connection_response(title, text, icon):
     return render_to_string("biometric/test_connection_script.html", context)
 
 
+def _parse_sync_date(value):
+    """Parse YYYY-MM-DD; return date or None."""
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value.strip(), "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        return None
+
+
+def _summarize_sync_output(output):
+    """Keep a short user-facing summary from management-command stdout."""
+    if not output:
+        return _("Sync completed.")
+    lines = [ln.strip() for ln in output.splitlines() if ln.strip()]
+    if not lines:
+        return _("Sync completed.")
+    # Prefer the last meaningful success/warning line
+    for line in reversed(lines):
+        if any(
+            key in line.lower()
+            for key in ("success", "complete", "synced", "error", "fail", "warning", "unreachable", "no route")
+        ):
+            return line[:400]
+    return lines[-1][:400]
+
+
+def run_safe_zk_attendance_sync(device, *, recent_only=True, from_date=None, to_date=None):
+    """
+    Run the same safe path as:
+      python manage.py sync_biometric_attendance --force --recent-only
+    (or --from-date / --to-date). Do not use zk_biometric_attendance_logs for ZK.
+    """
+    out = StringIO()
+    err = StringIO()
+    options = {
+        "device_name": device.name,
+        "force": True,
+        "stdout": out,
+        "stderr": err,
+    }
+    if from_date and to_date:
+        options["from_date"] = from_date.isoformat()
+        options["to_date"] = to_date.isoformat()
+        options["recent_only"] = False
+    else:
+        options["recent_only"] = True
+
+    try:
+        call_command("sync_biometric_attendance", **options)
+    except Exception as exc:
+        logger.exception("ZK attendance sync failed for %s", device.name)
+        return False, str(exc)
+
+    combined = (out.getvalue() + "\n" + err.getvalue()).strip()
+    lower = combined.lower()
+    failure_markers = (
+        "no route to host",
+        "connection refused",
+        "timed out",
+        "timeout",
+        "authentication failed",
+        "device not found",
+        "does not exist",
+        "unreachable",
+        "failed to connect",
+    )
+    if any(marker in lower for marker in failure_markers) and "successfully" not in lower:
+        return False, _summarize_sync_output(combined)
+    return True, _summarize_sync_output(combined)
+
+
+def _sync_mode_from_request(request):
+    """
+    Read sync mode from GET/POST.
+    Returns (ok, recent_only, from_date, to_date, error_message).
+    """
+    data = request.POST if request.method == "POST" else request.GET
+    mode = (data.get("sync_mode") or "recent").strip().lower()
+    if mode == "range":
+        from_date = _parse_sync_date(data.get("from_date"))
+        to_date = _parse_sync_date(data.get("to_date"))
+        if not from_date or not to_date:
+            return False, True, None, None, _("Please provide both From date and To date.")
+        if from_date > to_date:
+            return False, True, None, None, _("From date cannot be after To date.")
+        # Guardrails: avoid accidental full-history pulls from the UI
+        if (to_date - from_date).days > 60:
+            return (
+                False,
+                True,
+                None,
+                None,
+                _("Date range cannot exceed 60 days. Use recent sync or a smaller range."),
+            )
+        return True, False, from_date, to_date, None
+    return True, True, None, None, None
+
+
 def test_zkteco_connection(device):
     """Test connection for ZKTeco device."""
     conn = None
@@ -884,7 +985,174 @@ def biometric_device_test(request, device_id):
 @install_required
 @hx_request_required
 @permission_required("biometric.view_biometricdevices")
+def biometric_device_sync_attendance(request, device_id=None):
+    """
+    Safe ZK attendance sync UI (same as management command).
+    GET: options form (recent / date range). POST: run sync.
+    """
+    device = BiometricDevices.find(device_id)
+    if not device:
+        return HttpResponse("Device not found.", status=404)
+    if device.machine_type != "zk":
+        return HttpResponse(
+            render_connection_response(
+                _("Not supported"),
+                _(
+                    "Sync Attendance is available for ZKTeco / eSSL devices. "
+                    "Use Fetch Logs for other device types."
+                ),
+                "warning",
+            )
+        )
+
+    if request.method == "GET":
+        return render(
+            request,
+            "biometric/sync_attendance_form.html",
+            {
+                "device": device,
+                "bulk": False,
+                "default_from": (django_timezone.localdate() - timedelta(days=7)).isoformat(),
+                "default_to": django_timezone.localdate().isoformat(),
+            },
+        )
+
+    ok_mode, recent_only, from_date, to_date, mode_error = _sync_mode_from_request(request)
+    if not ok_mode:
+        return HttpResponse(
+            render_connection_response(_("Invalid sync options"), mode_error, "warning")
+        )
+
+    ok, message = run_safe_zk_attendance_sync(
+        device,
+        recent_only=recent_only,
+        from_date=from_date,
+        to_date=to_date,
+    )
+    if ok:
+        scope = (
+            str(_("recent records (last ~20 days)"))
+            if recent_only
+            else f"{from_date.isoformat()} to {to_date.isoformat()}"
+        )
+        return HttpResponse(
+            render_connection_response(
+                _("Attendance Synced"),
+                f"{device.name}: sync finished for {scope}. {message}",
+                "success",
+            )
+        )
+    return HttpResponse(
+        render_connection_response(
+            _("Sync Failed"),
+            f"{device.name}: {message}",
+            "warning",
+        )
+    )
+
+
+@login_required
+@install_required
+@hx_request_required
+@permission_required("biometric.view_biometricdevices")
+def biometric_device_bulk_sync_attendance(request):
+    """Bulk safe ZK sync with recent / date-range options."""
+    data = request.POST if request.method == "POST" else request.GET
+    zk_ids = data.getlist("selected_device_ids")
+    zk_devices = list(
+        BiometricDevices.objects.filter(id__in=zk_ids, machine_type="zk")
+    )
+
+    if request.method == "GET":
+        if not zk_devices:
+            return HttpResponse(
+                render_connection_response(
+                    _("No ZK devices selected"),
+                    _(
+                        "Select one or more ZKTeco / eSSL devices, then use Sync Attendance."
+                    ),
+                    "warning",
+                )
+            )
+        return render(
+            request,
+            "biometric/sync_attendance_form.html",
+            {
+                "devices": zk_devices,
+                "selected_device_ids": [str(d.id) for d in zk_devices],
+                "bulk": True,
+                "default_from": (django_timezone.localdate() - timedelta(days=7)).isoformat(),
+                "default_to": django_timezone.localdate().isoformat(),
+            },
+        )
+
+    if not zk_devices:
+        return HttpResponse(
+            render_connection_response(
+                _("No ZK devices selected"),
+                _("Select ZKTeco / eSSL devices to sync."),
+                "warning",
+            )
+        )
+
+    ok_mode, recent_only, from_date, to_date, mode_error = _sync_mode_from_request(request)
+    if not ok_mode:
+        return HttpResponse(
+            render_connection_response(_("Invalid sync options"), mode_error, "warning")
+        )
+
+    successes = []
+    failures = []
+    for device in zk_devices:
+        ok, message = run_safe_zk_attendance_sync(
+            device,
+            recent_only=recent_only,
+            from_date=from_date,
+            to_date=to_date,
+        )
+        if ok:
+            successes.append(device.name)
+        else:
+            failures.append(f"{device.name}: {message}")
+
+    if successes and not failures:
+        return HttpResponse(
+            render_connection_response(
+                _("Attendance Synced"),
+                _("Synced: ") + ", ".join(successes),
+                "success",
+            )
+        )
+    if successes and failures:
+        return HttpResponse(
+            render_connection_response(
+                _("Partial sync"),
+                _("OK: ")
+                + ", ".join(successes)
+                + ". "
+                + _("Failed: ")
+                + " | ".join(failures),
+                "warning",
+            )
+        )
+    return HttpResponse(
+        render_connection_response(
+            _("Sync Failed"),
+            " | ".join(failures) if failures else _("No devices synced."),
+            "warning",
+        )
+    )
+
+
+@login_required
+@install_required
+@hx_request_required
+@permission_required("biometric.view_biometricdevices")
 def biometric_device_bulk_fetch_logs(request):
+    """
+    Legacy bulk fetch. For ZK devices, use the safe sync command instead of
+    zk_biometric_attendance_logs (which could corrupt calendar / create false AR).
+    """
     script = ""
     zk_ids = request.GET.getlist("selected_device_ids")
     zk_devices = BiometricDevices.objects.filter(id__in=zk_ids, machine_type="zk")
@@ -894,31 +1162,41 @@ def biometric_device_bulk_fetch_logs(request):
         script = render_connection_response(
             _("Biometric device not supported."),
             _(
-                "Bulk log fetching is currently available only for ZKTeco / eSSL devices. Support for other biometric systems will be added soon."
+                "Bulk sync is currently available only for ZKTeco / eSSL devices. Support for other biometric systems will be added soon."
             ),
             "warning",
         )
         return HttpResponse(script)
 
-    attendance_count, error_message = zk_biometric_attendance_logs(zk_devices)
-    if isinstance(attendance_count, int):
+    successes = []
+    failures = []
+    for device in zk_devices:
+        ok, message = run_safe_zk_attendance_sync(device, recent_only=True)
+        if ok:
+            successes.append(device.name)
+        else:
+            failures.append(f"{device.name}: {message}")
+
+    if successes and not failures:
         script = render_connection_response(
-            _("Logs Fetched Successfully"),
-            _(
-                f"Biometric attendance logs fetched successfully. Total records: {attendance_count}"
-            ),
+            _("Attendance Synced"),
+            _("Recent sync completed for: ") + ", ".join(successes),
             "success",
         )
-    elif "Authentication" in error_message:
+    elif successes and failures:
         script = render_connection_response(
-            _("Authentication Error"),
-            _("Double-check the provided IP, Port, and Password."),
+            _("Partial sync"),
+            _("OK: ")
+            + ", ".join(successes)
+            + ". "
+            + _("Failed: ")
+            + " | ".join(failures),
             "warning",
         )
     else:
         script = render_connection_response(
-            _("Connection Unsuccessful"),
-            _(f"Please check the IP, Port, and Password. Error: {error_message}"),
+            _("Sync Failed"),
+            " | ".join(failures) if failures else _("Please check device IP, Port, and connectivity."),
             "warning",
         )
     return HttpResponse(script)
@@ -932,33 +1210,26 @@ def biometric_device_fetch_logs(request, device_id=None):
     """
     Fetches biometric attendance logs from a specified device.
 
-    This view function connects to a biometric device based on the device type (zk, anviz, cosec, dahua, or etimeoffice)
-    and retrieves the attendance logs.
+    For ZK / eSSL devices this now runs the safe sync_biometric_attendance
+    command (recent-only), not the old per-punch zk_biometric_attendance_logs
+    path that could mark days as AR / MP incorrectly.
     """
     device = BiometricDevices.find(device_id)
     if not device:
         return HttpResponse("Device not found.", status=404)
     script = ""
     if device.machine_type == "zk":
-        attendance_count, error_message = zk_biometric_attendance_logs(device)
-        if isinstance(attendance_count, int):
+        ok, message = run_safe_zk_attendance_sync(device, recent_only=True)
+        if ok:
             script = render_connection_response(
-                _("Logs Fetched Successfully"),
-                _(
-                    f"Biometric attendance logs fetched successfully. Total records: {attendance_count}"
-                ),
+                _("Attendance Synced"),
+                f"Safe recent sync completed for {device.name}. {message}",
                 "success",
-            )
-        elif "Authentication" in error_message:
-            script = render_connection_response(
-                _("Authentication Error"),
-                _("Double-check the provided IP, Port, and Password."),
-                "warning",
             )
         else:
             script = render_connection_response(
-                _("Connection Unsuccessful"),
-                _(f"Please check the IP, Port, and Password. Error: {error_message}"),
+                _("Sync Failed"),
+                f"Please check the IP, Port, Password, and Tailscale route. {message}",
                 "warning",
             )
     elif device.machine_type == "anviz":

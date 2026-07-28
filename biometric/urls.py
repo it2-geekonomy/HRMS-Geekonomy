@@ -53,6 +53,16 @@ urlpatterns = [
         name="biometric-device-bulk-fetch-logs",
     ),
     path(
+        "biometric-device-sync-attendance/<uuid:device_id>/",
+        views.biometric_device_sync_attendance,
+        name="biometric-device-sync-attendance",
+    ),
+    path(
+        "biometric-device-bulk-sync-attendance/",
+        views.biometric_device_bulk_sync_attendance,
+        name="biometric-device-bulk-sync-attendance",
+    ),
+    path(
         "biometric-device-add",
         views.biometric_device_add,
         name="biometric-device-add",

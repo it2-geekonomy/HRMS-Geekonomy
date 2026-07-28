@@ -60,11 +60,19 @@
                                         hx-target="#objectUpdateModalTarget">{% trans "Edit" %}</a>
                                 </li>
                                 <li class="oh-dropdown__item">
+                                    {% if device.machine_type == "zk" %}
+                                    <a href="#" hx-get="{% url 'biometric-device-sync-attendance' device.id %}"
+                                        data-toggle="oh-modal-toggle" data-target="#BiometricDeviceTestModal"
+                                        hx-target="#BiometricDeviceTestFormTarget" class="oh-dropdown__link">
+                                        {% trans "Sync Attendance" %}
+                                    </a>
+                                    {% else %}
                                     <a href="#" hx-get="{% url 'biometric-device-fetch-logs' device.id %}"
                                         data-toggle="oh-modal-toggle" data-target="#BiometricDeviceTestModal"
                                         hx-target="#BiometricDeviceTestFormTarget" class="oh-dropdown__link">
                                         {% trans "Fetch Logs" %}
                                     </a>
+                                    {% endif %}
                                 </li>
                                 {% if perms.biometric.change_biometricdevices %}
                                     {% if device.is_active %}
