@@ -60,7 +60,7 @@
                 <div class="oh-btn-group">
                   <button
                     type="button"
-                    class="oh-btn oh-btn--secondary oh-btn--small probation-extend-btn"
+                    class="oh-btn oh-btn--warning oh-btn--small probation-extend-btn"
                     data-emp-id="{{ item.employee.id }}"
                     data-emp-name="{{ item.employee }}"
                     data-current-end="{{ item.probation_will_complete_date|date:'Y-m-d' }}"
@@ -69,7 +69,7 @@
                   >{% trans "Extend" %}</button>
                   <form action="{% url 'probation-confirm' item.employee.id %}" method="post" class="d-inline probation-action-form" data-confirm-title="{% trans 'Confirm Employee' %}" data-confirm-text="{% blocktrans with name=item.employee %}Confirm {{ name }}? Probation Leave will be removed and Earned Leave, Sick Leave, and Casual Leave will be assigned.{% endblocktrans %}">
                     {% csrf_token %}
-                    <button type="submit" class="oh-btn oh-btn--warning oh-btn--small">{% trans "Confirm" %}</button>
+                    <button type="submit" class="oh-btn oh-btn--success oh-btn--small">{% trans "Confirm" %}</button>
                   </form>
                   <form action="{% url 'probation-reject' item.employee.id %}" method="post" class="d-inline probation-action-form" data-confirm-title="{% trans 'Reject Probation' %}" data-confirm-text="{% blocktrans with name=item.employee %}Reject probation for {{ name }}? They will move to Rejected status. You can revert within 5 days.{% endblocktrans %}">
                     {% csrf_token %}
@@ -78,8 +78,8 @@
                 </div>
                 {% elif status_filter == "active" %}
                 <div class="oh-btn-group">
-                  <button type="button" class="oh-btn oh-btn--secondary oh-btn--small" disabled title="{% trans 'Available after probation completes' %}">{% trans "Extend" %}</button>
-                  <button type="button" class="oh-btn oh-btn--warning oh-btn--small" disabled title="{% trans 'Available after probation completes' %}">{% trans "Confirm" %}</button>
+                  <button type="button" class="oh-btn oh-btn--warning oh-btn--small" disabled title="{% trans 'Available after probation completes' %}">{% trans "Extend" %}</button>
+                  <button type="button" class="oh-btn oh-btn--success oh-btn--small" disabled title="{% trans 'Available after probation completes' %}">{% trans "Confirm" %}</button>
                   <button type="button" class="oh-btn oh-btn--danger oh-btn--small" disabled title="{% trans 'Available after probation completes' %}">{% trans "Reject" %}</button>
                 </div>
                 {% endif %}
