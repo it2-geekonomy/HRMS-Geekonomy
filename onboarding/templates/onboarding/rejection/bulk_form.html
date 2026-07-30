@@ -1,0 +1,34 @@
+{% load i18n %}
+{% if error %}
+    <p class="text-danger mb-0">{{ error }}</p>
+{% else %}
+<form hx-post="{% url 'add-to-rejected-candidates-bulk' %}" hx-target="#createTarget">
+    {% csrf_token %}
+    <input type="hidden" name="candidate_ids" value="{{ candidate_ids }}">
+    <p class="mb-2">
+        {% blocktrans count counter=candidates|length %}
+            Reject {{ counter }} selected candidate?
+        {% plural %}
+            Reject {{ counter }} selected candidates?
+        {% endblocktrans %}
+    </p>
+    <ul class="small text-muted mb-3" style="max-height: 140px; overflow-y: auto;">
+        {% for candidate in candidates %}
+            <li>{{ candidate.name }}{% if candidate.email %} ({{ candidate.email }}){% endif %}</li>
+        {% endfor %}
+    </ul>
+    <div class="mb-3">
+        <label class="oh-label" for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+        {{ form.description }}
+    </div>
+    <div class="mb-2 d-flex align-items-center gap-2">
+        {{ form.send_email }}
+        <label class="oh-label mb-0" for="{{ form.send_email.id_for_label }}">{{ form.send_email.label }}</label>
+    </div>
+    <div class="oh-modal__dialog-footer p-0 pt-3">
+        <button type="submit" class="oh-btn oh-btn--danger oh-btn--shadow">
+            {% trans "Reject" %}
+        </button>
+    </div>
+</form>
+{% endif %}

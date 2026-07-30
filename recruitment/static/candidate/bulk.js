@@ -290,11 +290,27 @@ $("#bulkRejected").click(function (e) {
     Swal.fire({ text: noRowMessages["en"], icon: "warning", confirmButtonText: "Close" });
     return;
   }
-  var firstId = ids[0];
-  var url = "/recruitment/add-to-rejected-candidates/?candidate_id=" + firstId;
-  $.get(url, function (html) {
-    $("#createTarget").html(html);
-    $("#createModal").addClass("oh-modal--show");
+  var url =
+    "/onboarding/add-to-rejected-candidates-bulk?candidate_ids=" + ids.join(",");
+  $.ajax({
+    type: "GET",
+    url: url,
+    headers: { "HX-Request": "true" },
+    success: function (html) {
+      var target = document.getElementById("createTarget");
+      $(target).html(html);
+      if (window.htmx) {
+        htmx.process(target);
+      }
+      $("#createModal").addClass("oh-modal--show");
+    },
+    error: function () {
+      Swal.fire({
+        text: "Unable to open the reject form. Please try again.",
+        icon: "error",
+        confirmButtonText: "Close",
+      });
+    },
   });
 });
 

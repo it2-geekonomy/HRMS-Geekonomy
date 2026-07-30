@@ -86,7 +86,7 @@ from onboarding.models import (
     STEP_FIELD_CHOICES,
 )
 from recruitment.filters import CandidateFilter, CandidateReGroup, RecruitmentFilter
-from recruitment.forms import RejectedCandidateForm
+from recruitment.forms import RejectedCandidateBulkForm, RejectedCandidateForm
 from recruitment.models import Candidate, Recruitment, RejectedCandidate
 from recruitment.pipeline_grouper import group_by_queryset
 
@@ -1981,6 +1981,118 @@ def preview_rejection_candidate_email(request):
     return HttpResponse(html)
 
 
+def _move_candidate_to_cancelled_stage(candidate):
+    """Move a hired candidate to the recruitment's Cancelled stage when rejected."""
+    if not candidate:
+        return
+    if not (
+        candidate.hired
+        or (candidate.stage_id and candidate.stage_id.stage_type == "hired")
+    ):
+        return
+
+    from recruitment.models import Stage
+
+    cancelled_stage = Stage.objects.filter(
+        recruitment_id=candidate.recruitment_id,
+        stage_type="cancelled",
+    ).first()
+    if not cancelled_stage:
+        cancelled_stage = Stage.objects.create(
+            recruitment_id=candidate.recruitment_id,
+            stage="Cancelled Candidates",
+            stage_type="cancelled",
+            sequence=50,
+        )
+    candidate.stage_id = cancelled_stage
+    candidate.hired = False
+    candidate.save(update_fields=["stage_id", "hired"])
+
+
+def _send_rejection_email_in_background(rejected_obj):
+    """
+    Send the rejection email off the request thread; SMTP can be slow and saving
+    the rejection must never fail because of mail problems.
+    """
+    import threading
+
+    candidate = getattr(rejected_obj, "candidate_id", None)
+    cand_email = getattr(candidate, "email", None)
+    rejected_pk = rejected_obj.pk
+
+    def _send_rejection_email_async():
+        try:
+            from django.db import close_old_connections
+
+            close_old_connections()
+            if not candidate or not cand_email:
+                return
+            from django.conf import settings
+            from django.core.mail import EmailMultiAlternatives
+            from django.template.loader import render_to_string
+            from base.backends import ConfiguredEmailBackend
+            from email.mime.image import MIMEImage
+            from email.utils import formataddr
+
+            mail_ctx = _rejection_email_template_context(candidate)
+
+            # Always embed Geekonomy logo from static (consistent branding).
+            logo_path = None
+            try:
+                from pathlib import Path
+
+                logo_path = str(
+                    Path(getattr(settings, "BASE_DIR", ""))
+                    / "static"
+                    / "images"
+                    / "ui"
+                    / "GeekonomyLogo (1).png"
+                )
+            except Exception:
+                logo_path = None
+            logo_cid = "company-logo"
+
+            hr_email = (getattr(settings, "HR_EMAIL", None) or "hr@thegeekonomy.com").strip()
+            from_email = formataddr(("HR Team", hr_email)) if hr_email else None
+
+            subject = f"Application Update - {mail_ctx['job_title']}"
+            html_body = render_to_string(
+                "candidate/emails/rejection_email.html",
+                {
+                    **mail_ctx,
+                    "logo_url": None,
+                    "logo_cid": logo_cid,
+                },
+            )
+            msg = EmailMultiAlternatives(
+                subject=subject,
+                body="",
+                from_email=from_email,
+                to=[cand_email],
+                reply_to=[hr_email] if hr_email else None,
+                connection=ConfiguredEmailBackend(),
+            )
+            msg.attach_alternative(html_body, "text/html")
+            if logo_path:
+                try:
+                    with open(logo_path, "rb") as f:
+                        img = MIMEImage(f.read(), _subtype="png")
+                    img.add_header("Content-ID", f"<{logo_cid}>")
+                    img.add_header("Content-Disposition", "inline", filename="logo.png")
+                    msg.attach(img)
+                except Exception:
+                    pass
+            msg.send()
+            close_old_connections()
+            from recruitment.models import RejectedCandidate
+
+            RejectedCandidate.objects.filter(pk=rejected_pk).update(email_sent=True)
+        except Exception:
+            return
+
+    threading.Thread(target=_send_rejection_email_async, daemon=True).start()
+
+
 @login_required
 @hx_request_required
 @any_permission_required(
@@ -2002,113 +2114,10 @@ def add_to_rejected_candidates(request):
         form = RejectedCandidateForm(request.POST, instance=instance)
         if form.is_valid():
             rejected_obj = form.save()
-            candidate = rejected_obj.candidate_id
-            if candidate and (
-                candidate.hired
-                or (
-                    candidate.stage_id
-                    and candidate.stage_id.stage_type == "hired"
-                )
-            ):
-                from recruitment.models import Stage
-
-                cancelled_stage = Stage.objects.filter(
-                    recruitment_id=candidate.recruitment_id,
-                    stage_type="cancelled",
-                ).first()
-                if not cancelled_stage:
-                    cancelled_stage = Stage.objects.create(
-                        recruitment_id=candidate.recruitment_id,
-                        stage="Cancelled Candidates",
-                        stage_type="cancelled",
-                        sequence=50,
-                    )
-                candidate.stage_id = cancelled_stage
-                candidate.hired = False
-                candidate.save(update_fields=["stage_id", "hired"])
-            # Optional: send rejection email to candidate
+            _move_candidate_to_cancelled_stage(rejected_obj.candidate_id)
             try:
                 if form.cleaned_data.get("send_email"):
-                    # Sending email can be slow (SMTP/network). Do it in background so Save is instant.
-                    import threading
-
-                    candidate = getattr(rejected_obj, "candidate_id", None)
-                    cand_email = getattr(candidate, "email", None)
-                    rejected_pk = rejected_obj.pk
-
-                    def _send_rejection_email_async():
-                        try:
-                            from django.db import close_old_connections
-
-                            close_old_connections()
-                            if not candidate or not cand_email:
-                                return
-                            from django.conf import settings
-                            from django.core.mail import EmailMultiAlternatives
-                            from django.template.loader import render_to_string
-                            from base.backends import ConfiguredEmailBackend
-                            from email.mime.image import MIMEImage
-                            from email.utils import formataddr
-
-                            mail_ctx = _rejection_email_template_context(candidate)
-
-                            # Always embed Geekonomy logo from static (consistent branding).
-                            logo_path = None
-                            try:
-                                from pathlib import Path
-
-                                logo_path = str(
-                                    Path(getattr(settings, "BASE_DIR", ""))
-                                    / "static"
-                                    / "images"
-                                    / "ui"
-                                    / "GeekonomyLogo (1).png"
-                                )
-                            except Exception:
-                                logo_path = None
-                            logo_cid = "company-logo"
-
-                            hr_email = (getattr(settings, "HR_EMAIL", None) or "hr@thegeekonomy.com").strip()
-                            from_email = formataddr(("HR Team", hr_email)) if hr_email else None
-
-                            subject = f"Application Update - {mail_ctx['job_title']}"
-                            html_body = render_to_string(
-                                "candidate/emails/rejection_email.html",
-                                {
-                                    **mail_ctx,
-                                    "logo_url": None,
-                                    "logo_cid": logo_cid,
-                                },
-                            )
-                            msg = EmailMultiAlternatives(
-                                subject=subject,
-                                body="",
-                                from_email=from_email,
-                                to=[cand_email],
-                                reply_to=[hr_email] if hr_email else None,
-                                connection=ConfiguredEmailBackend(),
-                            )
-                            msg.attach_alternative(html_body, "text/html")
-                            if logo_path:
-                                try:
-                                    with open(logo_path, "rb") as f:
-                                        img = MIMEImage(f.read(), _subtype="png")
-                                    img.add_header("Content-ID", f"<{logo_cid}>")
-                                    img.add_header("Content-Disposition", "inline", filename="logo.png")
-                                    msg.attach(img)
-                                except Exception:
-                                    pass
-                            msg.send()
-                            close_old_connections()
-                            from recruitment.models import RejectedCandidate
-
-                            RejectedCandidate.objects.filter(pk=rejected_pk).update(
-                                email_sent=True
-                            )
-                        except Exception:
-                            return
-
-                    threading.Thread(target=_send_rejection_email_async, daemon=True).start()
+                    _send_rejection_email_in_background(rejected_obj)
             except Exception:
                 # Never block saving rejection if mail fails
                 pass
@@ -2122,6 +2131,77 @@ def add_to_rejected_candidates(request):
         request,
         "onboarding/rejection/form.html",
         {"form": form, "reject_candidate_id": str(preview_id or "")},
+    )
+
+
+def _parse_bulk_candidate_ids(raw_ids):
+    """Parse "1,2,3" (or a JSON-ish list string) into a list of ints."""
+    if not raw_ids:
+        return []
+    cleaned = str(raw_ids).strip().strip("[]")
+    ids = []
+    for part in cleaned.split(","):
+        part = part.strip().strip('"').strip("'")
+        if part.isdigit():
+            ids.append(int(part))
+    return ids
+
+
+@login_required
+@hx_request_required
+@any_permission_required(
+    ["recruitment.add_rejectedcandidate", "recruitment.change_candidate"]
+)
+def add_to_rejected_candidates_bulk(request):
+    """
+    Reject several selected candidates at once using one reason/email choice.
+    """
+    raw_ids = request.POST.get("candidate_ids") or request.GET.get("candidate_ids")
+    candidate_ids = _parse_bulk_candidate_ids(raw_ids)
+    candidates = list(Candidate.objects.filter(id__in=candidate_ids))
+
+    if not candidates:
+        return HttpResponse(
+            render_to_string(
+                "onboarding/rejection/bulk_form.html",
+                {"error": _("Select at least one candidate to reject.")},
+                request=request,
+            )
+        )
+
+    form = RejectedCandidateBulkForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        description = form.cleaned_data.get("description") or ""
+        send_email = form.cleaned_data.get("send_email")
+        for candidate in candidates:
+            rejected_obj, created = RejectedCandidate.objects.get_or_create(
+                candidate_id=candidate, defaults={"description": description}
+            )
+            if not created:
+                rejected_obj.description = description
+                rejected_obj.save()
+            rejected_obj.reject_reason_id.clear()
+            _move_candidate_to_cancelled_stage(candidate)
+            try:
+                if send_email:
+                    _send_rejection_email_in_background(rejected_obj)
+            except Exception:
+                pass
+        messages.success(
+            request,
+            __("%(count)s candidate(s) moved to rejected.")
+            % {"count": len(candidates)},
+        )
+        return HttpResponse("<script>window.location.reload()</script>")
+
+    return render(
+        request,
+        "onboarding/rejection/bulk_form.html",
+        {
+            "form": form,
+            "candidates": candidates,
+            "candidate_ids": ",".join(str(c.id) for c in candidates),
+        },
     )
 
 

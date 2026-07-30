@@ -163,6 +163,11 @@ urlpatterns = [
         name="add-to-rejected-candidates",
     ),
     path(
+        "add-to-rejected-candidates-bulk",
+        views.add_to_rejected_candidates_bulk,
+        name="add-to-rejected-candidates-bulk",
+    ),
+    path(
         "preview-rejection-email/",
         views.preview_rejection_candidate_email,
         name="preview-rejection-email",

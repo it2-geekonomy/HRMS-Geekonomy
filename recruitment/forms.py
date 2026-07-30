@@ -1235,6 +1235,26 @@ class RejectedCandidateForm(ModelForm):
         return instance
 
 
+class RejectedCandidateBulkForm(forms.Form):
+    """
+    Reject reason applied to every candidate selected in the bulk action.
+    """
+
+    description = forms.CharField(
+        required=False,
+        label=_("Reject reason"),
+        widget=forms.TextInput(
+            attrs={"class": "oh-input w-100", "placeholder": _("Reject reason")}
+        ),
+    )
+    send_email = forms.BooleanField(
+        required=False,
+        initial=False,
+        label=_("Send rejection email to candidates"),
+        widget=forms.CheckboxInput(attrs={"class": "oh-switch__checkbox"}),
+    )
+
+
 class ScheduleInterviewForm(BaseModelForm):
     """
     ScheduleInterviewForm
