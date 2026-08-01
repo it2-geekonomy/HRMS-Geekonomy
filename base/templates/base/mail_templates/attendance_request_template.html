@@ -5,6 +5,8 @@
         <meta charset="UTF-8" />
         <meta http-equiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="color-scheme" content="light only" />
+        <meta name="supported-color-schemes" content="light" />
         <title>{{white_label_company_name}}</title>
 
         <style>
@@ -26,9 +28,13 @@
                         <table class="hr-table-main__header">
                             <tr>
                                 <td style="width: 50%">
-                                    {% if instance %}
-                                    <img src="{{protocol}}://{{host}}/{{instance.get_company.icon.url}}" height="30" width="110.4" />
-                                    {% endif %}
+                                    {# Dark-on-transparent logo — visible on light email backgrounds #}
+                                    <img
+                                        src="{{protocol}}://{{host}}{% static 'images/ui/geekonomy-logo-mail.png' %}"
+                                        alt="Geekonomy"
+                                        height="36"
+                                        style="height:36px; width:auto; max-width:200px; display:block;"
+                                    />
                                 </td>
                                 <td style="width: 50%; text-align: right"><a href="#" class="hr-link">View in browser</a></td>
                             </tr>
@@ -37,7 +43,13 @@
                 </tr>
                 <tr>
                     <td align="center" style="padding-top: 20px; padding-bottom: 20px">
-                        <img src="{{protocol}}://{{host}}{% static '/images/ui/attendances.svg' %}" style="display: block; height: auto; border: 0; width: 20%;" width="272" />
+                        {# Dark PNG icon — white attendances.svg disappears in light mode #}
+                        <img
+                            src="{{protocol}}://{{host}}{% static 'images/ui/attendances-mail.png' %}"
+                            alt=""
+                            style="display: block; height: auto; border: 0; width: 20%; max-width: 120px;"
+                            width="120"
+                        />
                     </td>
                 </tr>
                 <tr>
@@ -51,7 +63,7 @@
                 {% if link != "#" %}
                 <tr>
                     <td style="padding: 15px" align="center">
-                        <a href="{{protocol}}://{{host}}/attendance/request-attendance-view/?id={{link}}" style="background-color: #e54f37; color: #fff; border-radius: 10px; display: inline-block; padding: 15px 25px; text-decoration: none; font-weight: bold;">View Attendance Request</a>
+                        <a href="{{protocol}}://{{host}}/attendance/request-attendance-view/?id={{link}}" style="background-color: #e54f37; color: #ffffff !important; border-radius: 10px; display: inline-block; padding: 15px 25px; text-decoration: none; font-weight: bold;">View Attendance Request</a>
                     </td>
                 </tr>
                 {% endif %}

@@ -1975,7 +1975,7 @@ def preview_rejection_candidate_email(request):
     from django.templatetags.static import static
 
     ctx = _rejection_email_template_context(candidate)
-    ctx["logo_url"] = static("images/ui/GeekonomyLogo (1).png")
+    ctx["logo_url"] = static("images/ui/geekonomy-logo-mail.png")
     ctx["logo_cid"] = None
     html = render_to_string("candidate/emails/rejection_email.html", ctx)
     return HttpResponse(html)
@@ -2046,7 +2046,7 @@ def _send_rejection_email_in_background(rejected_obj):
                     / "static"
                     / "images"
                     / "ui"
-                    / "GeekonomyLogo (1).png"
+                    / "geekonomy-logo-mail.png"
                 )
             except Exception:
                 logo_path = None

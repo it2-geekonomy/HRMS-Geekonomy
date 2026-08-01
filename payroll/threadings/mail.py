@@ -28,13 +28,12 @@ PAYSLIP_MAIL_LOGO_CID = "payslip-logo"
 
 
 def _payslip_mail_logo_path():
-    return (
-        Path(settings.BASE_DIR)
-        / "static"
-        / "images"
-        / "ui"
-        / "Geekonomy Logo (2).png"
-    )
+    ui = Path(settings.BASE_DIR) / "static" / "images" / "ui"
+    for name in ("geekonomy-logo-mail.png", "GeekonomyLogo (1).png", "Geekonomy Logo (2).png"):
+        path = ui / name
+        if path.is_file():
+            return path
+    return ui / "geekonomy-logo-mail.png"
 
 
 def _payslip_mail_template_context(record, host, protocol):
