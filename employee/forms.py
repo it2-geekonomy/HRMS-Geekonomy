@@ -644,16 +644,27 @@ class PolicyForm(ModelForm):
         fields = "__all__"
         exclude = ["attachments", "is_active"]
         widgets = {
-            "body": forms.Textarea(
-                attrs={"data-summernote": "", "style": "display:none;"}
-            ),
+            # Same Summernote setup as Create Recruitment description
+            "body": forms.Textarea(attrs={"data-summernote": ""}),
         }
+
+    def as_p(self, *args, **kwargs):
+        """
+        Render with horilla_form layout (divs) so Summernote is not trapped in <p> tags.
+        """
+        context = {"form": self}
+        return render_to_string("horilla_form.html", context)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["attachment"] = MultipleFileField(
             label="Attachements", required=False
         )
+        # Keep body using the recruitment-style editor attrs after ModelForm styling
+        body = self.fields.get("body")
+        if body is not None:
+            body.widget.attrs.update({"data-summernote": ""})
+            body.widget.attrs.pop("style", None)
 
     def save(self, *args, commit=True, **kwargs):
         attachemnt = []

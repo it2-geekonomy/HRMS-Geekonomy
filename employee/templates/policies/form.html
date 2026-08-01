@@ -19,12 +19,47 @@
 
 <div class="oh-modal__dialog-body">
     <form hx-post="{% url 'create-policy' %}?instance_id={{form.instance.id}}" hx-encoding="multipart/form-data"
-        class="oh-profile-section" hx-target="#objectCreateModalTarget">
+        class="oh-profile-section" hx-target="#objectCreateModalTarget"
+        onsubmit="
+            if (window.jQuery && $('[name=body]').length && $('[name=body]').next('.note-editor').length) {
+                $('[name=body]').val($('[name=body]').summernote('code'));
+            }
+        ">
         {{ form.as_p }}
-        <div class="oh-modal__dialog-footer p-0">
-            <button type="submit" class="oh-btn oh-btn--secondary oh-btn--shadow mt-3">
-                {% trans "Save" %}
-            </button>
-        </div>
     </form>
 </div>
+<script>
+    // Same pattern as Create Recruitment: hide raw textarea after Summernote mounts
+    (function () {
+        function initPolicySummernote() {
+            var $body = $("#objectCreateModalTarget [name=body][data-summernote]");
+            if (!$body.length || typeof $body.summernote !== "function") {
+                return;
+            }
+            if ($body.next(".note-editor").length) {
+                $body.summernote("destroy");
+            }
+            $body.summernote({
+                height: 300,
+                toolbar: [
+                    ["style", ["style"]],
+                    ["font", ["bold", "italic", "underline", "clear"]],
+                    ["fontname", ["fontname"]],
+                    ["fontsize", ["fontsize"]],
+                    ["color", ["color"]],
+                    ["para", ["ul", "ol", "paragraph"]],
+                    ["insert", ["link", "picture"]],
+                    ["view", ["fullscreen", "codeview"]],
+                ],
+            });
+            $body.hide();
+            var $editor = $body.next(".note-editor");
+            if ($editor.length && !$editor.siblings(".preview-btn").length) {
+                $editor.after(
+                    '<button type="button" class="preview-btn oh-btn oh-btn--secondary oh-btn--small mt-2">Preview</button>'
+                );
+            }
+        }
+        setTimeout(initPolicySummernote, 50);
+    })();
+</script>
