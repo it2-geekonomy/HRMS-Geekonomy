@@ -1,4 +1,16 @@
 {% load i18n %}{% load static %}
+<style>
+  .policy-card-preview {
+    max-height: 350px;
+    min-height: 100px;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .policy-card-preview img {
+    max-width: 100%;
+    height: auto;
+  }
+</style>
 {% if policies %}
 <div class="oh-faq-cards">
   {% for policy in policies %}
@@ -21,7 +33,7 @@
             {% endif %}
           </div>
         </h3>
-        <div style="max-height: 350px;overflow: hidden;min-height:100px; overflow-y:auto;" class="truncated-text">{{ policy.body|safe }}</div>
+        <div class="policy-card-preview">{{ policy.body|safe }}</div>
       </div>
 
       <a hx-get="{% url 'view-policy' %}?instance_id={{ policy.id }}" hx-target="#objectDetailsModalTarget" data-toggle="oh-modal-toggle" data-target="#objectDetailsModal" class="oh-btn oh-btn--secondary oh-btn--block">{% trans 'View policy' %}</a>
