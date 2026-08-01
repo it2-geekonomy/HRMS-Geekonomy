@@ -6,6 +6,26 @@
     height: 200px;
     width: 200px;
   }
+  .policy-rich-body ul,
+  .policy-rich-body ul ul {
+    list-style-type: disc !important;
+    padding-left: 40px !important;
+    margin: 0 0 0.5rem 0;
+  }
+  .policy-rich-body ol,
+  .policy-rich-body ol ol {
+    list-style-type: decimal !important;
+    padding-left: 40px !important;
+    margin: 0 0 0.5rem 0;
+  }
+  .policy-rich-body li {
+    display: list-item !important;
+    list-style-position: outside !important;
+  }
+  .policy-rich-body img {
+    max-width: 100%;
+    height: auto;
+  }
 </style>
 <div class="oh-modal__dialog-header">
   <h2 class="oh-modal__dialog-title">
@@ -18,7 +38,7 @@
 
 <div class="oh-modal__dialog-body">
   <p class="oh-card__footer--border-top"></p>
-  {{ policy.body|safe }}
+  <div class="policy-rich-body">{{ policy.body|safe }}</div>
   <div id="attachmentContainer" class="d-flex" hx-get="{% url 'get-attachments-policy' %}?policy_id={{ policy.id }}" hx-trigger="load"></div>
 
   <div id="enlargeImageContainer"></div>

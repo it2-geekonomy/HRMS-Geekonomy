@@ -1,14 +1,41 @@
 {% load i18n %}{% load static %}
 <style>
+  .policy-card-preview,
+  .policy-rich-body {
+    max-width: 100%;
+  }
   .policy-card-preview {
     max-height: 350px;
     min-height: 100px;
     overflow-y: auto;
     overflow-x: hidden;
   }
-  .policy-card-preview img {
+  .policy-card-preview img,
+  .policy-rich-body img {
     max-width: 100%;
     height: auto;
+  }
+  /* Site CSS resets list-style; restore bullets like Summernote Preview */
+  .policy-card-preview ul,
+  .policy-card-preview ul ul,
+  .policy-rich-body ul,
+  .policy-rich-body ul ul {
+    list-style-type: disc !important;
+    padding-left: 40px !important;
+    margin: 0 0 0.5rem 0;
+  }
+  .policy-card-preview ol,
+  .policy-card-preview ol ol,
+  .policy-rich-body ol,
+  .policy-rich-body ol ol {
+    list-style-type: decimal !important;
+    padding-left: 40px !important;
+    margin: 0 0 0.5rem 0;
+  }
+  .policy-card-preview li,
+  .policy-rich-body li {
+    display: list-item !important;
+    list-style-position: outside !important;
   }
 </style>
 {% if policies %}
