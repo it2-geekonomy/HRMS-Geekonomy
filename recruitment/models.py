@@ -126,6 +126,8 @@ class Recruitment(HorillaModel):
         max_length=50, null=True, blank=True, verbose_name=_("Title")
     )
     description = models.TextField(null=True, verbose_name=_("Description"))
+    # Rich HTML from Summernote editor
+    xss_exempt_fields = ["description"]
     is_event_based = models.BooleanField(
         default=False,
         help_text=_("To start recruitment for multiple job positions"),

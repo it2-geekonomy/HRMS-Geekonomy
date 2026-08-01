@@ -1041,6 +1041,9 @@ class Policy(HorillaModel):
     attachments = models.ManyToManyField(PolicyMultipleFile, blank=True)
     company_id = models.ManyToManyField(Company, blank=True, verbose_name=_("Company"))
 
+    # Rich HTML from Summernote (same idea as Recruitment description)
+    xss_exempt_fields = ["body"]
+
     objects = HorillaCompanyManager("company_id")
 
     class Meta:
