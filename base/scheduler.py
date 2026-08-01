@@ -225,7 +225,8 @@ def rotate_shift():
     rotating_shifts = RotatingShiftAssign.objects.filter(is_active=True)
     today = datetime.now().date()
     r_shifts = rotating_shifts.filter(start_date__lte=today)
-    rotating_shifts_modified = None
+    # Empty queryset when nothing is due — never leave as None (scheduler crash).
+    rotating_shifts_modified = rotating_shifts.none()
     for r_shift in r_shifts:
         emp_shift = rotating_shifts.filter(
             employee_id=r_shift.employee_id, start_date__lte=today
