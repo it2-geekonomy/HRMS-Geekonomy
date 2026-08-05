@@ -109,6 +109,18 @@ def _coerce_requested_data_for_orm_update(requested_data):
     return data
 
 
+# Temporary exception: these badge IDs may approve their own attendance requests.
+SELF_APPROVE_ATTENDANCE_BADGES = frozenset({"GEEKY0007"})  # Sanketh M
+
+
+def _employee_may_self_approve_attendance(employee) -> bool:
+    """True only for the temporary self-approve allowlist (by badge_id)."""
+    if employee is None:
+        return False
+    badge = (getattr(employee, "badge_id", None) or "").strip().upper()
+    return badge in SELF_APPROVE_ATTENDANCE_BADGES
+
+
 def _reporting_manager_user(employee):
     """
     User record for the employee's reporting manager, or None if not set or manager has no login.
@@ -809,10 +821,16 @@ def validate_attendance_request(request, attendance_id):
         previous_instance_id, next_instance_id = closest_numbers(
             json.loads(requests_ids_json), attendance_id
         )
-    # Show Approve/Edit only for others' requests (not own)
-    can_approve = (
-        (is_reportingmanager(request) or request.user.has_perm("attendance.change_attendance"))
-        and getattr(attendance.employee_id, "employee_user_id", None) != request.user
+    # Show Approve/Edit only for others' requests (not own), except allowlist
+    is_own_request = (
+        getattr(attendance.employee_id, "employee_user_id", None) == request.user
+    )
+    can_manage_requests = is_reportingmanager(request) or request.user.has_perm(
+        "attendance.change_attendance"
+    )
+    can_approve = can_manage_requests and (
+        not is_own_request
+        or _employee_may_self_approve_attendance(attendance.employee_id)
     )
     # Exclude Worked Hours and Batch Attendance from the diff
     diff_data = get_diff_dict(
@@ -866,11 +884,16 @@ def validate_attendance_request(request, attendance_id):
 @transaction.atomic
 def approve_validate_attendance_request(request, attendance_id):
     """
-    This method is used to validate the attendance requests.
-    Reporting managers cannot approve their own request; only their manager can.
+    Validate an attendance request.
+    Employees cannot approve their own request unless badge is in
+    SELF_APPROVE_ATTENDANCE_BADGES (temporary exception for Sanketh M / GEEKY0007).
     """
     attendance = Attendance.objects.get(id=attendance_id)
-    if getattr(request.user, "employee_get", None) and attendance.employee_id_id == request.user.employee_get.id:
+    is_own = (
+        getattr(request.user, "employee_get", None)
+        and attendance.employee_id_id == request.user.employee_get.id
+    )
+    if is_own and not _employee_may_self_approve_attendance(attendance.employee_id):
         error_msg = _(
             "You cannot approve your own attendance request. Your reporting manager must approve it."
         )
@@ -1149,7 +1172,11 @@ def bulk_approve_attendance_request(request):
     current_employee_id = getattr(request.user.employee_get, "id", None) if getattr(request.user, "employee_get", None) else None
     for attendance_id in ids:
         attendance = Attendance.objects.get(id=attendance_id)
-        if current_employee_id is not None and attendance.employee_id_id == current_employee_id:
+        if (
+            current_employee_id is not None
+            and attendance.employee_id_id == current_employee_id
+            and not _employee_may_self_approve_attendance(attendance.employee_id)
+        ):
             continue
         approval_employee_note = (attendance.request_description or "").strip()
         prev_attendance_date = attendance.attendance_date
