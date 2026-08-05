@@ -25,18 +25,24 @@ EARNED_LEAVE_NAMES = (
 PROBATION_LEAVE_NAMES = ("Probation Leave", "Probation Leave (PL)")
 INTERNS_LEAVE_NAMES = ("Interns Leave",)
 
+# Temporary exception: these badge IDs may approve their own leave requests.
+# Keep in sync with attendance SELF_APPROVE_ATTENDANCE_BADGES (Sanketh M).
+SELF_APPROVE_LEAVE_BADGES = frozenset({"GEEKY0007"})
+
 
 def can_user_approve_leave_request(user, leave_request):
     """
-    Return False when the user is the employee who submitted the leave request.
-    Matches attendance request approval: requesters cannot approve their own requests.
+    Return False when the user is the employee who submitted the leave request,
+    unless their badge is in SELF_APPROVE_LEAVE_BADGES (temporary exception).
     """
     if not user or not leave_request:
         return False
     try:
-        requester_user = getattr(leave_request.employee_id, "employee_user_id", None)
+        requester = leave_request.employee_id
+        requester_user = getattr(requester, "employee_user_id", None)
         if requester_user and requester_user == user:
-            return False
+            badge = (getattr(requester, "badge_id", None) or "").strip().upper()
+            return badge in SELF_APPROVE_LEAVE_BADGES
     except Exception:
         return False
     return True
