@@ -805,6 +805,8 @@ def generate_payslip(request):
     Requires the user to be logged in and have the 'payroll.add_payslip' permission.
 
     """
+    # Same as Generate Salary Data: show active + inactive in employee picker.
+    setattr(request, "is_filtering", True)
     if (
         request.META.get("HTTP_HX_REQUEST")
         and request.META.get("HTTP_HX_TARGET") == "objectCreateModalTarget"
@@ -1099,6 +1101,7 @@ def view_payslip(request):
     export_column = forms.PayslipExportColumnForm()
     filter_form = PayslipFilter(request.GET, payslips)
     payslips = filter_form.qs
+    setattr(request, "is_filtering", True)
     bulk_form = forms.GeneratePayslipForm()
     field = request.GET.get("group_by")
     if field in Payslip.__dict__.keys():

@@ -426,7 +426,8 @@ class GeneratePayslipForm(HorillaForm):
             filter_route_name="employee-widget-filter",
             filter_class=EmployeeFilter,
             filter_instance_contex_name="f",
-            filter_template_path="employee_filters.html",
+            filter_template_path="payroll/salary_data_employee_filter.html",
+            show_filter_dropdown=False,
         ),
         label="Employee",
         required=True,
@@ -459,11 +460,8 @@ class GeneratePayslipForm(HorillaForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["employee_id"].queryset = Employee.objects.filter(
-            is_active=True,
-            contract_set__isnull=False,
-            contract_set__contract_status="active",
-        )
+        # Same employee picker as Generate Salary Data; view skips employees without active contract.
+        self.fields["employee_id"].queryset = Employee.objects.all()
         self.fields["employee_id"].widget.attrs.update(
             {"class": "oh-select oh-select-2 select2-multiple"}
         )
