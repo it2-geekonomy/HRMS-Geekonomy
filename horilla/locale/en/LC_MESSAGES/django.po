@@ -12202,6 +12202,10 @@ msgid "employee-view"
 msgstr "Employees"
 
 #: .\base\translator.py:205
+msgid "employees-list"
+msgstr "employees-list"
+
+#: .\base\translator.py:205
 msgid "shift-request-view"
 msgstr "Shift Requests"
 
