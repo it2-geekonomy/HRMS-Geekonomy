@@ -371,6 +371,7 @@
                                 <span class="oh-pagination__label me-1">{% trans "Page" %}</span>
                                 <input type="number" name="page" class="oh-pagination__input" value="{{attendances.number}}"
                                     hx-get="{% url 'search-attendance-requests' %}?{{pd}}" hx-target="#view-container"
+                                    hx-trigger="change delay:300ms" hx-sync="#view-container:replace"
                                     min="1" />
                                 <span class="oh-pagination__label">{% trans "of" %}
                                     {{attendances.paginator.num_pages}}</span>
@@ -378,24 +379,24 @@
                             <ul class="oh-pagination__items">
                                 {% if attendances.has_previous %}
                                     <li class="oh-pagination__item oh-pagination__item--wide">
-                                        <a hx-target='#view-container'
+                                        <a hx-target='#view-container' hx-sync="#view-container:replace"
                                             hx-get="{% url 'search-attendance-requests' %}?{{pd}}&page=1"
                                             class="oh-pagination__link">{% trans "First" %}</a>
                                     </li>
                                     <li class="oh-pagination__item oh-pagination__item--wide">
-                                        <a hx-target='#view-container'
+                                        <a hx-target='#view-container' hx-sync="#view-container:replace"
                                             hx-get="{% url 'search-attendance-requests' %}?{{pd}}&page={{ attendances.previous_page_number }}"
                                             class="oh-pagination__link">{% trans "Previous" %}</a>
                                     </li>
                                 {% endif %}
                                 {% if attendances.has_next %}
                                     <li class="oh-pagination__item oh-pagination__item--wide">
-                                        <a hx-target='#view-container'
+                                        <a hx-target='#view-container' hx-sync="#view-container:replace"
                                             hx-get="{% url 'search-attendance-requests' %}?{{pd}}&page={{ attendances.next_page_number }}"
                                             class="oh-pagination__link">{% trans "Next" %}</a>
                                     </li>
                                     <li class="oh-pagination__item oh-pagination__item--wide">
-                                        <a hx-target='#view-container'
+                                        <a hx-target='#view-container' hx-sync="#view-container:replace"
                                             hx-get="{% url 'search-attendance-requests' %}?{{pd}}&page={{ attendances.paginator.num_pages }}"
                                             class="oh-pagination__link">{% trans "Last" %}</a>
                                     </li>

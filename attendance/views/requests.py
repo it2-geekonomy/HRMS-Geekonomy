@@ -376,7 +376,14 @@ def get_all_attendances_for_request_view(request):
     attendances = attendances | Attendance.objects.filter(
         employee_id__employee_user_id=request.user
     )
-    return attendances.distinct()
+    # distinct() after | can drop/unstable ORDER BY; pin a stable order so
+    # pagination next/prev does not jump or repeat rows intermittently.
+    return attendances.distinct().order_by(
+        "-attendance_date",
+        "employee_id__employee_first_name",
+        "attendance_clock_in",
+        "id",
+    )
 
 
 @login_required

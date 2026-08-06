@@ -433,7 +433,21 @@ def search_attendance_requests(request):
     attendances = AttendanceFilters(
         request.GET, get_all_attendances_for_request_view(request)
     ).qs
-    previous_data = request.GET.urlencode()
+    if request.GET.get("sortby"):
+        attendances = sortby(request, attendances, "sortby")
+    else:
+        attendances = attendances.order_by(
+            "-attendance_date",
+            "employee_id__employee_first_name",
+            "attendance_clock_in",
+            "id",
+        )
+    # Drop pagination params so Next/Prev links do not stack page=1&page=2&...
+    # (duplicate page keys make pagination flaky depending on which value is read).
+    pd_params = request.GET.copy()
+    pd_params.pop("page", None)
+    pd_params.pop("rpage", None)
+    previous_data = pd_params.urlencode()
     data_dict = parse_qs(previous_data)
     get_key_instances(Attendance, data_dict)
 

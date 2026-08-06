@@ -202,7 +202,12 @@ def breadcrumbs(request):
         emp_query_string = None
 
         for item in breadcrumbs:
-            if item["name"] in ["employee-view", "candidate-view", "candidates-view"]:
+            if item["name"] in [
+                "employee-view",
+                "employees-list",
+                "candidate-view",
+                "candidates-view",
+            ]:
                 items = item["url"].split("?", 1)
                 if len(items) > 1:
                     emp_query_string = items[1]
@@ -297,6 +302,9 @@ def breadcrumbs(request):
                 # Show "candidates-view" in breadcrumb for candidate list page
                 if item == "candidate-view":
                     new_dict["name"] = "candidates-view"
+                # Show "employees-list" in breadcrumb for employee list / detail pages
+                if item == "employee-view":
+                    new_dict["name"] = "employees-list"
 
             if item.isdigit() or is_valid_uuid(item):
                 # Handle the case when item is a digit (e.g., an ID)
@@ -319,7 +327,12 @@ def breadcrumbs(request):
                 and key not in request.META.keys()
                 and not new_dict["name"].isdigit()
             ):
-                if new_dict["name"] in ["employee-view", "candidate-view", "candidates-view"]:
+                if new_dict["name"] in [
+                    "employee-view",
+                    "employees-list",
+                    "candidate-view",
+                    "candidates-view",
+                ]:
                     if emp_query_string:
                         new_dict["url"] = f'{new_dict["url"]}?{emp_query_string}'
 
