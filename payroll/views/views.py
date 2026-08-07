@@ -2494,7 +2494,14 @@ def get_view_payslip_pdf_context(
 
     data["total_leaves"] = total_leaves
     _sync_payslip_lop_from_salary_data(data, payslip)
+    if "paid_days" not in data:
+        data["paid_days"] = paid_days
+    if "total_working_days" not in data:
+        data["total_working_days"] = (
+            int(working_days) if working_days is not None else total_working_days
+        )
     data["lop_days"] = data.get("unpaid_days", data.get("lop_days", 0))
+    data["lop_amount"] = data.get("loss_of_pay", 0)
 
     # Always add net_pay_in_words so view and emailed PDF show the same (no "Loading...")
     net_pay_val = data.get("net_pay", 0)
@@ -2503,19 +2510,100 @@ def get_view_payslip_pdf_context(
     except (TypeError, ValueError):
         data["net_pay_in_words"] = ""
 
-    # Only when generating PDF (email/download): skip external font (breaks pisa), set logo, use ASCII currency (₹ → black square in pisa)
+    # Logo / watermark for on-screen, pdfkit email, and pisa fallback
+    data["watermark_src"] = _payslip_watermark_src(host, protocol)
+    data["logo_src"] = _payslip_logo_src(host, protocol)
     if for_pdf:
         data["for_pdf"] = True
-        data["logo_src"] = _payslip_logo_src(host, protocol)
         data["currency_symbol"] = "Rs. "
-    elif pdf_kit_render or not host:
-        data["logo_src"] = _payslip_logo_src(host, protocol)
-
-    if pdf_kit_render:
+    elif pdf_kit_render:
         data["pdf_kit_render"] = True
 
+    data["payslip_line_rows"] = _build_payslip_line_rows(data)
+    data.update(_payslip_header_detail_fields(payslip, data))
 
     return data
+
+
+def _payslip_header_detail_fields(payslip, data):
+    """
+    Fields for Employee Details / Payroll Details on the salary slip PDF.
+    PAN / UAN / ESI are read from employee.additional_info when present.
+    """
+    employee = payslip.employee_id
+    account = ""
+    try:
+        bank = employee.employee_bank_details
+        if bank and bank.account_number:
+            account = str(bank.account_number).strip()
+    except Exception:
+        account = ""
+    last4 = account[-4:] if len(account) >= 4 else (account or "—")
+
+    extra = employee.additional_info if isinstance(employee.additional_info, dict) else {}
+
+    def _extra(*keys):
+        for key in keys:
+            val = extra.get(key)
+            if val not in (None, ""):
+                return val
+        return "—"
+
+    if payslip.status == "paid":
+        date_of_payment = payslip.end_date.strftime("%d-%m-%Y")
+    else:
+        date_of_payment = "—"
+
+    return {
+        "salary_month": payslip.start_date.strftime("%B %Y"),
+        "pay_period_display": f"{data.get('formatted_start_date', payslip.start_date)} – {data.get('formatted_end_date', payslip.end_date)}",
+        "date_of_payment": date_of_payment,
+        "bank_account_last4": last4,
+        "employee_pan": _extra("pan", "PAN", "pan_number", "PAN Number"),
+        "employee_uan_pf": _extra(
+            "uan", "UAN", "pf", "PF", "pf_number", "uan_number", "UAN / PF"
+        ),
+        "employee_esi": _extra("esi", "ESI", "esi_number", "ESI Number"),
+    }
+
+
+def _build_payslip_line_rows(data):
+    """Pair earnings and deductions into table rows for the salary slip layout."""
+    earnings = [{"title": "Basic", "amount": data.get("basic_pay", 0)}]
+    for item in data.get("all_allowances") or []:
+        title = item.get("title") if isinstance(item, dict) else getattr(item, "title", None)
+        amount = item.get("amount") if isinstance(item, dict) else getattr(item, "amount", None)
+        if title and amount:
+            earnings.append({"title": title, "amount": amount})
+
+    deductions = []
+    for item in data.get("all_deductions") or []:
+        title = item.get("title") if isinstance(item, dict) else getattr(item, "title", None)
+        amount = item.get("amount") if isinstance(item, dict) else getattr(item, "amount", None)
+        if title and amount:
+            deductions.append({"title": title, "amount": amount})
+    if data.get("loss_of_pay") and not any(
+        d["title"].lower().replace(" ", "") in ("lossofpay", "lop")
+        for d in deductions
+    ):
+        deductions.insert(0, {"title": "Loss of Pay", "amount": data["loss_of_pay"]})
+    if data.get("federal_tax"):
+        deductions.append({"title": "Income Tax", "amount": data["federal_tax"]})
+
+    row_count = max(len(earnings), len(deductions), 1)
+    rows = []
+    for i in range(row_count):
+        earn = earnings[i] if i < len(earnings) else None
+        ded = deductions[i] if i < len(deductions) else None
+        rows.append(
+            {
+                "earning_title": earn["title"] if earn else "",
+                "earning_amount": earn["amount"] if earn else None,
+                "deduction_title": ded["title"] if ded else "",
+                "deduction_amount": ded["amount"] if ded else None,
+            }
+        )
+    return rows
 
 
 def _number_to_words_indian(n):
@@ -2557,7 +2645,18 @@ def _number_to_words_indian(n):
 
 def _payslip_logo_src(host, protocol):
     """Return logo URL/path for PDF: file:// when no host (email), else full URL so pisa/pdfkit can load it."""
-    static_path = "images/ui/Geekonomy Favicon Logo.png"
+    static_path = "images/ui/geekonomy-logo-mail.png"
+    if host:
+        return f"{protocol}://{host}{static(static_path)}"
+    path = find(static_path)
+    if path:
+        return "file:///" + os.path.normpath(path).replace("\\", "/")
+    return ""
+
+
+def _payslip_watermark_src(host, protocol):
+    """Grey Geekonomy logo used as payslip page watermark."""
+    static_path = "payroll/images/geekonomy-grey-logo-watermark.png"
     if host:
         return f"{protocol}://{host}{static(static_path)}"
     path = find(static_path)
