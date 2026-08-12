@@ -1,5 +1,34 @@
 .github
+.git
 .gitignore
 *.md
 LICENSE
 docker-compose.yaml
+docker-compose.prod.yaml
+.env
+.env.*
+!.env.dist
+!.env.*.example
+
+# Backups and dumps — never bake into the image
+backups/
+*.dump
+*.tar
+*.tar.gz
+*_backup.tar
+*_backup.tar.gz
+media_backup.tar.gz
+horilla_media_backup.tar.gz
+
+# Local/dev only
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+node_modules/
+.venv/
+venv/
+assets/
+terminals/
+*.log
