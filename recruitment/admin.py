@@ -9,6 +9,7 @@ from django.contrib import admin
 from recruitment.models import (
     Candidate,
     CandidateRating,
+    ClosersFellowshipApplication,
     InterviewSchedule,
     LinkedInAccount,
     Recruitment,
@@ -32,3 +33,20 @@ admin.site.register(CandidateRating)
 admin.site.register(SkillZone)
 admin.site.register(InterviewSchedule)
 admin.site.register(LinkedInAccount)
+
+
+@admin.register(ClosersFellowshipApplication)
+class ClosersFellowshipApplicationAdmin(admin.ModelAdmin):
+    list_display = (
+        "full_name",
+        "email",
+        "phone",
+        "seat",
+        "utm_campaign",
+        "utm_content",
+        "utm_term",
+        "created_at",
+    )
+    search_fields = ("full_name", "email", "phone", "seat")
+    readonly_fields = ("created_at", "created_by", "modified_by")
+    list_filter = ("seat", "utm_source", "utm_medium")

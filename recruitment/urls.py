@@ -15,6 +15,11 @@ from recruitment import cbvs
 from recruitment.forms import QuestionForm, RecruitmentCreationForm, StageCreationForm
 from recruitment.models import Candidate, Recruitment, RecruitmentSurvey, Stage
 from recruitment.views import linkedin, views
+from recruitment.views.closers_fellowship import (
+    closers_fellowship_delete,
+    closers_fellowship_detail,
+    closers_fellowship_list,
+)
 from recruitment.views.actions import get_mail_preview, get_template, get_template_hint
 
 urlpatterns = [
@@ -215,6 +220,21 @@ urlpatterns = [
         "archived-candidates/",
         views.archived_candidates_view,
         name="archived-candidates",
+    ),
+    path(
+        "closers-fellowship/",
+        closers_fellowship_list,
+        name="closers-fellowship-list",
+    ),
+    path(
+        "closers-fellowship/<int:app_id>/delete/",
+        closers_fellowship_delete,
+        name="closers-fellowship-delete",
+    ),
+    path(
+        "closers-fellowship/<int:app_id>/",
+        closers_fellowship_detail,
+        name="closers-fellowship-detail",
     ),
     path(
         "candidate-archive/<int:cand_id>/",

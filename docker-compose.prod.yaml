@@ -66,6 +66,7 @@ services:
 
       SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:-}
       CRM_API_KEY: ${CRM_API_KEY:-}
+      CLOSERS_FELLOWSHIP_API_KEY: ${CLOSERS_FELLOWSHIP_API_KEY:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-Geekonomy HRMS <hr@thegeekonomy.com>}
       HR_EMAIL: ${HR_EMAIL:-hr@thegeekonomy.com}

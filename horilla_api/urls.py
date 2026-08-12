@@ -11,4 +11,5 @@ urlpatterns = [
     path("attendance/", include("horilla_api.api_urls.attendance.urls")),
     path("leave/", include("horilla_api.api_urls.leave.urls")),
     path("slack/", include("horilla_api.api_urls.slack.urls")),
+    path("recruitment/", include("horilla_api.api_urls.recruitment.urls")),
 ]

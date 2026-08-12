@@ -1171,3 +1171,84 @@ class LinkedInAccount(HorillaModel):
             path="is_active_toggle.html",
             context={"instance": self, "url": url},
         )
+
+
+class ClosersFellowshipApplication(HorillaModel):
+    """
+    Applications submitted from the Closers Fellowship website form.
+    """
+
+    full_name = models.CharField(max_length=255, verbose_name=_("Full Name"))
+    email = models.EmailField(verbose_name=_("Email"))
+    phone = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        validators=[validate_mobile],
+        verbose_name=_("Phone / WhatsApp"),
+    )
+    seat = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name=_("Which seat fits you?"),
+    )
+    linkedin_portfolio = models.URLField(
+        max_length=500,
+        blank=True,
+        null=True,
+        verbose_name=_("LinkedIn or Portfolio"),
+    )
+    answer_q1 = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name=_("Q1: Biggest deal closed"),
+    )
+    answer_q2 = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name=_("Q2: Revenue number carried"),
+    )
+    answer_q3 = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name=_("Q3: Fixed vs variable compensation"),
+    )
+    utm_campaign = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name=_("Campaign"),
+    )
+    utm_content = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name=_("Ad"),
+    )
+    utm_term = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name=_("Adset"),
+    )
+    utm_source = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name=_("UTM Source"),
+    )
+    utm_medium = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name=_("UTM Medium"),
+    )
+
+    class Meta:
+        verbose_name = _("Closers Fellowship Application")
+        verbose_name_plural = _("Closers Fellowship Applications")
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.full_name} ({self.email})"

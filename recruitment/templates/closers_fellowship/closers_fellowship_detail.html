@@ -1,0 +1,110 @@
+{% extends 'index.html' %}
+{% block content %}
+{% load static i18n %}
+<div id="messages" class="oh-alert-container"></div>
+
+<section class="oh-wrapper oh-main__topbar">
+  <div class="oh-main__titlebar oh-main__titlebar--left">
+    <h1 class="oh-main__titlebar-title fw-bold mb-0 text-dark">{% trans "Closers Fellowship Application" %}</h1>
+  </div>
+  <div class="oh-main__titlebar oh-main__titlebar--right">
+    {% if perms.recruitment.delete_closersfellowshipapplication or perms.recruitment.delete_candidate %}
+    <form
+      method="post"
+      action="{% url 'closers-fellowship-delete' application.id %}"
+      class="d-inline me-2"
+      onsubmit="return confirm('{% trans "Delete this application?" %}');"
+    >
+      {% csrf_token %}
+      <button type="submit" class="oh-btn oh-btn--danger">
+        <ion-icon name="trash-outline" class="me-1"></ion-icon>{% trans "Delete" %}
+      </button>
+    </form>
+    {% endif %}
+    <a href="{% url 'closers-fellowship-list' %}" class="oh-btn oh-btn--secondary">
+      <ion-icon name="arrow-back-outline" class="me-1"></ion-icon>{% trans "Back to List" %}
+    </a>
+  </div>
+</section>
+
+<div class="oh-wrapper">
+  <div class="row g-4">
+    <div class="col-12 col-lg-6">
+      <div class="oh-card">
+        <div class="oh-card__header">
+          <h2 class="oh-card__title mb-0">{% trans "Applicant Details" %}</h2>
+        </div>
+        <div class="oh-card__body">
+          <dl class="row mb-0">
+            <dt class="col-sm-4">{% trans "Full Name" %}</dt>
+            <dd class="col-sm-8">{{ application.full_name }}</dd>
+            <dt class="col-sm-4">{% trans "Email" %}</dt>
+            <dd class="col-sm-8"><a href="mailto:{{ application.email }}">{{ application.email }}</a></dd>
+            <dt class="col-sm-4">{% trans "Phone / WhatsApp" %}</dt>
+            <dd class="col-sm-8">{{ application.phone|default:"—" }}</dd>
+            <dt class="col-sm-4">{% trans "Which seat fits you?" %}</dt>
+            <dd class="col-sm-8">{{ application.seat|default:"—" }}</dd>
+            <dt class="col-sm-4">{% trans "LinkedIn or Portfolio" %}</dt>
+            <dd class="col-sm-8">
+              {% if application.linkedin_portfolio %}
+              <a href="{{ application.linkedin_portfolio }}" target="_blank" rel="noopener noreferrer">{{ application.linkedin_portfolio }}</a>
+              {% else %}
+              —
+              {% endif %}
+            </dd>
+            <dt class="col-sm-4">{% trans "Applied At" %}</dt>
+            <dd class="col-sm-8">{{ application.created_at|date:"M d, Y g:i A" }}</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-6">
+      <div class="oh-card">
+        <div class="oh-card__header">
+          <h2 class="oh-card__title mb-0">{% trans "Marketing / UTM" %}</h2>
+        </div>
+        <div class="oh-card__body">
+          <dl class="row mb-0">
+            <dt class="col-sm-4">{% trans "Campaign" %}</dt>
+            <dd class="col-sm-8">{{ application.utm_campaign|default:"—" }}</dd>
+            <dt class="col-sm-4">{% trans "Ad" %}</dt>
+            <dd class="col-sm-8">{{ application.utm_content|default:"—" }}</dd>
+            <dt class="col-sm-4">{% trans "Adset" %}</dt>
+            <dd class="col-sm-8">{{ application.utm_term|default:"—" }}</dd>
+            <dt class="col-sm-4">{% trans "UTM Source" %}</dt>
+            <dd class="col-sm-8">{{ application.utm_source|default:"—" }}</dd>
+            <dt class="col-sm-4">{% trans "UTM Medium" %}</dt>
+            <dd class="col-sm-8">{{ application.utm_medium|default:"—" }}</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="oh-card">
+        <div class="oh-card__header">
+          <h2 class="oh-card__title mb-0">{% trans "The Three Questions" %}</h2>
+        </div>
+        <div class="oh-card__body">
+          <div class="mb-4">
+            <h3 class="h6 fw-bold">{% trans "Q1" %}</h3>
+            <p class="oh-text--secondary small mb-2">{% trans "The biggest deal you have personally closed. The number, and what nearly killed it." %}</p>
+            <div class="p-3 bg-light rounded">{{ application.answer_q1|default:"—"|linebreaksbr }}</div>
+          </div>
+          <div class="mb-4">
+            <h3 class="h6 fw-bold">{% trans "Q2" %}</h3>
+            <p class="oh-text--secondary small mb-2">{% trans "A revenue number you have carried. Did you hit it? If not, what did you do next?" %}</p>
+            <div class="p-3 bg-light rounded">{{ application.answer_q2|default:"—"|linebreaksbr }}</div>
+          </div>
+          <div>
+            <h3 class="h6 fw-bold">{% trans "Q3" %}</h3>
+            <p class="oh-text--secondary small mb-2">{% trans "Half this package is fixed and half you earn by hitting what you commit to. Tell us why that excites you rather than scares you." %}</p>
+            <div class="p-3 bg-light rounded">{{ application.answer_q3|default:"—"|linebreaksbr }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

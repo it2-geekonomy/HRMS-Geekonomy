@@ -54,7 +54,13 @@ SUBMENUS = [
         "redirect": reverse("candidate-view"),
         "accessibility": "recruitment.sidebar.candidates_accessibility",
     },
-    # 7. Archived Candidates
+    # 7. Closers Fellowship
+    {
+        "menu": _("Closers Fellowship"),
+        "redirect": reverse("closers-fellowship-list"),
+        "accessibility": "recruitment.sidebar.closers_fellowship_accessibility",
+    },
+    # 8. Archived Candidates
     {
         "menu": _("Archived Candidates"),
         "redirect": reverse("archived-candidates"),
@@ -98,6 +104,14 @@ def candidates_accessibility(
     request, _submenu: dict = {}, user_perms: PermWrapper = [], *args, **kwargs
 ) -> bool:
     return request.user.has_perm("recruitment.view_candidate")
+
+
+def closers_fellowship_accessibility(
+    request, _submenu: dict = {}, user_perms: PermWrapper = [], *args, **kwargs
+) -> bool:
+    return request.user.has_perm(
+        "recruitment.view_closersfellowshipapplication"
+    ) or request.user.has_perm("recruitment.view_candidate")
 
 
 def survey_accessibility(

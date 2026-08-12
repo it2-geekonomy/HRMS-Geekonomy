@@ -35,6 +35,9 @@ env = environ.Env(
 
 env.read_env(os.path.join(BASE_DIR, ".env"), overwrite=True)
 
+CRM_API_KEY = env("CRM_API_KEY", default="")
+CLOSERS_FELLOWSHIP_API_KEY = env("CLOSERS_FELLOWSHIP_API_KEY", default="")
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env("SECRET_KEY")
 

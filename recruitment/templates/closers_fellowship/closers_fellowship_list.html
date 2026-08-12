@@ -1,0 +1,169 @@
+{% extends 'index.html' %}
+{% block content %}
+{% load static i18n %}
+<div id="messages" class="oh-alert-container"></div>
+
+<section class="oh-wrapper oh-main__topbar" x-data="{filterOpen: false}">
+  <div class="oh-main__titlebar oh-main__titlebar--left">
+    <h1 class="oh-main__titlebar-title fw-bold mb-0 text-dark">{% trans "Closers Fellowship" %}</h1>
+  </div>
+  <form method="get" class="oh-main__titlebar oh-main__titlebar--right oh-d-flex-column--resp oh-mb-3--small">
+    <div class="oh-main__titlebar-button-container">
+      <div class="oh-input-group oh-input__search-group mr-2">
+        <ion-icon name="search-outline" class="oh-input-group__icon oh-input-group__icon--left md hydrated" role="img" aria-label="search outline"></ion-icon>
+        <input
+          type="search"
+          name="search"
+          value="{{ filters.search }}"
+          class="oh-input oh-input__icon"
+          placeholder="{% trans 'Search by name, email, or phone' %}"
+          autocomplete="off"
+          aria-label="{% trans 'Search' %}"
+        />
+      </div>
+      <div class="oh-dropdown" x-data="{open: false}">
+        <button type="button" class="oh-btn oh-btn--secondary oh-btn--sm" @click="open = !open">
+          <ion-icon name="filter-outline" class="me-1"></ion-icon>{% trans "Filter" %}
+        </button>
+        <div class="oh-dropdown__menu oh-dropdown__menu--right oh-dropdown__filter p-4" x-show="open" @click.outside="open = false" style="display: none; min-width: 320px;">
+          <div class="oh-dropdown__filter-body">
+            <div class="oh-input-group mb-3">
+              <label class="oh-label" for="filter-seat">{% trans "Seat" %}</label>
+              <select name="seat" id="filter-seat" class="oh-select oh-select--sm w-100">
+                <option value="">{% trans "All" %}</option>
+                {% for option in seat_options %}
+                <option value="{{ option }}" {% if filters.seat == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="oh-input-group mb-3">
+              <label class="oh-label" for="filter-campaign">{% trans "Campaign" %}</label>
+              <select name="campaign" id="filter-campaign" class="oh-select oh-select--sm w-100">
+                <option value="">{% trans "All" %}</option>
+                {% for option in campaign_options %}
+                <option value="{{ option }}" {% if filters.campaign == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="oh-input-group mb-3">
+              <label class="oh-label" for="filter-source">{% trans "UTM Source" %}</label>
+              <select name="utm_source" id="filter-source" class="oh-select oh-select--sm w-100">
+                <option value="">{% trans "All" %}</option>
+                {% for option in utm_source_options %}
+                <option value="{{ option }}" {% if filters.utm_source == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="row g-2">
+              <div class="col-6">
+                <div class="oh-input-group">
+                  <label class="oh-label" for="filter-date-from">{% trans "Applied From" %}</label>
+                  <input type="date" name="date_from" id="filter-date-from" value="{{ filters.date_from }}" class="oh-input oh-input--sm w-100" />
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="oh-input-group">
+                  <label class="oh-label" for="filter-date-to">{% trans "Applied To" %}</label>
+                  <input type="date" name="date_to" id="filter-date-to" value="{{ filters.date_to }}" class="oh-input oh-input--sm w-100" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="oh-dropdown__filter-footer mt-3">
+            <button type="submit" class="oh-btn oh-btn--secondary oh-btn--small w-100">{% trans "Apply Filter" %}</button>
+          </div>
+        </div>
+      </div>
+      <button type="submit" class="oh-btn oh-btn--secondary oh-btn--sm ms-2">{% trans "Search" %}</button>
+      {% if has_filters %}
+      <a href="{% url 'closers-fellowship-list' %}" class="oh-btn oh-btn--light-bkg oh-btn--sm ms-2">{% trans "Clear" %}</a>
+      {% endif %}
+    </div>
+  </form>
+</section>
+
+<div class="oh-wrapper">
+  {% if data %}
+  <div class="oh-sticky-table oh-sticky-table--collapse">
+    <div class="oh-sticky-table__table oh-table--sortable">
+      <div class="oh-sticky-table__thead">
+        <div class="oh-sticky-table__tr">
+          <div class="oh-sticky-table__th">{% trans "Name" %}</div>
+          <div class="oh-sticky-table__th">{% trans "Email" %}</div>
+          <div class="oh-sticky-table__th">{% trans "Phone" %}</div>
+          <div class="oh-sticky-table__th">{% trans "Seat" %}</div>
+          <div class="oh-sticky-table__th">{% trans "Campaign" %}</div>
+          <div class="oh-sticky-table__th">{% trans "Applied" %}</div>
+          <div class="oh-sticky-table__th" style="width: 120px;">{% trans "Actions" %}</div>
+        </div>
+      </div>
+      <div class="oh-sticky-table__tbody">
+        {% for app in data %}
+        <div class="oh-sticky-table__tr">
+          <div class="oh-sticky-table__td">{{ app.full_name }}</div>
+          <div class="oh-sticky-table__td">{{ app.email }}</div>
+          <div class="oh-sticky-table__td">{{ app.phone|default:"—" }}</div>
+          <div class="oh-sticky-table__td">{{ app.seat|default:"—" }}</div>
+          <div class="oh-sticky-table__td">{{ app.utm_campaign|default:"—" }}</div>
+          <div class="oh-sticky-table__td">{{ app.created_at|date:"M d, Y g:i A" }}</div>
+          <div class="oh-sticky-table__td">
+            <div class="oh-btn-group">
+              <a href="{% url 'closers-fellowship-detail' app.id %}" class="oh-btn oh-btn--light-bkg oh-btn--sm" title="{% trans 'View' %}">
+                <ion-icon name="eye-outline"></ion-icon>
+              </a>
+              {% if perms.recruitment.delete_closersfellowshipapplication or perms.recruitment.delete_candidate %}
+              <form
+                method="post"
+                action="{% url 'closers-fellowship-delete' app.id %}"
+                class="d-inline"
+                onsubmit="return confirm('{% trans "Delete this application?" %}');"
+              >
+                {% csrf_token %}
+                <button type="submit" class="oh-btn oh-btn--danger oh-btn--sm" title="{% trans 'Delete' %}">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </button>
+              </form>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {% if data.paginator.num_pages > 1 %}
+  <div class="oh-pagination mt-3">
+    <span class="oh-pagination__page">
+      {% trans "Page" %} {{ data.number }} {% trans "of" %} {{ data.paginator.num_pages }}
+    </span>
+    <nav class="oh-pagination__nav">
+      <ul class="oh-pagination__items">
+        {% if data.has_previous %}
+        <li class="oh-pagination__item oh-pagination__item--prev">
+          <a href="?page={{ data.previous_page_number }}{% if query_string %}&{{ query_string }}{% endif %}" class="oh-pagination__link">{% trans "Previous" %}</a>
+        </li>
+        {% endif %}
+        {% if data.has_next %}
+        <li class="oh-pagination__item oh-pagination__item--next">
+          <a href="?page={{ data.next_page_number }}{% if query_string %}&{{ query_string }}{% endif %}" class="oh-pagination__link">{% trans "Next" %}</a>
+        </li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="oh-empty-state">
+    <p class="oh-text--secondary mb-0">
+      {% if has_filters %}
+        {% trans "No applications match your search or filters." %}
+      {% else %}
+        {% trans "No applications yet." %}
+      {% endif %}
+    </p>
+  </div>
+  {% endif %}
+</div>
+{% endblock content %}
