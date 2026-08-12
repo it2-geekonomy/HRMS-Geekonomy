@@ -76,6 +76,16 @@ from horilla.methods import horilla_users_with_perms
 from notifications.signals import notify
 
 
+def active_asset_assignments(asset_id=None, employee=None):
+    """Return assignments that have not been returned yet."""
+    qs = AssetAssignment.objects.filter(return_date__isnull=True)
+    if asset_id is not None:
+        qs = qs.filter(asset_id=asset_id)
+    if employee is not None:
+        qs = qs.filter(assigned_to_employee_id=employee)
+    return qs
+
+
 def asset_del(request, asset):
     """
     Handle the deletion of an asset and provide message to the user.
@@ -884,9 +894,7 @@ def asset_allocate_return(request, asset_id):
     """
 
     asset_return_form = AssetReturnForm()
-    asset_allocation = AssetAssignment.objects.filter(
-        asset_id=asset_id, return_status__isnull=True
-    ).first()
+    asset_allocation = active_asset_assignments(asset_id=asset_id).first()
     if request.method == "POST":
         asset_return_form = AssetReturnForm(request.POST, request.FILES)
 
@@ -899,48 +907,36 @@ def asset_allocate_return(request, asset_id):
             attachments = []
             context = {"asset_return_form": asset_return_form, "asset_id": asset_id}
             response = render(request, "asset/asset_return_form.html", context)
-            if asset_return_status == "Healthy":
-                asset_allocation = AssetAssignment.objects.filter(
-                    asset_id=asset_id, return_status__isnull=True
-                ).first()
-                asset_allocation.return_date = asset_return_date
-                asset_allocation.return_status = asset_return_status
-                asset_allocation.return_condition = asset_return_condition
-                asset_allocation.return_request = False
-                asset_allocation.save()
-                if request.FILES:
-                    for file in files:
-                        attachment = ReturnImages()
-                        attachment.image = file
-                        attachment.save()
-                        attachments.append(attachment)
-                    asset_allocation.return_images.add(*attachments)
-                asset.asset_status = "Available"
-                asset.save()
-                messages.info(request, _("Asset Return Successful !."))
+            active_assignments = list(active_asset_assignments(asset_id=asset_id))
+            if not active_assignments:
+                messages.error(request, _("No active allocation found for this asset."))
                 return HttpResponse(
                     response.content.decode("utf-8")
                     + "<script>location.reload();</script>"
                 )
-            asset.asset_status = "Not-Available"
-            asset.save()
-            asset_allocation = AssetAssignment.objects.filter(
-                asset_id=asset_id, return_status__isnull=True
-            ).first()
-            asset_allocation.return_date = asset_return_date
-            asset_allocation.return_status = asset_return_status
-            asset_allocation.return_condition = asset_return_condition
-            asset_allocation.save()
             if request.FILES:
                 for file in files:
                     attachment = ReturnImages()
                     attachment.image = file
                     attachment.save()
                     attachments.append(attachment)
-                asset_allocation.return_images.add(*attachments)
-            messages.info(request, _("Asset Return Successful!."))
+            for allocation in active_assignments:
+                allocation.return_date = asset_return_date
+                allocation.return_status = asset_return_status
+                allocation.return_condition = asset_return_condition
+                allocation.return_request = False
+                allocation.save()
+                if attachments:
+                    allocation.return_images.add(*attachments)
+            if asset_return_status == "Healthy":
+                asset.asset_status = "Available"
+            else:
+                asset.asset_status = "Not-Available"
+            asset.save()
+            messages.info(request, _("Asset Return Successful !."))
             return HttpResponse(
-                response.content.decode("utf-8") + "<script>location.reload();</script>"
+                response.content.decode("utf-8")
+                + "<script>location.reload();</script>"
             )
 
     context = {"asset_return_form": asset_return_form, "asset_id": asset_id}
@@ -2058,7 +2054,7 @@ def asset_tab(request, emp_id):
     """
     employee = Employee.objects.get(id=emp_id)
     assets_requests = employee.requested_employee.all()
-    assets = employee.allocated_employee.all()
+    assets = active_asset_assignments(employee=employee)
     assets_ids = (
         json.dumps([instance.id for instance in assets]) if assets else json.dumps([])
     )
@@ -2085,7 +2081,7 @@ def profile_asset_tab(request, emp_id):
 
     """
     employee = Employee.objects.get(id=emp_id)
-    assets = employee.allocated_employee.all()
+    assets = active_asset_assignments(employee=employee)
     assets_ids = json.dumps([instance.id for instance in assets])
     context = {
         "assets": assets,

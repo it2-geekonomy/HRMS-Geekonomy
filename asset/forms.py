@@ -308,6 +308,14 @@ class AssetAllocationForm(ModelForm):
         employee = cleaned_data.get("assigned_to_employee_id")
         temp_name = (cleaned_data.get("temporary_assignee_name") or "").strip()
 
+        asset = cleaned_data.get("asset_id")
+        if asset and AssetAssignment.objects.filter(
+            asset_id=asset, return_date__isnull=True
+        ).exists():
+            raise ValidationError(
+                {"asset_id": _("This asset is already allocated to someone.")}
+            )
+
         if allocation_type == "temporary":
             if not temp_name:
                 raise ValidationError(

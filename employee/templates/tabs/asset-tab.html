@@ -24,8 +24,6 @@
 			</div>
 			<div class="oh-sticky-table__tbody">
 				{% for asset in assets %}
-					{% if asset.asset_id.asset_status == "In use" %}
-						<!-- asset request looping -->
 						<div class="oh-sticky-table__tr" draggable="true" data-toggle="oh-modal-toggle"
 							data-target="#objectDetailsModal"
 							hx-get="{% url 'own-asset-individual-view' asset.id %}?assets_ids={{ assets_ids }}"
@@ -59,7 +57,6 @@
 								</div>
 							{% endif %}
 						</div>
-					{% endif %}
 				{% endfor %}
 			</div>
 		</div>
