@@ -131,6 +131,23 @@ class Asset(HorillaModel):
     def __str__(self):
         return f"{self.asset_name}-{self.asset_tracking_id}"
 
+    def get_active_assignment(self):
+        """Latest allocation that has not been returned."""
+        return (
+            self.assetassignment_set.filter(return_date__isnull=True)
+            .order_by("-assigned_date", "-id")
+            .first()
+        )
+
+    def get_current_assignee_name(self):
+        """Who currently holds the asset (employee or temporary assignee)."""
+        assignment = self.get_active_assignment()
+        if assignment:
+            return assignment.get_assignee_name()
+        if self.owner_id:
+            return str(self.owner)
+        return None
+
     def clean(self):
         existing_asset = Asset.objects.filter(
             asset_tracking_id=self.asset_tracking_id

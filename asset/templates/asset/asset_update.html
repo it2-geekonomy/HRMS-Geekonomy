@@ -84,7 +84,7 @@
                         <div class="my-3" id="keyResultCard">
                             <div class=" " id="assetUpdateFormContainer">
                                 <div class="row">
-                                    <div class="col-12 {% if instance.asset_status == "In use" and instance.assetassignment_set.last %}col-sm-12 col-md-6 col-lg-6 {% endif %}">
+                                    <div class="col-12 {% if instance.asset_status == "In use" and instance.get_active_assignment %}col-sm-12 col-md-6 col-lg-6 {% endif %}">
                                         <div class="oh-input__group">
                                             <label class="oh-input__label" for="{{asset_form.asset_name.id_for_label}}">
                                                 {{asset_form.asset_name.label}}
@@ -93,13 +93,13 @@
                                             {{asset_form.asset_name.errors}}
                                         </div>
                                     </div>
-                                    {% if instance.asset_status == "In use" and instance.assetassignment_set.last %}
+                                    {% if instance.asset_status == "In use" and instance.get_active_assignment %}
                                         <div class="col-12 col-sm-12 col-md-6 col-lg-6">
                                             <div class="oh-input__group">
                                                 <label class="oh-input__label" for="{{asset_form.owner.id_for_label}}">
                                                     {{asset_form.owner.label}}
                                                 </label>
-                                                {% with assigned=instance.assetassignment_set.last %}
+                                                {% with assigned=instance.get_active_assignment %}
                                                 <input type="text" class="oh-input w-100"
                                                     value="{{ assigned.get_assignee_name }}" readonly>
                                                 {% endwith %}

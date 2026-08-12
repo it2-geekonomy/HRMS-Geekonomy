@@ -384,26 +384,9 @@ def asset_list(request, cat_id):
         'assetassignment_set__assigned_to_employee_id'
     )
     
-    # Add current_user as a property
+    # Resolve current holder from active allocation (includes temporary assignees)
     for asset in asset_list:
-        # Try to get the current user from active assignment first
-        active_assignments = asset.assetassignment_set.filter(
-            return_date__isnull=True,
-            assigned_to_employee_id__is_active=True
-        ).order_by('-assigned_date')
-        
-        if active_assignments.exists():
-            active_assignment = active_assignments.first()
-            employee = active_assignment.assigned_to_employee_id
-            # Format the user name with badge ID
-            first_name = employee.employee_first_name if hasattr(employee, 'employee_first_name') else ''
-            last_name = employee.employee_last_name if hasattr(employee, 'employee_last_name') else ''
-            badge_id = employee.badge_id if hasattr(employee, 'badge_id') else ''
-            asset.current_user = f"{first_name} {last_name} ({badge_id})".strip() if (first_name or last_name) and badge_id else f"{first_name} {last_name}".strip() if first_name or last_name else str(employee)
-        elif asset.owner:
-            asset.current_user = str(asset.owner)
-        else:
-            asset.current_user = None
+        asset.current_user = asset.get_current_assignee_name()
 
     paginator = Paginator(asset_list, get_pagination())
     page_number = request.GET.get("page")
@@ -707,12 +690,14 @@ def asset_request_approve(request, req_id):
         if form.is_valid():
             try:
                 asset = form.cleaned_data["asset_id"]
-                asset.asset_status = "In use"
-                asset.save()
-
                 allocation = form.save(commit=False)
                 allocation.assigned_by_employee_id = request.user.employee_get
                 allocation.save()
+                form.save_m2m()
+
+                asset.asset_status = "In use"
+                asset.owner = allocation.assigned_to_employee_id
+                asset.save(update_fields=["asset_status", "owner"])
 
                 asset_request.asset_request_status = "Approved"
                 asset_request.save()
@@ -823,11 +808,11 @@ def asset_allocate_creation(request):
     if request.method == "POST":
         form = AssetAllocationForm(request.POST, request.FILES)
         if form.is_valid():
-            asset = form.instance.asset_id.id
-            asset = Asset.objects.filter(id=asset).first()
-            asset.asset_status = "In use"
-            asset.save()
             instance = form.save()
+            asset = instance.asset_id
+            asset.asset_status = "In use"
+            asset.owner = instance.assigned_to_employee_id
+            asset.save(update_fields=["asset_status", "owner"])
             files = request.FILES.getlist("assign_images")
             attachments = []
             if request.FILES:
@@ -932,7 +917,8 @@ def asset_allocate_return(request, asset_id):
                 asset.asset_status = "Available"
             else:
                 asset.asset_status = "Not-Available"
-            asset.save()
+            asset.owner = None
+            asset.save(update_fields=["asset_status", "owner"])
             messages.info(request, _("Asset Return Successful !."))
             return HttpResponse(
                 response.content.decode("utf-8")
@@ -1753,26 +1739,8 @@ def _assets_in_use_queryset():
         'assetassignment_set__assigned_to_employee_id'
     )
     
-    # Add current_user as a property
     for asset in assets_in_use:
-        # Try to get the current user from active assignment first
-        active_assignments = asset.assetassignment_set.filter(
-            return_date__isnull=True,
-            assigned_to_employee_id__is_active=True
-        ).order_by('-assigned_date')
-        
-        if active_assignments.exists():
-            active_assignment = active_assignments.first()
-            employee = active_assignment.assigned_to_employee_id
-            # Format the user name with badge ID
-            first_name = getattr(employee, 'employee_first_name', '')
-            last_name = getattr(employee, 'employee_last_name', '')
-            badge_id = getattr(employee, 'badge_id', '')
-            asset.current_user = f"{first_name} {last_name} ({badge_id})".strip() if (first_name or last_name) and badge_id else f"{first_name} {last_name}".strip() if first_name or last_name else str(employee)
-        elif asset.owner:
-            asset.current_user = str(asset.owner)
-        else:
-            asset.current_user = None
+        asset.current_user = asset.get_current_assignee_name()
     
     return assets_in_use
 

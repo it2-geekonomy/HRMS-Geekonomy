@@ -86,8 +86,8 @@
                 <label class="oh-timeoff-modal__stat-title">{% trans "Status" %}</label>
                 <label class="oh-timeoff-modal__stat-count">{{asset.get_asset_status_display}}
                     {% if asset.asset_status == "In use" %} {% trans "by " %}
-                        {% with assigned=asset.assetassignment_set.last %}
-                            {{assigned.get_assignee_name}}
+                        {% with assigned=asset.get_active_assignment %}
+                            {% if assigned %}{{ assigned.get_assignee_name }}{% endif %}
                         {% endwith %}
                     {% endif %}
                 </label>
