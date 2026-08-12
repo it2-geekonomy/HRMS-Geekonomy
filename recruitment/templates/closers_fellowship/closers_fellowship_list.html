@@ -78,6 +78,13 @@
       {% if has_filters %}
       <a href="{% url 'closers-fellowship-list' %}" class="oh-btn oh-btn--light-bkg oh-btn--sm ms-2">{% trans "Clear" %}</a>
       {% endif %}
+      <a
+        href="/recruitment/closers-fellowship/export/{% if query_string %}?{{ query_string }}{% endif %}"
+        class="oh-btn oh-btn--secondary oh-btn--sm ms-2"
+        title="{% trans 'Export to Excel' %}"
+      >
+        <ion-icon name="download-outline" class="me-1"></ion-icon>{% trans "Export" %}
+      </a>
     </div>
   </form>
 </section>

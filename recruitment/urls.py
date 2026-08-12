@@ -18,6 +18,7 @@ from recruitment.views import linkedin, views
 from recruitment.views.closers_fellowship import (
     closers_fellowship_delete,
     closers_fellowship_detail,
+    closers_fellowship_export,
     closers_fellowship_list,
 )
 from recruitment.views.actions import get_mail_preview, get_template, get_template_hint
@@ -225,6 +226,11 @@ urlpatterns = [
         "closers-fellowship/",
         closers_fellowship_list,
         name="closers-fellowship-list",
+    ),
+    path(
+        "closers-fellowship/export/",
+        closers_fellowship_export,
+        name="closers-fellowship-export",
     ),
     path(
         "closers-fellowship/<int:app_id>/delete/",
