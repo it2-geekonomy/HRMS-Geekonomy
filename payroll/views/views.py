@@ -100,6 +100,76 @@ def _sum_payslip_deduction_lines(data):
     return total
 
 
+def _is_arrears_allowance_title(title):
+    compact = (title or "").lower().replace(" ", "")
+    return "arrear" in compact
+
+
+def _get_salary_data_arrears(payslip):
+    """Return (amount, description) from MonthlySalaryData for this payslip's month."""
+    from payroll.models.models import MonthlySalaryData
+
+    if not payslip or not getattr(payslip, "employee_id", None) or not getattr(
+        payslip, "start_date", None
+    ):
+        return 0.0, ""
+    row = (
+        MonthlySalaryData.objects.filter(
+            employee_id=payslip.employee_id,
+            year=payslip.start_date.year,
+            month=payslip.start_date.month,
+        )
+        .only("arrears_amount", "arrears_description")
+        .first()
+    )
+    if not row:
+        return 0.0, ""
+    return float(row.arrears_amount or 0), (row.arrears_description or "").strip()
+
+
+def _apply_salary_data_arrears_to_payslip(data, payslip):
+    """
+    If salary-data has arrears for this employee/month, show them under Allowances
+    and add the amount to gross and net. No-op when amount is 0. Idempotent.
+    """
+    if data.get("_arrears_applied"):
+        return data
+    data["_arrears_applied"] = True
+
+    amount, description = _get_salary_data_arrears(payslip)
+    data["arrears_amount"] = amount
+    data["arrears_description"] = description
+    if amount <= 0:
+        return data
+
+    allowances = data.get("allowances")
+    if not isinstance(allowances, list):
+        allowances = []
+        data["allowances"] = allowances
+
+    already = False
+    for item in allowances:
+        title = item.get("title") if isinstance(item, dict) else getattr(item, "title", "")
+        if _is_arrears_allowance_title(title):
+            already = True
+            break
+
+    if not already:
+        line = {"title": "Arrears", "amount": amount}
+        allowances.append(line)
+        all_allowances = data.get("all_allowances")
+        if isinstance(all_allowances, list) and not any(
+            _is_arrears_allowance_title(
+                a.get("title") if isinstance(a, dict) else getattr(a, "title", "")
+            )
+            for a in all_allowances
+        ):
+            all_allowances.append(line)
+        data["gross_pay"] = round(float(data.get("gross_pay") or 0) + amount, 2)
+        data["net_pay"] = round(float(data.get("net_pay") or 0) + amount, 2)
+    return data
+
+
 def _sync_payslip_lop_from_salary_data(data, payslip):
     """
     Refresh LOP amount and day counts from Salary Data / WorkRecords.
@@ -108,6 +178,7 @@ def _sync_payslip_lop_from_salary_data(data, payslip):
     paid_days, lop_days, working_days = _get_paid_days_lop_days_from_salary_data(payslip)
     if paid_days is None:
         data["lop_days"] = data.get("unpaid_days", 0)
+        _apply_salary_data_arrears_to_payslip(data, payslip)
         return data
 
     data["paid_days"] = paid_days
@@ -118,6 +189,7 @@ def _sync_payslip_lop_from_salary_data(data, payslip):
 
     if not working_days or float(working_days) <= 0:
         _apply_pt_threshold_to_payslip_data(data)
+        _apply_salary_data_arrears_to_payslip(data, payslip)
         return data
 
     month = payslip.start_date.month
@@ -140,6 +212,7 @@ def _sync_payslip_lop_from_salary_data(data, payslip):
     data["net_pay"] = round(gross - data["total_deductions"], 2)
 
     _apply_pt_threshold_to_payslip_data(data)
+    _apply_salary_data_arrears_to_payslip(data, payslip)
     return data
 
 
@@ -687,6 +760,7 @@ def update_payslip_status(request, payslip_id):
     data["json_data"]["employee"] = payslip.employee_id.id
     data["json_data"]["payslip"] = payslip.id
     data["instance"] = payslip
+    _apply_salary_data_arrears_to_payslip(data, payslip)
     return render(request, "payroll/payslip/individual_payslip_summery.html", data)
 
 

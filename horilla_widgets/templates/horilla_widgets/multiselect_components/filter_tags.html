@@ -30,6 +30,14 @@
   >
     {% trans "Select Active Employees" %}
   </button>
+  <button
+    type="button"
+    class="oh-checkpoint-badge oh-checkpoint-badge--secondary border-0"
+    id="selectInactiveEmployees{{section_id}}"
+    onclick="event.preventDefault();event.stopPropagation();var _ms=window['multiselectWidget{{section_id}}'];if(_ms&&_ms.selectInactiveEmployees){_ms.selectInactiveEmployees();}"
+  >
+    {% trans "Select Inactive Employees" %}
+  </button>
   {% endif %}
   <button
     type="button"

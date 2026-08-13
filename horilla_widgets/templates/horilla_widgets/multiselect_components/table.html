@@ -56,6 +56,10 @@
 
         data-label="{{instance}}"
 
+        data-search="{{instance.get_full_name}} {{instance.badge_id}}"
+
+        data-is-active="{% if instance.is_active %}true{% else %}false{% endif %}"
+
         data-avatar="{{instance.get_avatar}}"
 
         draggable="true"
@@ -140,6 +144,8 @@
   var filterRequestId = 0;
 
   var currentVisibleIds = null;
+
+  var lastSearchQuery = "";
 
   var modalSelectedIds = new Set();
 
@@ -341,9 +347,49 @@
 
   function applyIdsFilter(ids) {
 
-    var idSet = new Set((ids || []).map(String));
+    currentVisibleIds = new Set((ids || []).map(String));
 
-    currentVisibleIds = idSet;
+    applyRowVisibility();
+
+  }
+
+
+
+  function showAllRows() {
+
+    currentVisibleIds = new Set(getAllRowIds());
+
+    applyRowVisibility();
+
+  }
+
+
+
+  function rowSearchHaystack($tbody) {
+
+    var $row = $tbody.find(".oh-sticky-table__tr--custom");
+
+    return (
+
+      ($row.attr("data-search") || "") +
+
+      " " +
+
+      ($row.attr("data-label") || "") +
+
+      " " +
+
+      ($tbody.text() || "")
+
+    ).toLowerCase();
+
+  }
+
+
+
+  function applyRowVisibility() {
+
+    var query = (lastSearchQuery || "").toLowerCase().trim();
 
     $section().find(tableParentSelector + " .oh-sticky-table__tbody").each(function () {
 
@@ -351,15 +397,25 @@
 
       var rowId = String($tbody.attr("data-instance-id"));
 
-      if (idSet.has(rowId)) {
+      var inBase = !currentVisibleIds || currentVisibleIds.has(rowId);
 
-        $tbody.show();
-
-      } else {
+      if (!inBase) {
 
         $tbody.hide();
 
+        return;
+
       }
+
+      if (!query) {
+
+        $tbody.show();
+
+        return;
+
+      }
+
+      $tbody.toggle(rowSearchHaystack($tbody).indexOf(query) !== -1);
 
     });
 
@@ -371,11 +427,71 @@
 
 
 
-  function showAllRows() {
+  function applySearchFilter(query) {
 
-    currentVisibleIds = new Set(getAllRowIds());
+    lastSearchQuery = query || "";
 
-    $section().find(tableParentSelector + " .oh-sticky-table__tbody").show();
+    applyRowVisibility();
+
+  }
+
+
+
+  function isRowActive($tbody) {
+
+    var flag = String(
+
+      $tbody.find(".oh-sticky-table__tr--custom").attr("data-is-active") || ""
+
+    ).toLowerCase();
+
+    return flag === "true" || flag === "1" || flag === "yes";
+
+  }
+
+
+
+  function filterRowsByActive(wantActive) {
+
+    var ids = [];
+
+    $section().find(tableParentSelector + " .oh-sticky-table__tbody").each(function () {
+
+      var $tbody = $(this);
+
+      var rowId = String($tbody.attr("data-instance-id"));
+
+      if (isRowActive($tbody) === wantActive) {
+
+        ids.push(rowId);
+
+      }
+
+    });
+
+    currentVisibleIds = new Set(ids);
+
+    applyRowVisibility();
+
+    return ids;
+
+  }
+
+
+
+  function selectEmployeesByActive(wantActive) {
+
+    lastSearchQuery = "";
+
+    $section().find("[name=search]").val("");
+
+    modalSelectedIds.clear();
+
+    filterRowsByActive(wantActive).forEach(function (id) {
+
+      modalSelectedIds.add(id);
+
+    });
 
     renderCheckboxesFromModalSelection();
 
@@ -404,6 +520,10 @@
   function onModalOpen() {
 
     modalSelectedIds = new Set(getCommittedSelectIds());
+
+    lastSearchQuery = "";
+
+    $section().find("[name=search]").val("");
 
     showAllRows();
 
@@ -581,19 +701,25 @@
 
     },
 
+    applySearchFilter: applySearchFilter,
+
     selectActiveEmployees: function () {
 
-      modalSelectedIds.clear();
+      selectEmployeesByActive(true);
 
-      fetchAndApplyFilter({ is_active: "True" }, function () {
+    },
 
-        selectAllVisibleRows();
+    selectInactiveEmployees: function () {
 
-      });
+      selectEmployeesByActive(false);
 
     },
 
     selectAllEmployees: function () {
+
+      lastSearchQuery = "";
+
+      $section().find("[name=search]").val("");
 
       showAllRows();
 
@@ -681,13 +807,35 @@
 
         e.stopPropagation();
 
-        modalSelectedIds.clear();
+        selectEmployeesByActive(true);
 
-        fetchAndApplyFilter({ is_active: "True" }, function () {
+      });
 
-          selectAllVisibleRows();
 
-        });
+
+    $root
+
+      .off("click.multiselect{{section_id}}", "#selectInactiveEmployees{{section_id}}")
+
+      .on("click.multiselect{{section_id}}", "#selectInactiveEmployees{{section_id}}", function (e) {
+
+        e.preventDefault();
+
+        e.stopPropagation();
+
+        selectEmployeesByActive(false);
+
+      });
+
+
+
+    $root
+
+      .off("input.multiselect{{section_id}} keyup.multiselect{{section_id}}", "[name=search]")
+
+      .on("input.multiselect{{section_id}} keyup.multiselect{{section_id}}", "[name=search]", function () {
+
+        applySearchFilter($(this).val());
 
       });
 
@@ -702,6 +850,10 @@
         e.preventDefault();
 
         e.stopPropagation();
+
+        lastSearchQuery = "";
+
+        $root.find("[name=search]").val("");
 
         showAllRows();
 

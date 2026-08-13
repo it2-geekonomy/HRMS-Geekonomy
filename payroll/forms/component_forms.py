@@ -460,8 +460,8 @@ class GeneratePayslipForm(HorillaForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Same employee picker as Generate Salary Data; view skips employees without active contract.
-        self.fields["employee_id"].queryset = Employee.objects.all()
+        # Include active + inactive (Employee.objects.all() auto-hides inactive).
+        self.fields["employee_id"].queryset = Employee.objects.filter()
         self.fields["employee_id"].widget.attrs.update(
             {"class": "oh-select oh-select-2 select2-multiple"}
         )
@@ -517,8 +517,8 @@ class GenerateSalaryDataForm(HorillaForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Include all employees so filter "Is Active? = No" has rows to show; view will skip those without active contract
-        self.fields["employee_id"].queryset = Employee.objects.all()
+        # Include active + inactive (Employee.objects.all() auto-hides inactive).
+        self.fields["employee_id"].queryset = Employee.objects.filter()
         self.fields["employee_id"].widget.attrs.update(
             {"class": "oh-select oh-select-2 select2-multiple"}
         )

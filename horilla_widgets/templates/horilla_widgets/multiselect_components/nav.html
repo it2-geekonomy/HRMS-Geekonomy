@@ -183,8 +183,13 @@
         },
       });
     });
-    $("#{{section_id}} [id=\"widgetFilterFormContainer{{self.attrs.id}}\"] [name=search]").keyup(
-      function (e) {
+    $("#{{section_id}} [id=\"widgetFilterFormContainer{{self.attrs.id}}\"] [name=search]").off("keyup.msSearch input.msSearch").on("keyup.msSearch input.msSearch",
+      function () {
+        var widgetApi = window["multiselectWidget{{section_id}}"];
+        if (widgetApi && typeof widgetApi.applySearchFilter === "function") {
+          widgetApi.applySearchFilter($(this).val());
+          return;
+        }
         $("#{{section_id}} [id=\"widgetFilterButton{{self.attrs.id}}\"]").click();
       }
     );

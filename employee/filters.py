@@ -9,6 +9,7 @@ import django
 import django_filters
 from django import forms
 from django.contrib.auth.models import Group, Permission
+from django.db.models import Q
 from django.utils.translation import gettext as _
 from django_filters import CharFilter
 
@@ -28,7 +29,6 @@ from employee.models import DisciplinaryAction, Employee, EmployeeTag, Policy
 from horilla.filters import FilterSet, HorillaFilterSet, filter_by_name
 from horilla.horilla_middlewares import _thread_locals
 from horilla_documents.models import Document
-from horilla_views.templatetags.generic_template_filters import getattribute
 
 
 class EmployeeFilter(HorillaFilterSet):
@@ -346,19 +346,21 @@ class EmployeeFilter(HorillaFilterSet):
 
     def filter_by_name(self, queryset, name, value):
         """
-        Employee search method
+        Employee search method — name, badge ID, and email.
         """
-        value = value.lower()
-
         if self.data.get("search_field"):
             return queryset
 
-        def _icontains(instance):
-            result = str(getattribute(instance, "get_full_name")).lower()
-            return instance.pk if value in result else None
+        value = (value or "").strip()
+        if not value:
+            return queryset
 
-        ids = list(filter(None, map(_icontains, queryset)))
-        return queryset.filter(id__in=ids)
+        return queryset.filter(
+            Q(employee_first_name__icontains=value)
+            | Q(employee_last_name__icontains=value)
+            | Q(badge_id__icontains=value)
+            | Q(email__icontains=value)
+        )
 
 
 class EmployeeReGroup:
