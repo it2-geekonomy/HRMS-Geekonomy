@@ -142,20 +142,19 @@
     table.slip-table .words-row td {
       font-weight: 600;
       font-size: 11px;
-    }
-    table.slip-table .words-row td:last-child {
       text-align: left;
+      white-space: normal;
     }
     .section-gap {
       height: 16px;
     }
     .footer-disclaimer {
-      margin: 16px 0 0;
+      margin: 4px 0 0;
       padding: 0;
       text-align: right;
       font-style: italic;
       font-size: 10px;
-      line-height: 1.4;
+      line-height: 1.3;
       color: #333;
     }
     @media print {
@@ -252,8 +251,8 @@
           <td colspan="4">{% trans "SALARY SLIP" %}</td>
         </tr>
         <tr class="section-head">
-          <td colspan="2">{% trans "Employee Details" %}</td>
-          <td colspan="2">{% trans "Payroll Details" %}</td>
+          <td colspan="2">{% trans "EMPLOYEE DETAILS" %}</td>
+          <td colspan="2">{% trans "PAYROLL DETAILS" %}</td>
         </tr>
         <tr>
           <td class="label">{% trans "Employee Name" %}</td>
@@ -264,20 +263,20 @@
         <tr>
           <td class="label">{% trans "Employee ID" %}</td>
           <td class="value">{{ employee.badge_id|default:"—" }}</td>
-          <td class="label">{% trans "Pay Period" %}</td>
-          <td class="value">{{ pay_period_display|default:"—" }}</td>
+          <td class="label">{% trans "Bank Account" %}</td>
+          <td class="value">{{ bank_account_last4|default:"—" }}</td>
         </tr>
         <tr>
           <td class="label">{% trans "Designation" %}</td>
           <td class="value">{% if employee.employee_work_info.job_position_id %}{{ employee.employee_work_info.job_position_id.job_position }}{% else %}—{% endif %}</td>
-          <td class="label">{% trans "Date of Payment" %}</td>
-          <td class="value">{{ date_of_payment|default:"—" }}</td>
+          <td class="label">{% trans "UAN (if applicable)" %}</td>
+          <td class="value">{{ employee_uan_pf|default:"—" }}</td>
         </tr>
         <tr>
           <td class="label">{% trans "Department" %}</td>
           <td class="value">{% if employee.employee_work_info.department_id %}{{ employee.employee_work_info.department_id.department }}{% else %}—{% endif %}</td>
-          <td class="label">{% trans "Bank Account (last 4 digits)" %}</td>
-          <td class="value">{{ bank_account_last4|default:"—" }}</td>
+          <td class="label">{% trans "ESI No. (if applicable)" %}</td>
+          <td class="value">{{ employee_esi|default:"—" }}</td>
         </tr>
         <tr>
           <td class="label">{% trans "Date of Joining" %}</td>
@@ -288,14 +287,8 @@
               {{ employee.date_joining|date:"d-m-Y" }}
             {% else %}—{% endif %}
           </td>
-          <td class="label">{% trans "UAN / PF No. (if applicable)" %}</td>
-          <td class="value">{{ employee_uan_pf|default:"—" }}</td>
-        </tr>
-        <tr>
           <td class="label">{% trans "PAN" %}</td>
           <td class="value">{{ employee_pan|default:"—" }}</td>
-          <td class="label">{% trans "ESI No. (if applicable)" %}</td>
-          <td class="value">{{ employee_esi|default:"—" }}</td>
         </tr>
       </table>
 
@@ -321,7 +314,7 @@
         <tr>
           <td class="label">{% trans "Leaves" %}</td>
           <td class="value amount">{{ total_leaves|floatformat:0|default:0 }}</td>
-          <td class="label">{% trans "Paid Days" %}</td>
+          <td class="label">{% trans "Paid Days (incl. leaves)" %}</td>
           <td class="value amount">{{ paid_days|floatformat:0|default:30 }}</td>
         </tr>
       </table>
@@ -352,9 +345,9 @@
         {% endfor %}
 
         <tr>
-          <td class="label">{% trans "Total Earnings" %}</td>
+          <td class="label">{% trans "Gross Earnings" %}</td>
           <td class="value amount">{{ currency_symbol|default:"₹ " }}{{ gross_pay|floatformat:0 }}</td>
-          <td class="label">{% trans "Total Deductions" %}</td>
+          <td class="label">{% trans "Gross Deductions" %}</td>
           <td class="value amount">{{ currency_symbol|default:"₹ " }}{{ total_deductions|floatformat:0 }}</td>
         </tr>
         <tr class="net-row">
@@ -362,8 +355,8 @@
           <td class="value amount" colspan="2">{{ currency_symbol|default:"₹ " }}{{ net_pay|floatformat:0 }}</td>
         </tr>
         <tr class="words-row">
-          <td class="label" colspan="2">{% trans "Net Salary In Words" %}</td>
-          <td colspan="2" id="amount-in-words" data-net-pay="{{ net_pay|floatformat:0 }}"{% if net_pay_in_words %} data-server-rendered="1"{% endif %}>
+          <td class="label">{% trans "Net Salary In Words" %}</td>
+          <td colspan="3" id="amount-in-words" data-net-pay="{{ net_pay|floatformat:0 }}"{% if net_pay_in_words %} data-server-rendered="1"{% endif %}>
             {% if net_pay_in_words %}{{ net_pay_in_words|title }}{% else %}{% trans "Loading..." %}{% endif %}
           </td>
         </tr>

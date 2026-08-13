@@ -37,6 +37,13 @@ class Command(BaseCommand):
             help='Force sync even if device was recently synced'
         )
         parser.add_argument(
+            '--no-incremental',
+            action='store_true',
+            dest='no_incremental',
+            help='Reprocess the full recent window (do not skip punches before last_fetch). '
+                 'Use for overnight catch-up so yesterday clock-out is set.',
+        )
+        parser.add_argument(
             '--from-date',
             type=str,
             default=None,
@@ -53,6 +60,7 @@ class Command(BaseCommand):
         device_name = options['device_name']
         recent_only = options['recent_only']
         force = options['force']
+        no_incremental = options.get('no_incremental', False)
         from_date_str = options.get('from_date')
         to_date_str = options.get('to_date')
         
@@ -136,15 +144,17 @@ class Command(BaseCommand):
                     return
             
             # Use last_fetch to only process NEW records (much faster!)
-            # BUT: If last_fetch_date is today, disable incremental sync to get ALL of today's records
-            # This ensures we don't miss any records from employees who clocked in earlier
+            # Incremental is skipped when:
+            # - last_fetch is today (need all of today's punches), or
+            # - --no-incremental / full sync (need yesterday + recent days fully, e.g. 2 AM job)
             today = datetime.now().date()
-            # Only use incremental if last_fetch was NOT today (i.e., it's a past date)
             use_incremental = (
-                device.last_fetch_date 
-                and device.last_fetch_time 
-                and not from_date_str 
-                and device.last_fetch_date < today  # Only use incremental for past dates
+                device.last_fetch_date
+                and device.last_fetch_time
+                and not from_date_str
+                and not no_incremental
+                and recent_only
+                and device.last_fetch_date < today
             )
             
             # Connect to biometric device

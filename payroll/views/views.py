@@ -2538,7 +2538,12 @@ def _payslip_header_detail_fields(payslip, data):
             account = str(bank.account_number).strip()
     except Exception:
         account = ""
-    last4 = account[-4:] if len(account) >= 4 else (account or "—")
+    if len(account) >= 4:
+        last4 = ("*" * 12) + account[-4:]
+    elif account:
+        last4 = ("*" * 12) + account
+    else:
+        last4 = "—"
 
     extra = employee.additional_info if isinstance(employee.additional_info, dict) else {}
 
@@ -2581,14 +2586,23 @@ def _build_payslip_line_rows(data):
         title = item.get("title") if isinstance(item, dict) else getattr(item, "title", None)
         amount = item.get("amount") if isinstance(item, dict) else getattr(item, "amount", None)
         if title and amount:
+            compact = (title or "").lower().replace(" ", "").replace("(", "").replace(")", "")
+            if compact in ("incometax", "federaltax") or "incometax" in compact:
+                continue
             deductions.append({"title": title, "amount": amount})
     if data.get("loss_of_pay") and not any(
         d["title"].lower().replace(" ", "") in ("lossofpay", "lop")
         for d in deductions
     ):
-        deductions.insert(0, {"title": "Loss of Pay", "amount": data["loss_of_pay"]})
-    if data.get("federal_tax"):
-        deductions.append({"title": "Income Tax", "amount": data["federal_tax"]})
+        deductions.append({"title": "Loss of Pay", "amount": data["loss_of_pay"]})
+
+    def _is_professional_tax(title):
+        compact = (title or "").lower().replace(" ", "").replace("(", "").replace(")", "")
+        return compact in ("professionaltax", "pt", "ptprofessionaltax") or "professionaltax" in compact
+
+    deductions = [d for d in deductions if _is_professional_tax(d["title"])] + [
+        d for d in deductions if not _is_professional_tax(d["title"])
+    ]
 
     row_count = max(len(earnings), len(deductions), 1)
     rows = []

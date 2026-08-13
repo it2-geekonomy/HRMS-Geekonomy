@@ -1,4 +1,4 @@
-{% load i18n horillafilters %}
+{% load i18n horillafilters payrollfilters %}
 {% if messages %}
     <div class="oh-wrapper">
         {% for message in messages %}
@@ -139,6 +139,13 @@
             </tr>
         </thead>
         <tbody class="oh-payslip__table-tbody">
+            {% professional_tax_amount basic_pay_deductions gross_pay_deductions pretax_deductions post_tax_deductions tax_deductions net_deductions as pt_amount %}
+            <tr class="oh-payslip__table-tr">
+                <td class="oh-payslip__table-td">{% trans "Professional Tax" %}</td>
+                <td class="oh-payslip__table-td">
+                    {{pt_amount|floatformat:2|currency_symbol_position}}
+                </td>
+            </tr>
             <tr class="oh-payslip__table-tr">
                 <td class="oh-payslip__table-td">{% trans "Loss of Pay" %}</td>
                 <td class="oh-payslip__table-td">
@@ -146,6 +153,7 @@
                 </td>
             </tr>
             {% for deduction in basic_pay_deductions %}
+                {% if not deduction.title|is_professional_tax and not deduction.title|is_income_tax %}
                 <tr class="oh-payslip__table-tr" style="color: gray;">
                     <td class="oh-payslip__table-td">
                         {{deduction.title}}
@@ -158,8 +166,10 @@
                         {{deduction.amount|floatformat:2|currency_symbol_position}}
                     </td>
                 </tr>
+                {% endif %}
             {% endfor %}
             {% for deduction in gross_pay_deductions %}
+                {% if not deduction.title|is_professional_tax and not deduction.title|is_income_tax %}
                 <tr class="oh-payslip__table-tr" style="color: gray;">
                     <td class="oh-payslip__table-td">
                         {{deduction.title}}
@@ -172,38 +182,40 @@
                         {{deduction.amount|floatformat:2|currency_symbol_position}}
                     </td>
                 </tr>
+                {% endif %}
             {% endfor %}
             {% for deduction in pretax_deductions %}
+                {% if not deduction.title|is_professional_tax and not deduction.title|is_income_tax %}
                 <tr class="oh-payslip__table-tr">
                     <td class="oh-payslip__table-td">{{deduction.title}}</td>
                     <td class="oh-payslip__table-td">
                         {{deduction.amount|floatformat:2|currency_symbol_position}}
                     </td>
                 </tr>
+                {% endif %}
             {% endfor %}
             {% for deduction in post_tax_deductions %}
+                {% if not deduction.title|is_professional_tax and not deduction.title|is_income_tax %}
                 <tr class="oh-payslip__table-tr">
                     <td class="oh-payslip__table-td">{{deduction.title}}</td>
                     <td class="oh-payslip__table-td">
                         {{deduction.amount|floatformat:2|currency_symbol_position}}
                     </td>
                 </tr>
+                {% endif %}
             {% endfor %}
-            <tr class="oh-payslip__table-tr">
-                <td class="oh-payslip__table-td">{% trans "Income Tax" %}</td>
-                <td class="oh-payslip__table-td">
-                    {{federal_tax|floatformat:2|currency_symbol_position}}
-                </td>
-            </tr>
             {% for deduction in tax_deductions %}
+                {% if not deduction.title|is_professional_tax and not deduction.title|is_income_tax %}
                 <tr class="oh-payslip__table-tr">
                     <td class="oh-payslip__table-td">{{deduction.title}}</td>
                     <td class="oh-payslip__table-td">
                         {{deduction.amount|floatformat:2|currency_symbol_position}}
                     </td>
                 </tr>
+                {% endif %}
             {% endfor %}
             {% for deduction in net_deductions %}
+                {% if not deduction.title|is_professional_tax and not deduction.title|is_income_tax %}
                 <tr class="oh-payslip__table-tr" style="color: gray;">
                     <td class="oh-payslip__table-td">
                         {{deduction.title}}
@@ -216,6 +228,7 @@
                         {{deduction.amount|floatformat:2|currency_symbol_position}}
                     </td>
                 </tr>
+                {% endif %}
             {% endfor %}
         </tbody>
         <tfoot class="oh-payslip__table-tfoot">

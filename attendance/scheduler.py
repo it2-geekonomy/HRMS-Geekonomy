@@ -50,13 +50,15 @@ def create_work_record():
     logger.info(f"Created {created_count} new work records for {date}.")
 
 
-def sync_biometric_attendance(recent_only=True):
+def sync_biometric_attendance(recent_only=True, no_incremental=False, force=False):
     """
     Sync biometric attendance data automatically
     Uses file locking to prevent multiple workers from syncing simultaneously
     
     Args:
         recent_only: If True, only sync last 20 days. If False, sync all data.
+        no_incremental: If True, reprocess the full window (yesterday clock-out, etc.).
+        force: If True, run even if the device was synced recently.
     """
     import os
     import tempfile
@@ -88,10 +90,14 @@ def sync_biometric_attendance(recent_only=True):
             # Run the sync with appropriate flag
             sync_success = False
             try:
+                cmd_args = []
                 if recent_only:
-                    call_command('sync_biometric_attendance', '--recent-only', verbosity=0)
-                else:
-                    call_command('sync_biometric_attendance', verbosity=0)
+                    cmd_args.append('--recent-only')
+                if no_incremental:
+                    cmd_args.append('--no-incremental')
+                if force:
+                    cmd_args.append('--force')
+                call_command('sync_biometric_attendance', *cmd_args, verbosity=0)
                 sync_success = True
             except (CommandError, Exception) as e:
                 # If command not found, try importing and calling directly
@@ -105,7 +111,8 @@ def sync_biometric_attendance(recent_only=True):
                         options = {
                             'device_name': 'eSSL Office Device',
                             'recent_only': recent_only,
-                            'force': False,
+                            'force': force,
+                            'no_incremental': no_incremental,
                             'from_date': None,
                             'to_date': None
                         }
@@ -136,7 +143,11 @@ def sync_biometric_attendance(recent_only=True):
                 if lock_age > 600:  # 10 minutes
                     # Remove stale lock and retry
                     os.unlink(str(lock_file))
-                    sync_biometric_attendance(recent_only=recent_only)  # Retry once
+                    sync_biometric_attendance(
+                        recent_only=recent_only,
+                        no_incremental=no_incremental,
+                        force=force,
+                    )
         except:
             pass
     except Exception as e:
@@ -146,10 +157,10 @@ def sync_biometric_attendance(recent_only=True):
 
 def sync_biometric_attendance_full():
     """
-    Full sync of all biometric attendance data (no date limit)
-    Runs daily to catch up on any missed data
+    Overnight catch-up at 2:00 AM: last 20 days, full reprocess (not incremental).
+    This sets yesterday clock-out from last punch — same update logic as 9:30 AM.
     """
-    sync_biometric_attendance(recent_only=False)
+    sync_biometric_attendance(recent_only=True, no_incremental=True, force=True)
 
 
 def process_late_come_early_out_daily():
@@ -221,7 +232,7 @@ if not _is_reloader and not any(
             coalesce=True,
         )
 
-    # Daily full sync (all device records) at 2:00 AM
+    # Daily catch-up at 2:00 AM: last 20 days, full reprocess (yesterday clock-out)
     scheduler.add_job(
         sync_biometric_attendance_full,
         "cron",
