@@ -1252,3 +1252,85 @@ class ClosersFellowshipApplication(HorillaModel):
 
     def __str__(self):
         return f"{self.full_name} ({self.email})"
+
+
+class ClosersFellowshipApplicationComment(HorillaModel):
+    """Internal comment log on a Closers Fellowship application."""
+
+    application = models.ForeignKey(
+        ClosersFellowshipApplication,
+        on_delete=models.CASCADE,
+        related_name="comments",
+        verbose_name=_("Application"),
+    )
+    comment = models.TextField(verbose_name=_("Comment"))
+    time_from = models.TimeField(verbose_name=_("From Time"))
+    time_to = models.TimeField(verbose_name=_("To Time"))
+
+    class Meta:
+        verbose_name = _("Closers Fellowship Comment")
+        verbose_name_plural = _("Closers Fellowship Comments")
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return (self.comment or "")[:80]
+
+    @property
+    def duration_hours(self):
+        """Hours between time_from and time_to (handles overnight)."""
+        if not self.time_from or not self.time_to:
+            return None
+        from datetime import datetime, timedelta
+
+        start = datetime.combine(datetime.today(), self.time_from)
+        end = datetime.combine(datetime.today(), self.time_to)
+        if end <= start:
+            end += timedelta(days=1)
+        return round((end - start).total_seconds() / 3600, 2)
+
+    @property
+    def duration_hhmm(self):
+        """Duration as HH:MM between time_from and time_to."""
+        if not self.time_from or not self.time_to:
+            return ""
+        from datetime import datetime, timedelta
+
+        start = datetime.combine(datetime.today(), self.time_from)
+        end = datetime.combine(datetime.today(), self.time_to)
+        if end <= start:
+            end += timedelta(days=1)
+        total_minutes = int((end - start).total_seconds() // 60)
+        hours, minutes = divmod(total_minutes, 60)
+        return f"{hours:02d}:{minutes:02d}"
+
+    @property
+    def duration_display(self):
+        """Duration as '2 hours 1 minute'."""
+        if not self.time_from or not self.time_to:
+            return ""
+        from datetime import datetime, timedelta
+
+        start = datetime.combine(datetime.today(), self.time_from)
+        end = datetime.combine(datetime.today(), self.time_to)
+        if end <= start:
+            end += timedelta(days=1)
+        total_minutes = int((end - start).total_seconds() // 60)
+        hours, minutes = divmod(total_minutes, 60)
+
+        parts = []
+        if hours:
+            parts.append(
+                _("%(count)s hour") % {"count": hours}
+                if hours == 1
+                else _("%(count)s hours") % {"count": hours}
+            )
+        if minutes:
+            parts.append(
+                _("%(count)s minute") % {"count": minutes}
+                if minutes == 1
+                else _("%(count)s minutes") % {"count": minutes}
+            )
+        if not parts:
+            parts.append(_("0 minutes"))
+
+        return " ".join(parts)

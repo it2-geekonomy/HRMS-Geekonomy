@@ -105,6 +105,131 @@
         </div>
       </div>
     </div>
+
+    <div class="col-12">
+      <div class="row g-4">
+        <div class="col-12 col-lg-5">
+          <div class="oh-card h-100">
+            <div class="oh-card__header">
+              <h2 class="oh-card__title mb-0">{% trans "Add Comment" %}</h2>
+            </div>
+            <div class="oh-card__body">
+              {% if perms.recruitment.add_closersfellowshipapplicationcomment or perms.recruitment.view_closersfellowshipapplication or perms.recruitment.view_candidate %}
+              <form method="post" action="{% url 'closers-fellowship-add-comment' application.id %}">
+                {% csrf_token %}
+                <div class="row g-3 mb-3">
+                  <div class="col-12 col-sm-6">
+                    <label class="oh-label" for="closersFellowshipTimeFrom">{% trans "From Time" %}</label>
+                    <input
+                      type="time"
+                      id="closersFellowshipTimeFrom"
+                      name="time_from"
+                      class="oh-input w-100"
+                      step="60"
+                      required
+                    />
+                  </div>
+                  <div class="col-12 col-sm-6">
+                    <label class="oh-label" for="closersFellowshipTimeTo">{% trans "To Time" %}</label>
+                    <input
+                      type="time"
+                      id="closersFellowshipTimeTo"
+                      name="time_to"
+                      class="oh-input w-100"
+                      step="60"
+                      required
+                    />
+                  </div>
+                </div>
+                <label class="oh-label" for="closersFellowshipComment">{% trans "Comment" %}</label>
+                <textarea
+                  id="closersFellowshipComment"
+                  name="comment"
+                  class="oh-input w-100"
+                  rows="5"
+                  placeholder="{% trans 'Write a comment...' %}"
+                  required
+                ></textarea>
+                <div class="d-flex justify-content-end mt-3">
+                  <button type="submit" class="oh-btn oh-btn--secondary">
+                    <ion-icon name="chatbubble-outline" class="me-1"></ion-icon>{% trans "Add Comment" %}
+                  </button>
+                </div>
+              </form>
+              {% else %}
+              <p class="text-muted mb-0">{% trans "You do not have permission to add comments." %}</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-7">
+          <div class="oh-card h-100">
+            <div class="oh-card__header">
+              <h2 class="oh-card__title mb-0">{% trans "Comment Log" %}</h2>
+            </div>
+            <div class="oh-card__body" style="max-height: 520px; overflow-y: auto;">
+              {% if comments %}
+              <div class="list-group list-group-flush">
+                {% for item in comments %}
+                <div class="list-group-item px-0 py-3 border-bottom">
+                  <div class="d-flex justify-content-between align-items-start gap-3">
+                    <div class="flex-grow-1">
+                      <div class="small text-muted mb-1">
+                        <ion-icon name="time-outline" class="me-1"></ion-icon>
+                        {{ item.created_at|date:"M d, Y g:i A" }}
+                        &nbsp;·&nbsp;
+                        <ion-icon name="person-outline" class="me-1"></ion-icon>
+                        {% if item.created_by %}
+                          {% if item.created_by.employee_get %}
+                            {{ item.created_by.employee_get.get_full_name }}
+                          {% else %}
+                            {{ item.created_by.get_full_name|default:item.created_by.username }}
+                          {% endif %}
+                        {% else %}
+                          {% trans "Unknown" %}
+                        {% endif %}
+                      </div>
+                      <div class="small text-muted mb-2">
+                        <span class="me-3">
+                          {% trans "From" %}:
+                          <span class="text-dark fw-semibold">{{ item.time_from|time:"H:i" }}</span>
+                        </span>
+                        <span class="me-3">
+                          {% trans "To" %}:
+                          <span class="text-dark fw-semibold">{{ item.time_to|time:"H:i" }}</span>
+                        </span>
+                        <span>
+                          {% trans "Duration" %}:
+                          <span class="text-dark fw-semibold">{{ item.duration_display }}</span>
+                        </span>
+                      </div>
+                      <div class="text-dark">{{ item.comment|linebreaksbr }}</div>
+                    </div>
+                    {% if item.created_by_id == request.user.id or perms.recruitment.delete_closersfellowshipapplicationcomment or perms.recruitment.delete_closersfellowshipapplication or perms.recruitment.delete_candidate %}
+                    <form
+                      method="post"
+                      action="{% url 'closers-fellowship-delete-comment' application.id item.id %}"
+                      onsubmit="return confirm('{% trans "Delete this comment?" %}');"
+                    >
+                      {% csrf_token %}
+                      <button type="submit" class="oh-btn oh-btn--light-bkg oh-btn--sm" title="{% trans 'Delete comment' %}">
+                        <ion-icon name="trash-outline"></ion-icon>
+                      </button>
+                    </form>
+                    {% endif %}
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+              {% else %}
+              <p class="text-muted mb-0">{% trans "No comments yet." %}</p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock content %}

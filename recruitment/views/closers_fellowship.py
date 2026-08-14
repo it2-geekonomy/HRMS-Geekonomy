@@ -18,7 +18,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from horilla.decorators import any_permission_required, login_required
-from recruitment.models import ClosersFellowshipApplication
+from recruitment.models import ClosersFellowshipApplication, ClosersFellowshipApplicationComment
 from recruitment.views.paginator_qry import paginator_qry
 
 
@@ -114,11 +114,94 @@ def closers_fellowship_list(request):
 def closers_fellowship_detail(request, app_id):
     """View a single Closers Fellowship application."""
     application = get_object_or_404(ClosersFellowshipApplication, id=app_id)
+    comments = (
+        ClosersFellowshipApplicationComment.objects.filter(application=application)
+        .select_related("created_by")
+        .order_by("created_at")
+    )
     return render(
         request,
         "closers_fellowship/closers_fellowship_detail.html",
-        {"application": application},
+        {
+            "application": application,
+            "comments": comments,
+        },
     )
+
+
+def _parse_comment_time(value):
+    """Parse HH:MM or HH:MM:SS from form input."""
+    value = (value or "").strip()
+    if not value:
+        return None
+    for fmt in ("%H:%M:%S", "%H:%M"):
+        try:
+            return datetime.strptime(value, fmt).time()
+        except ValueError:
+            continue
+    return None
+
+
+@login_required
+@any_permission_required(
+    perms=[
+        "recruitment.add_closersfellowshipapplicationcomment",
+        "recruitment.view_closersfellowshipapplication",
+        "recruitment.view_candidate",
+    ]
+)
+@require_http_methods(["POST"])
+def closers_fellowship_add_comment(request, app_id):
+    """Add a comment to a Closers Fellowship application."""
+    application = get_object_or_404(ClosersFellowshipApplication, id=app_id)
+    text = (request.POST.get("comment") or "").strip()
+    time_from = _parse_comment_time(request.POST.get("time_from"))
+    time_to = _parse_comment_time(request.POST.get("time_to"))
+
+    if not text:
+        messages.error(request, _("Comment cannot be empty."))
+        return redirect(reverse("closers-fellowship-detail", kwargs={"app_id": app_id}))
+    if not time_from or not time_to:
+        messages.error(request, _("From time and To time are required."))
+        return redirect(reverse("closers-fellowship-detail", kwargs={"app_id": app_id}))
+    if time_from == time_to:
+        messages.error(request, _("From time and To time cannot be the same."))
+        return redirect(reverse("closers-fellowship-detail", kwargs={"app_id": app_id}))
+
+    ClosersFellowshipApplicationComment.objects.create(
+        application=application,
+        comment=text,
+        time_from=time_from,
+        time_to=time_to,
+    )
+    messages.success(request, _("Comment added."))
+    return redirect(reverse("closers-fellowship-detail", kwargs={"app_id": app_id}))
+
+
+@login_required
+@require_http_methods(["POST"])
+def closers_fellowship_delete_comment(request, app_id, comment_id):
+    """Delete a comment from a Closers Fellowship application."""
+    application = get_object_or_404(ClosersFellowshipApplication, id=app_id)
+    comment = get_object_or_404(
+        ClosersFellowshipApplicationComment,
+        id=comment_id,
+        application=application,
+    )
+    can_delete = (
+        request.user.is_superuser
+        or comment.created_by_id == request.user.id
+        or request.user.has_perm("recruitment.delete_closersfellowshipapplicationcomment")
+        or request.user.has_perm("recruitment.delete_closersfellowshipapplication")
+        or request.user.has_perm("recruitment.delete_candidate")
+    )
+    if not can_delete:
+        messages.error(request, _("You do not have permission to delete this comment."))
+        return redirect(reverse("closers-fellowship-detail", kwargs={"app_id": app_id}))
+
+    comment.delete()
+    messages.success(request, _("Comment deleted."))
+    return redirect(reverse("closers-fellowship-detail", kwargs={"app_id": app_id}))
 
 
 @login_required

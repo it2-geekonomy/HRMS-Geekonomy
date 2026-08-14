@@ -16,7 +16,9 @@ from recruitment.forms import QuestionForm, RecruitmentCreationForm, StageCreati
 from recruitment.models import Candidate, Recruitment, RecruitmentSurvey, Stage
 from recruitment.views import linkedin, views
 from recruitment.views.closers_fellowship import (
+    closers_fellowship_add_comment,
     closers_fellowship_delete,
+    closers_fellowship_delete_comment,
     closers_fellowship_detail,
     closers_fellowship_export,
     closers_fellowship_list,
@@ -236,6 +238,16 @@ urlpatterns = [
         "closers-fellowship/<int:app_id>/delete/",
         closers_fellowship_delete,
         name="closers-fellowship-delete",
+    ),
+    path(
+        "closers-fellowship/<int:app_id>/comment/",
+        closers_fellowship_add_comment,
+        name="closers-fellowship-add-comment",
+    ),
+    path(
+        "closers-fellowship/<int:app_id>/comment/<int:comment_id>/delete/",
+        closers_fellowship_delete_comment,
+        name="closers-fellowship-delete-comment",
     ),
     path(
         "closers-fellowship/<int:app_id>/",
