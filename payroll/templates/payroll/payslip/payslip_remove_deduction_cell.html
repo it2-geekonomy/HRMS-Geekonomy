@@ -1,0 +1,16 @@
+{% load i18n %}
+<td class="oh-payslip__table-td">
+  {% if deduction.deduction_id and deduction.deduction_id in removable_deduction_ids and instance.status != "paid" and perms.payroll.add_deduction %}
+  <form
+    method="post"
+    action="{% url 'remove-payslip-deduction' instance.id deduction.deduction_id %}"
+    class="d-inline"
+    onsubmit="return confirm('{% trans "Remove this deduction?" %}');"
+  >
+    {% csrf_token %}
+    <button type="submit" class="oh-btn oh-btn--light-bkg oh-btn--sm p-1" title="{% trans 'Remove' %}">
+      <ion-icon name="trash-outline"></ion-icon>
+    </button>
+  </form>
+  {% endif %}
+</td>

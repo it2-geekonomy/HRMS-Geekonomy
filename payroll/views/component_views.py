@@ -23,6 +23,7 @@ from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_http_methods
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -104,6 +105,62 @@ from payroll.models.models import (
     ReimbursementMultipleAttachment,
 )
 from payroll.threadings.mail import MailSendThread
+
+
+def get_payslip_removable_component_ids(payslip):
+    """IDs of allowances/deductions added from the payslip screen for this period."""
+    employee = payslip.employee_id
+    start = payslip.start_date
+    end = payslip.end_date
+    allowance_ids = list(
+        Allowance.objects.filter(
+            only_show_under_employee=True,
+            specific_employees=employee,
+        )
+        .exclude(one_time_date__lt=start)
+        .exclude(one_time_date__gt=end)
+        .values_list("id", flat=True)
+    )
+    deduction_ids = list(
+        Deduction.objects.filter(
+            only_show_under_employee=True,
+            specific_employees=employee,
+        )
+        .exclude(one_time_date__lt=start)
+        .exclude(one_time_date__gt=end)
+        .values_list("id", flat=True)
+    )
+    return allowance_ids, deduction_ids
+
+
+def enrich_payslip_view_context(data, payslip):
+    """Add removable allowance/deduction ids for payslip line-item delete buttons."""
+    allowance_ids, deduction_ids = get_payslip_removable_component_ids(payslip)
+    data["removable_allowance_ids"] = allowance_ids
+    data["removable_deduction_ids"] = deduction_ids
+    return data
+
+
+def _recreate_payslip_after_component_change(request, payslip):
+    """Delete and rebuild payslip after allowance/deduction add or remove."""
+    employee_id = payslip.employee_id_id
+    start_date = payslip.start_date
+    end_date = payslip.end_date
+    new_post_data = QueryDict(mutable=True)
+    new_post_data.update(
+        {
+            "employee_id": payslip.employee_id,
+            "start_date": start_date,
+            "end_date": end_date,
+        }
+    )
+    payslip.delete()
+    create_payslip(request, new_post_data)
+    return Payslip.objects.filter(
+        employee_id=employee_id,
+        start_date=start_date,
+        end_date=end_date,
+    ).first()
 
 
 def return_none(a, b):
@@ -1455,6 +1512,66 @@ def add_deduction(request):
         "payroll/deduction/payslip_deduct.html",
         {"form": form, "employee_id": employee_id, "payslip_id": payslip_id},
     )
+
+
+@login_required
+@permission_required("payroll.add_allowance")
+@require_http_methods(["POST"])
+def remove_payslip_allowance(request, payslip_id, allowance_id):
+    """Remove a payslip-added allowance and regenerate the payslip."""
+    payslip = Payslip.objects.filter(id=payslip_id).first()
+    if not payslip:
+        messages.error(request, _("Payslip not found."))
+        return redirect(reverse("view-payslip"))
+    if payslip.status == "paid":
+        messages.error(request, _("Cannot modify a paid payslip."))
+        return redirect(reverse("view-created-payslip", kwargs={"payslip_id": payslip_id}))
+
+    allowance = Allowance.objects.filter(
+        id=allowance_id,
+        only_show_under_employee=True,
+        specific_employees=payslip.employee_id,
+    ).first()
+    if not allowance:
+        messages.error(request, _("Allowance not found or cannot be removed."))
+        return redirect(reverse("view-created-payslip", kwargs={"payslip_id": payslip_id}))
+
+    allowance.delete()
+    new_payslip = _recreate_payslip_after_component_change(request, payslip)
+    messages.success(request, _("Allowance removed."))
+    if new_payslip:
+        return redirect(reverse("view-created-payslip", kwargs={"payslip_id": new_payslip.id}))
+    return redirect(reverse("view-payslip"))
+
+
+@login_required
+@permission_required("payroll.add_deduction")
+@require_http_methods(["POST"])
+def remove_payslip_deduction(request, payslip_id, deduction_id):
+    """Remove a payslip-added deduction and regenerate the payslip."""
+    payslip = Payslip.objects.filter(id=payslip_id).first()
+    if not payslip:
+        messages.error(request, _("Payslip not found."))
+        return redirect(reverse("view-payslip"))
+    if payslip.status == "paid":
+        messages.error(request, _("Cannot modify a paid payslip."))
+        return redirect(reverse("view-created-payslip", kwargs={"payslip_id": payslip_id}))
+
+    deduction = Deduction.objects.filter(
+        id=deduction_id,
+        only_show_under_employee=True,
+        specific_employees=payslip.employee_id,
+    ).first()
+    if not deduction:
+        messages.error(request, _("Deduction not found or cannot be removed."))
+        return redirect(reverse("view-created-payslip", kwargs={"payslip_id": payslip_id}))
+
+    deduction.delete()
+    new_payslip = _recreate_payslip_after_component_change(request, payslip)
+    messages.success(request, _("Deduction removed."))
+    if new_payslip:
+        return redirect(reverse("view-created-payslip", kwargs={"payslip_id": new_payslip.id}))
+    return redirect(reverse("view-payslip"))
 
 
 @login_required

@@ -761,6 +761,9 @@ def update_payslip_status(request, payslip_id):
     data["json_data"]["payslip"] = payslip.id
     data["instance"] = payslip
     _apply_salary_data_arrears_to_payslip(data, payslip)
+    from .component_views import enrich_payslip_view_context
+
+    enrich_payslip_view_context(data, payslip)
     return render(request, "payroll/payslip/individual_payslip_summery.html", data)
 
 
@@ -879,6 +882,9 @@ def view_created_payslip(request, payslip_id, **kwargs):
         data["json_data"]["employee"] = payslip.employee_id.id
         data["json_data"]["payslip"] = payslip.id
         data["instance"] = payslip
+        from .component_views import enrich_payslip_view_context
+
+        enrich_payslip_view_context(data, payslip)
         return render(request, "payroll/payslip/individual_payslip.html", data)
     return render(request, "404.html")
 

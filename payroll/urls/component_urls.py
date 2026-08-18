@@ -99,6 +99,16 @@ urlpatterns = [
         component_views.add_deduction,
         name="add-payslip-deduction",
     ),
+    path(
+        "remove-payslip-allowance/<int:payslip_id>/<int:allowance_id>/",
+        component_views.remove_payslip_allowance,
+        name="remove-payslip-allowance",
+    ),
+    path(
+        "remove-payslip-deduction/<int:payslip_id>/<int:deduction_id>/",
+        component_views.remove_payslip_deduction,
+        name="remove-payslip-deduction",
+    ),
     path("view-loan/", component_views.view_loans, name="view-loan"),
     path("create-loan/", component_views.create_loan, name="create-loan"),
     path(

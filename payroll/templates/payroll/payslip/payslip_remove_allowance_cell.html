@@ -1,0 +1,16 @@
+{% load i18n %}
+<td class="oh-payslip__table-td">
+  {% if allowance.allowance_id and allowance.allowance_id in removable_allowance_ids and instance.status != "paid" and perms.payroll.add_allowance %}
+  <form
+    method="post"
+    action="{% url 'remove-payslip-allowance' instance.id allowance.allowance_id %}"
+    class="d-inline"
+    onsubmit="return confirm('{% trans "Remove this allowance?" %}');"
+  >
+    {% csrf_token %}
+    <button type="submit" class="oh-btn oh-btn--light-bkg oh-btn--sm p-1" title="{% trans 'Remove' %}">
+      <ion-icon name="trash-outline"></ion-icon>
+    </button>
+  </form>
+  {% endif %}
+</td>
