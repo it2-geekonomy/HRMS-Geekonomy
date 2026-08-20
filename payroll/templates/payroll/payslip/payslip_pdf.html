@@ -31,7 +31,7 @@
       max-width: 820px;
       margin: 0 auto;
       min-height: 1122px; /* ~A4 height at 96dpi */
-      padding: 12px 16px 28px;
+      padding: 12px 24px 28px;
       overflow: visible;
     }
     .watermark {
@@ -82,7 +82,9 @@
       color: #555;
     }
     table.slip-table {
-      width: 100%;
+      width: 93%;
+      margin-left: auto;
+      margin-right: auto;
       border-collapse: collapse;
       table-layout: fixed;
       font-size: 11px;
@@ -94,7 +96,7 @@
     table.slip-table th,
     table.slip-table td {
       border: 1px solid #111;
-      padding: 8px 10px;
+      padding: 7px 6px;
       vertical-align: middle;
       background: transparent;
       font-size: 11px;
@@ -119,18 +121,20 @@
     table.slip-table .label {
       font-size: 11px;
       font-weight: 600;
-      width: 22%;
+      width: 32%;
     }
     table.slip-table .value {
       font-size: 11px;
       font-weight: 400;
-      width: 28%;
+      width: 18%;
     }
     table.slip-table .amount {
       text-align: right;
       white-space: nowrap;
       font-size: 11px;
       font-weight: 400;
+      padding-left: 4px;
+      padding-right: 4px;
     }
     table.slip-table .net-row td {
       font-weight: 700;
@@ -162,7 +166,7 @@
       .payslip-page {
         max-width: none;
         min-height: 100vh;
-        padding: 0;
+        padding: 0 4mm;
       }
       .watermark {
         top: 50%;
@@ -174,7 +178,7 @@
         transform: translate(-50%, -50%);
         object-fit: contain;
       }
-      @page { size: A4; margin: 8mm; }
+      @page { size: A4; margin: 8mm 10mm; }
     }
     body.payslip-pdf-body { padding: 8px; }
   </style>
@@ -245,7 +249,7 @@
       {# Title + Employee Details / Payroll Details #}
       <table class="slip-table">
         <colgroup>
-          <col style="width:22%"><col style="width:28%"><col style="width:22%"><col style="width:28%">
+          <col style="width:32%"><col style="width:18%"><col style="width:32%"><col style="width:18%">
         </colgroup>
         <tr class="title-row">
           <td colspan="4">{% trans "SALARY SLIP" %}</td>
@@ -297,7 +301,7 @@
       {# Attendance / wage summary #}
       <table class="slip-table">
         <colgroup>
-          <col style="width:22%"><col style="width:28%"><col style="width:22%"><col style="width:28%">
+          <col style="width:32%"><col style="width:18%"><col style="width:32%"><col style="width:18%">
         </colgroup>
         <tr>
           <td class="label">{% trans "Gross Wage" %}</td>
@@ -324,7 +328,7 @@
       {# Earnings / Deductions #}
       <table class="slip-table">
         <colgroup>
-          <col style="width:22%"><col style="width:28%"><col style="width:22%"><col style="width:28%">
+          <col style="width:32%"><col style="width:18%"><col style="width:32%"><col style="width:18%">
         </colgroup>
         <tr class="section-head">
           <td colspan="2">{% trans "EARNINGS" %}</td>
