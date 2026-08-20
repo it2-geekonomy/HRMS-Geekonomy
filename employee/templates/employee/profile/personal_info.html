@@ -120,6 +120,11 @@
                 </div>
                 <div class="row">
                     <div class="col-12 col-sm-12 col-md-12 col-lg-6">
+                        <label class="oh-label d-block" for="pan_number">{% trans "PAN Card Number" %}</label>
+                        {{form.pan_number}}
+                        {{form.pan_number.errors}}
+                    </div>
+                    <div class="col-12 col-sm-12 col-md-12 col-lg-6">
                         <label class="oh-label d-block" for="marital_status">{% trans "Marital Status" %}</label>
                         {{form.marital_status}} {{form.marital_status.errors}}
                     </div>

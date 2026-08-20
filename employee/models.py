@@ -126,6 +126,13 @@ class Employee(models.Model):
     blood_group = models.CharField(
         max_length=10, null=True, blank=True, verbose_name=_("Blood group")
     )
+    pan_number = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True,
+        verbose_name=_("PAN Card Number"),
+        help_text=_("Indian PAN format, e.g. ABCDE1234F"),
+    )
     is_active = models.BooleanField(default=True)
     additional_info = models.JSONField(null=True, blank=True)
     is_from_onboarding = models.BooleanField(
@@ -669,17 +676,19 @@ class Employee(models.Model):
                 user.user_permissions.add(view_ownprofile)
                 user.user_permissions.add(change_ownprofile)
         elif prev_email and prev_email != self.email:
-            # Email changed, update username if it matches old email
-            if employee.employee_user_id.username == prev_email:
-                # Check if new email is available as username
-                if not User.objects.filter(username=self.email).exclude(id=employee.employee_user_id.id).exists():
-                    employee.employee_user_id.username = self.email
-                    employee.employee_user_id.email = self.email
-                    employee.employee_user_id.save()
-                else:
-                    # New email already used, keep old username but update email
-                    employee.employee_user_id.email = self.email
-                    employee.employee_user_id.save()
+            # Always keep login credentials in sync with employee email.
+            # Previously username only updated when it already matched the old
+            # email, so mismatched accounts (e.g. Sumukh) kept the old login.
+            user = employee.employee_user_id
+            user.email = self.email
+            username_taken = (
+                User.objects.filter(username=self.email)
+                .exclude(id=user.id)
+                .exists()
+            )
+            if not username_taken:
+                user.username = self.email
+            user.save()
 
         if not hasattr(self, "employee_work_info"):
             EmployeeWorkInformation.objects.get_or_create(employee_id=self)

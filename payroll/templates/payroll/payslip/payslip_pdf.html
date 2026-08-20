@@ -1,4 +1,4 @@
-{% load static i18n horillafilters %}
+{% load static i18n horillafilters payrollfilters %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -307,7 +307,7 @@
           <td class="label">{% trans "Gross Wage" %}</td>
           <td class="value amount">{{ currency_symbol|default:"₹ " }}{{ gross_pay|floatformat:0 }}</td>
           <td class="label">{% trans "LOP Days" %}</td>
-          <td class="value amount">{{ lop_days|floatformat:0|default:0 }}</td>
+          <td class="value amount">{{ lop_days|format_days|default:"0" }}</td>
         </tr>
         <tr>
           <td class="label">{% trans "Total Working Days" %}</td>
@@ -317,9 +317,9 @@
         </tr>
         <tr>
           <td class="label">{% trans "Leaves" %}</td>
-          <td class="value amount">{{ total_leaves|floatformat:0|default:0 }}</td>
+          <td class="value amount">{{ total_leaves|format_days|default:"0" }}</td>
           <td class="label">{% trans "Paid Days (incl. leaves)" %}</td>
-          <td class="value amount">{{ paid_days|floatformat:0|default:30 }}</td>
+          <td class="value amount">{{ paid_days|format_days|default:"0" }}</td>
         </tr>
       </table>
 

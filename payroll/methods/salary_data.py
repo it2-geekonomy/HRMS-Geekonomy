@@ -183,6 +183,52 @@ def get_days_worked_for_employee(employee_id, month: int, year: int) -> float:
     return days_worked
 
 
+def get_paid_leave_days_for_employee(employee_id, month: int, year: int) -> float:
+    """
+    Count leave days taken from WorkRecords on working days only (excl. WO/PH):
+    - L (full paid leave) = 1 day
+    - HP/L, P/L (presence + approved leave) = 0.5 or 1 from leave portion
+    """
+    if not apps.is_installed("attendance"):
+        return 0.0
+    from attendance.models import WorkRecords
+    from attendance.methods.utils import monthly_leave_days
+
+    _, last = calendar.monthrange(year, month)
+    start_d = date(year, month, 1)
+    end_d = date(year, month, last)
+    wo_ph_dates = set(monthly_leave_days(month, year))
+    half_leave_dates = _employee_dates_with_half_leave(employee_id, start_d, end_d)
+    full_leave_dates = _employee_dates_with_full_leave(employee_id, start_d, end_d)
+
+    records = WorkRecords.objects.entire().filter(
+        employee_id_id=employee_id,
+        date__gte=start_d,
+        date__lte=end_d,
+    )
+    paid_leave = 0.0
+    for rec in records:
+        if rec.date in wo_ph_dates:
+            continue
+        if rec.work_record_type == "L":
+            paid_leave += 1
+        elif rec.date in full_leave_dates and rec.work_record_type in (
+            "FDP",
+            "HDP",
+            "HP",
+            "SP",
+        ):
+            paid_leave += 1
+        elif rec.date in half_leave_dates and rec.work_record_type in (
+            "FDP",
+            "HDP",
+            "HP",
+            "SP",
+        ):
+            paid_leave += 0.5
+    return paid_leave
+
+
 def get_contract_for_period(employee, month: int, year: int):
     """
     Return the contract that was in effect for the given month/year.
@@ -336,16 +382,9 @@ def get_ph_wo_paid_leave_counts(month: int, year: int, employee_id=None):
     wo_count = len(off_in_month) - ph_count  # off = PH + WO
 
     if employee_id is not None:
-        from attendance.models import WorkRecords
-
-        start_d = date(year, month, 1)
-        end_d = date(year, month, last)
-        leave_records = WorkRecords.objects.filter(
-            employee_id_id=employee_id,
-            date__gte=start_d,
-            date__lte=end_d,
-        ).filter(Q(is_leave_record=True) | Q(work_record_type="L"))
-        paid_leave_count = leave_records.count()
+        paid_leave_count = int(
+            get_paid_leave_days_for_employee(employee_id, month, year)
+        )
 
     return {
         "ph_count": ph_count,

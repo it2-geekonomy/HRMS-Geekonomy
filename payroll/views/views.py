@@ -66,6 +66,7 @@ from payroll.methods.methods import paginator_qry, save_payslip
 from payroll.methods.salary_data import (
     compute_salary_data_for_employee,
     get_lop_amount,
+    get_paid_leave_days_for_employee,
     get_ph_wo_paid_leave_counts,
 )
 
@@ -88,6 +89,18 @@ def _get_paid_days_lop_days_from_salary_data(payslip):
         return paid_days, lop_days, working_days
     except Exception:
         return None, None, None
+
+
+def _get_total_leaves_from_salary_data(payslip):
+    """
+    Leaves on payslip PDF = L days from WorkRecords (working days only), same as Salary Data.
+    """
+    try:
+        month = payslip.start_date.month
+        year = payslip.start_date.year
+        return get_paid_leave_days_for_employee(payslip.employee_id.id, month, year)
+    except Exception:
+        return None
 
 
 def _sum_payslip_deduction_lines(data):
@@ -2542,13 +2555,12 @@ def get_view_payslip_pdf_context(
 
     paid_days, lop_days, working_days = _get_paid_days_lop_days_from_salary_data(payslip)
     total_working_days = 30
-    total_leaves = 0
-    if payslip.pay_head_data and "total_leaves" in payslip.pay_head_data:
-        total_leaves = payslip.pay_head_data.get("total_leaves", 0)
+    total_leaves = _get_total_leaves_from_salary_data(payslip)
     if paid_days is None:
         lop_days = 0
         paid_days = 30
         working_days = None
+        total_leaves = None
         if payslip.pay_head_data:
             pay_data = payslip.pay_head_data
             if "unpaid_days" in pay_data:
@@ -2570,8 +2582,15 @@ def get_view_payslip_pdf_context(
                 if "paid_days" in pay_data
                 else total_working_days - lop_days
             )
-            total_leaves = pay_data.get("total_leaves", 0) if "total_leaves" in pay_data else 0
+            if "total_leaves" in pay_data:
+                total_leaves = pay_data.get("total_leaves", 0)
+            elif "total_leaves_taken" in pay_data:
+                total_leaves = pay_data.get("total_leaves_taken", 0)
+            else:
+                total_leaves = 0
 
+    if total_leaves is None:
+        total_leaves = 0
     data["total_leaves"] = total_leaves
     _sync_payslip_lop_from_salary_data(data, payslip)
     if "paid_days" not in data:
@@ -2634,6 +2653,10 @@ def _payslip_header_detail_fields(payslip, data):
                 return val
         return "—"
 
+    pan_value = getattr(employee, "pan_number", None) or _extra(
+        "pan", "PAN", "pan_number", "PAN Number"
+    )
+
     if payslip.status == "paid":
         date_of_payment = payslip.end_date.strftime("%d-%m-%Y")
     else:
@@ -2644,7 +2667,7 @@ def _payslip_header_detail_fields(payslip, data):
         "pay_period_display": f"{data.get('formatted_start_date', payslip.start_date)} – {data.get('formatted_end_date', payslip.end_date)}",
         "date_of_payment": date_of_payment,
         "bank_account_last4": last4,
-        "employee_pan": _extra("pan", "PAN", "pan_number", "PAN Number"),
+        "employee_pan": pan_value if pan_value != "—" else "—",
         "employee_uan_pf": _extra(
             "uan", "UAN", "pf", "PF", "pf_number", "uan_number", "UAN / PF"
         ),

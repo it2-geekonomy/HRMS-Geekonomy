@@ -74,6 +74,20 @@ def professional_tax_amount(*deduction_lists):
     return 0
 
 
+@register.filter(name="format_days")
+def format_days(value):
+    """Show day counts as 21 or 0.5 — no trailing .0 for whole numbers."""
+    if value is None or value == "":
+        return "0"
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return value
+    if num == int(num):
+        return str(int(num))
+    return f"{num:.1f}".rstrip("0").rstrip(".")
+
+
 @register.filter(name="balance_amount")
 def balance_amount(amount, installment):
     balance = amount - paid_amount(installment)

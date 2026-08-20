@@ -179,6 +179,7 @@ class EmployeeForm(ModelForm):
     # Emp Id format: GEEKY + exactly 4 digits (e.g. GEEKY0001, GEEKY1234)
     EMP_ID_PREFIX = "GEEKY"
     EMP_ID_PATTERN = re.compile(r"^GEEKY\d{4}$")
+    PAN_PATTERN = re.compile(r"^[A-Z]{5}\d{4}[A-Z]$")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -189,6 +190,9 @@ class EmployeeForm(ModelForm):
         self.fields["email"].widget.attrs["autocomplete"] = "email"
         self.fields["phone"].widget.attrs["autocomplete"] = "phone"
         self.fields["address"].widget.attrs["autocomplete"] = "address"
+        if "pan_number" in self.fields:
+            self.fields["pan_number"].widget.attrs["placeholder"] = "ABCDE1234F"
+            self.fields["pan_number"].widget.attrs["style"] = "text-transform: uppercase"
         if instance := kwargs.get("instance"):
             # ----
             # django forms not showing value inside the date, time html element.
@@ -259,6 +263,21 @@ class EmployeeForm(ModelForm):
         if queryset.exists():
             raise forms.ValidationError(_("Emp Id must be unique."))
         return badge_id
+
+    def clean_pan_number(self):
+        pan = (self.cleaned_data.get("pan_number") or "").strip().upper()
+        if not pan:
+            return None
+        if not self.PAN_PATTERN.match(pan):
+            raise forms.ValidationError(
+                _("Enter a valid PAN (5 letters, 4 digits, 1 letter, e.g. ABCDE1234F).")
+            )
+        queryset = Employee.objects.entire().filter(pan_number__iexact=pan)
+        if self.instance and self.instance.pk:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise forms.ValidationError(_("This PAN is already used by another employee."))
+        return pan
 
 
 class EmployeeWorkInformationForm(ModelForm):
@@ -489,6 +508,7 @@ excel_columns = [
     ("emergency_contact_name", trans("Emergency Contact Name")),
     ("emergency_contact_relation", trans("Emergency Contact Relation")),
     ("blood_group", trans("Blood group")),
+    ("pan_number", trans("PAN Card Number")),
     ("employee_work_info__email", trans("Work Email")),
     ("employee_work_info__mobile", trans("Work Phone")),
     ("employee_work_info__department_id", trans("Department")),
