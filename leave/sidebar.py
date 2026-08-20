@@ -87,11 +87,9 @@ def leave_request_accessibility(request, submenu, user_perms, *args, **kwargs):
 
 def comp_off_request_accessibility(request, submenu, user_perms, *args, **kwargs):
     return (
-        request.user.has_perm("leave.view_compoffrequest")
-        or is_leave_approval_manager(request.user)
-        or is_reportingmanager(request.user)
-        or request.user.is_staff
-    )
+        request.user.is_staff
+        and request.user.has_perm("leave.view_compoffrequest")
+    ) or is_leave_approval_manager(request.user) or is_reportingmanager(request.user)
 
 
 def type_accessibility(request, submenu, user_perms, *args, **kwargs):

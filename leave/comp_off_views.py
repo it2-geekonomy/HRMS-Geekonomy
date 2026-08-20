@@ -12,7 +12,6 @@ from django.utils.translation import gettext_lazy as _
 from notifications.signals import notify
 
 from base.methods import (
-    filtersubordinates,
     get_key_instances,
     paginator_qry,
     sortby,
@@ -33,21 +32,48 @@ from leave.threading import (
 from leave.models import CompOffRequest
 
 
+def _comp_off_full_access(request):
+    """Staff/superuser HR view — same scope as leave list for users with global view perm."""
+    user = request.user
+    return user.is_superuser or (
+        user.is_staff and user.has_perm("leave.view_compoffrequest")
+    )
+
+
 def _can_view_team_comp_off_requests(request):
     user = request.user
     return (
-        user.has_perm("leave.view_compoffrequest")
-        or user.is_staff
+        _comp_off_full_access(request)
         or is_leave_approval_manager(user)
         or is_reportingmanager(user)
     )
 
 
 def _team_comp_off_queryset(request, get_data):
+    """
+    Reporting managers see only direct subordinates (same as leave/attendance).
+    Do not grant full list access from view_compoffrequest alone — that permission
+    is often assigned too broadly on employee roles.
+    """
     queryset = CompOffRequestFilter(get_data).qs.order_by("-id")
-    if request.user.is_staff or request.user.has_perm("leave.view_compoffrequest"):
+    if _comp_off_full_access(request):
         return queryset
-    return filtersubordinates(request, queryset, "leave.view_compoffrequest")
+    manager = getattr(request.user, "employee_get", None)
+    if not manager:
+        return queryset.none()
+    return queryset.filter(
+        employee_id__employee_work_info__reporting_manager_id=manager
+    )
+
+
+def _can_view_comp_off_request_detail(request, comp_off_request, my_request=False):
+    if my_request:
+        return comp_off_request.employee_id == request.user.employee_get
+    if _comp_off_full_access(request):
+        return True
+    if comp_off_request.employee_id == request.user.employee_get:
+        return True
+    return comp_off_request.reporting_manager() == request.user.employee_get
 
 
 def _notify_reporting_manager(request, comp_off_request):
@@ -321,7 +347,7 @@ def comp_off_request_single_view(request, req_id):
 
     comp_off_request = get_object_or_404(CompOffRequest, id=req_id)
     my_request = request.GET.get("my_request") == "True"
-    if my_request and comp_off_request.employee_id != request.user.employee_get:
+    if not _can_view_comp_off_request_detail(request, comp_off_request, my_request=my_request):
         messages.error(request, _("Permission denied."))
         return HttpResponse("<script>window.location.reload();</script>")
     previous_id = next_id = None
