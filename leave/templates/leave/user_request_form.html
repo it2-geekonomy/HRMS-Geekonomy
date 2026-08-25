@@ -14,7 +14,7 @@
     <label class="oh-label d-block">{% trans "Start Date" %}</label>
     {{form.start_date}} {{form.start_date.errors}}
   </div>
-  {% if leave_type.name != "Earned Leave" and leave_type.name != "Sick Leave" and leave_type.name != "Probation Leave" and leave_type.name != "Probation Leave (PL)" and leave_type.name != "Interns Leave" %}
+  {% if leave_type.name != "Earned Leave" and leave_type.name != "Sick Leave" and leave_type.name != "Probation Sick Leave" and leave_type.name != "Probation Sick Leave (PSL)" and leave_type.name != "Probation Leave" and leave_type.name != "Probation Leave (PL)" and leave_type.name != "Probation Casual Leave" and leave_type.name != "Probation Casual Leave (PCL)" and leave_type.name != "Interns Leave" %}
   <div class="oh-modal__dialog-body pb-2" id="startDate">
     <label class="oh-label d-block">{% trans "Breakdown" %}</label>
     {{form.start_date_breakdown}}
@@ -27,7 +27,7 @@
     <label class="oh-label d-block">{% trans "End Date" %}</label>
     {{form.end_date}} {{form.end_date.errors}}
   </div>
-  {% if leave_type.name != "Earned Leave" and leave_type.name != "Sick Leave" and leave_type.name != "Probation Leave" and leave_type.name != "Probation Leave (PL)" and leave_type.name != "Interns Leave" %}
+  {% if leave_type.name != "Earned Leave" and leave_type.name != "Sick Leave" and leave_type.name != "Probation Sick Leave" and leave_type.name != "Probation Sick Leave (PSL)" and leave_type.name != "Probation Leave" and leave_type.name != "Probation Leave (PL)" and leave_type.name != "Probation Casual Leave" and leave_type.name != "Probation Casual Leave (PCL)" and leave_type.name != "Interns Leave" %}
   <div class="oh-modal__dialog-body pb-2" id="endDate">
     <label class="oh-label d-block">{% trans "Breakdown" %}</label>
     {{form.end_date_breakdown}}

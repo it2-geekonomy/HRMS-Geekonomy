@@ -390,7 +390,10 @@
                 var opt = leaveTypeSelect.options[leaveTypeSelect.selectedIndex];
                 var name = opt ? opt.text.trim() : '';
                 var fullDayOnly = name === 'Earned Leave' || name === 'Sick Leave' ||
-                    name === 'Probation Leave' || name === 'Probation Leave (PL)' || name === 'Interns Leave';
+                    name === 'Probation Sick Leave' || name === 'Probation Sick Leave (PSL)' ||
+                    name === 'Probation Leave' || name === 'Probation Leave (PL)' ||
+                    name === 'Probation Casual Leave' || name === 'Probation Casual Leave (PCL)' ||
+                    name === 'Interns Leave';
                 if (fullDayOnly) {
                     startBreakdownDiv.style.display = 'none';
                     if (startSel) startSel.value = 'full_day';

@@ -14,6 +14,7 @@ from django.core.mail import EmailMessage
 from django.template.loader import render_to_string
 
 from base.backends import ConfiguredEmailBackend
+from base.mail_icons import request_mail_icon
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ def _send_attendance_request_emails_sync(request, attendance, is_update_request=
         attendance_id, is_update_request,
     )
 
-    def _send_one(to_email, instance, subject, content):
+    def _send_one(to_email, instance, subject, content, *, rejected=False):
         if not to_email:
             return
         try:
@@ -72,6 +73,7 @@ def _send_attendance_request_emails_sync(request, attendance, is_update_request=
                 "subject": subject,
                 "content": content,
                 "white_label_company_name": company_name,
+                "mail_icon": request_mail_icon(rejected=rejected),
             },
         )
         email = EmailMessage(
@@ -206,6 +208,8 @@ def _send_attendance_outcome_emails_sync(request, attendance, approved=True):
         action, attendance_id,
     )
 
+    rejected = not approved
+
     def _send_one(to_email, instance, subject, content, link_id):
         if not to_email:
             return
@@ -227,6 +231,7 @@ def _send_attendance_outcome_emails_sync(request, attendance, approved=True):
                 "subject": subject,
                 "content": content,
                 "white_label_company_name": company_name,
+                "mail_icon": request_mail_icon(rejected=rejected),
             },
         )
         email = EmailMessage(

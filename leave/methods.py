@@ -22,7 +22,17 @@ EARNED_LEAVE_NAMES = (
     "Earned Leave – Paid",
 )
 
-PROBATION_LEAVE_NAMES = ("Probation Leave", "Probation Leave (PL)")
+PROBATION_LEAVE_NAMES = (
+    "Probation Sick Leave",
+    "Probation Sick Leave (PSL)",
+    "Probation Leave",
+    "Probation Leave (PL)",
+)
+PROBATION_CASUAL_LEAVE_NAMES = (
+    "Probation Casual Leave",
+    "Probation Casual Leave (PCL)",
+)
+PROBATION_PERIOD_LEAVE_CAP = 2.0
 INTERNS_LEAVE_NAMES = ("Interns Leave",)
 
 # Temporary exception: these badge IDs may approve their own leave requests.
@@ -49,8 +59,23 @@ def can_user_approve_leave_request(user, leave_request):
 
 
 def get_probation_leave_type():
+    """Probation Sick Leave (deducted from SL on confirm). Legacy names still match."""
     LeaveType = apps.get_model("leave", "LeaveType")
-    return LeaveType.objects.filter(name__in=PROBATION_LEAVE_NAMES).first()
+    for name in PROBATION_LEAVE_NAMES:
+        leave_type = LeaveType.objects.filter(name=name).first()
+        if leave_type:
+            return leave_type
+    return (
+        LeaveType.objects.filter(name__icontains="probation")
+        .exclude(name__icontains="casual")
+        .filter(total_days=1)
+        .first()
+    )
+
+
+def get_probation_casual_leave_type():
+    LeaveType = apps.get_model("leave", "LeaveType")
+    return LeaveType.objects.filter(name__in=PROBATION_CASUAL_LEAVE_NAMES).first()
 
 
 def get_recent_approved_probation_leaves(employee):
@@ -70,44 +95,44 @@ def get_recent_approved_probation_leaves(employee):
     )
 
 
+def _approved_leave_taken(employee, leave_type, as_of_date=None):
+    """Sum of approved requested_days for leave_type up to as_of_date."""
+    if not employee or not leave_type:
+        return 0.0
+    as_of = as_of_date or date.today()
+    LeaveRequest = apps.get_model("leave", "LeaveRequest")
+    total = (
+        LeaveRequest.objects.filter(
+            employee_id=employee,
+            leave_type_id=leave_type,
+            status="approved",
+            end_date__lte=as_of,
+        ).aggregate(total=Sum("requested_days"))["total"]
+        or 0.0
+    )
+    return float(total)
+
+
 def get_probation_leave_taken(employee=None, as_of_date=None):
     """
     Calculate total probation leave taken by an employee up to a specific date.
-    
-    Args:
-        employee: Employee instance
-        as_of_date: Date up which to calculate (defaults to today)
-    
-    Returns:
-        float: Total probation leave days taken
+    Deducted from Sick Leave when probation is confirmed.
     """
     if not employee:
         return 0.0
-    
-    as_of = as_of_date or date.today()
-    
-    # Get probation leave type
-    LeaveRequest = apps.get_model("leave", "LeaveRequest")
-    LeaveType = apps.get_model("leave", "LeaveType")
-    
-    try:
-        probation_leave_type = get_probation_leave_type()
-        
-        if not probation_leave_type:
-            return 0.0
-        
-        # Calculate total approved probation leave days
-        total_taken = LeaveRequest.objects.filter(
-            employee_id=employee,
-            leave_type_id=probation_leave_type,
-            status="approved",
-            end_date__lte=as_of
-        ).aggregate(total=Sum("requested_days"))["total"] or 0.0
-        
-        return float(total_taken)
-    except Exception:
-        return 0.0
+    return _approved_leave_taken(employee, get_probation_leave_type(), as_of_date)
 
+
+def get_probation_casual_leave_taken(employee=None, as_of_date=None):
+    """
+    Calculate total Probation Casual Leave taken up to a date.
+    Deducted from Casual Leave when probation is confirmed.
+    """
+    if not employee:
+        return 0.0
+    return _approved_leave_taken(
+        employee, get_probation_casual_leave_type(), as_of_date
+    )
 
 def _join_date(employee):
     """Get date_joining from employee's work info robustly. Returns None if unavailable."""
@@ -151,14 +176,58 @@ def is_earned_leave_type(leave_type):
     return lt_name in EARNED_LEAVE_NAMES or lt_name.startswith("Earned Leave")
 
 
+def is_casual_leave_type(leave_type):
+    """Regular Casual Leave only — not Probation Casual Leave."""
+    if not leave_type:
+        return False
+    lt_name = (leave_type.name or "").strip()
+    lt_lower = lt_name.lower()
+    if "probation" in lt_lower:
+        return False
+    if lt_name in CASUAL_LEAVE_NAMES:
+        return True
+    return lt_lower.startswith("casual leave")
+
+
+def is_probation_sick_leave_type(leave_type):
+    """Probation Sick Leave (1/month during probation; deducted from SL on confirm)."""
+    if not leave_type:
+        return False
+    lt_name = (leave_type.name or "").strip()
+    if lt_name in PROBATION_LEAVE_NAMES:
+        return True
+    lt_lower = lt_name.lower()
+    return (
+        "probation" in lt_lower
+        and "casual" not in lt_lower
+        and round(float(leave_type.total_days or 0), 2) == 1.0
+    )
+
+
+def is_probation_casual_leave_type(leave_type):
+    """Probation Casual Leave (1/month during probation; deducted from CL on confirm)."""
+    if not leave_type:
+        return False
+    lt_name = (leave_type.name or "").strip()
+    if lt_name in PROBATION_CASUAL_LEAVE_NAMES:
+        return True
+    lt_lower = lt_name.lower()
+    return "probation" in lt_lower and "casual" in lt_lower
+
+
 def is_probation_or_interns_monthly(leave_type):
-    """Probation / Interns: 1 day per month on the 1st, no yearly balance wipe."""
+    """Probation / Probation Casual / Interns: 1 day per month on the 1st, no yearly wipe."""
     if not leave_type or getattr(leave_type, "reset_based", None) != "monthly":
         return False
     lt_name = (leave_type.name or "").strip()
-    if lt_name in PROBATION_LEAVE_NAMES or lt_name in INTERNS_LEAVE_NAMES:
+    if lt_name in PROBATION_LEAVE_NAMES or lt_name in PROBATION_CASUAL_LEAVE_NAMES:
         return True
-    return "probation" in lt_name.lower() and round(float(leave_type.total_days or 0), 2) == 1.0
+    if lt_name in INTERNS_LEAVE_NAMES:
+        return True
+    lt_lower = lt_name.lower()
+    if "probation" in lt_lower and round(float(leave_type.total_days or 0), 2) == 1.0:
+        return True
+    return "interns leave" in lt_lower and round(float(leave_type.total_days or 0), 2) == 1.0
 
 
 def next_monthly_accrual_date(leave_type, as_of_date=None):
@@ -240,6 +309,119 @@ def get_sick_leave_balance_stats(available_leave, as_of_date=None):
     }
 
 
+def get_casual_leave_balance_stats(available_leave, as_of_date=None):
+    """
+    Casual Leave: months accrued (from join/Jan 2026) minus Probation Casual Leave taken
+    minus Casual Leave taken, capped at 12.
+    """
+    as_of = as_of_date or date.today()
+    leave_type = available_leave.leave_type_id
+    CL_EPOCH_DATE = date(2026, 1, 1)
+    join_date = _join_date(available_leave.employee_id)
+    raw_start = getattr(available_leave, "assigned_date", None)
+    if join_date:
+        accrual_start = max(CL_EPOCH_DATE, join_date.replace(day=1))
+    elif raw_start:
+        accrual_start = max(CL_EPOCH_DATE, raw_start.replace(day=1))
+    else:
+        accrual_start = CL_EPOCH_DATE
+    months = max(
+        0,
+        (as_of.year - accrual_start.year) * 12
+        + (as_of.month - accrual_start.month)
+        + 1,
+    )
+    total_accrued = float(months)
+    pcl_taken = get_probation_casual_leave_taken(available_leave.employee_id, as_of)
+    LeaveRequest = apps.get_model("leave", "LeaveRequest")
+    cl_taken = float(
+        LeaveRequest.objects.filter(
+            employee_id=available_leave.employee_id,
+            leave_type_id=leave_type,
+            status="approved",
+        ).aggregate(total=Sum("requested_days"))["total"]
+        or 0.0
+    )
+    cl_cap = (
+        leave_type.carryforward_max
+        if leave_type.carryforward_max is not None
+        else 12
+    )
+    available = min(max(0.0, total_accrued - pcl_taken - cl_taken), float(cl_cap))
+    return {
+        "yearly_total": float(cl_cap),
+        "accrued_days": round(total_accrued, 2),
+        "probation_casual_leave_taken": round(pcl_taken, 2),
+        "casual_leave_taken": round(cl_taken, 2),
+        "available_days": round(available, 2),
+        "leave_taken": round(pcl_taken + cl_taken, 2),
+    }
+
+
+def _probation_period_months_accrued(available_leave, as_of_date):
+    """Months credited for PSL / PCL / Interns Leave (1 day per month)."""
+    as_of = as_of_date or date.today()
+    as_of_first = as_of.replace(day=1)
+    join_date = _join_date(available_leave.employee_id)
+    raw_start = getattr(available_leave, "assigned_date", None)
+    candidates = [as_of_first]
+    if join_date:
+        candidates.append(join_date.replace(day=1))
+    if raw_start:
+        candidates.append(raw_start.replace(day=1))
+    accrual_start = min(candidates)
+    return max(
+        0,
+        (as_of.year - accrual_start.year) * 12
+        + (as_of.month - accrual_start.month)
+        + 1,
+    )
+
+
+def get_probation_period_leave_balance_stats(
+    available_leave, as_of_date=None, exclude_leave_request_id=None
+):
+    """
+    Probation Sick Leave / Probation Casual Leave / Interns Leave:
+    1 day per month, max 2 in bucket (current + previous month), no carry forward.
+    available_days = usable right now (bucket balance capped by 1 per calendar month).
+    """
+    as_of = as_of_date or date.today()
+    leave_type = available_leave.leave_type_id
+    LeaveRequest = apps.get_model("leave", "LeaveRequest")
+    leave_taken = float(
+        LeaveRequest.objects.filter(
+            employee_id=available_leave.employee_id,
+            leave_type_id=leave_type,
+            status="approved",
+        ).aggregate(total=Sum("requested_days"))["total"]
+        or 0.0
+    )
+    months = _probation_period_months_accrued(available_leave, as_of)
+    total_accrued = float(months)
+    bucket_balance = min(
+        max(0.0, total_accrued - leave_taken), PROBATION_PERIOD_LEAVE_CAP
+    )
+    days_in_month = probation_leave_days_in_month(
+        available_leave.employee_id,
+        leave_type,
+        as_of.year,
+        as_of.month,
+        exclude_leave_request_id=exclude_leave_request_id,
+    )
+    usable_in_month = max(0.0, 1.0 - float(days_in_month))
+    available = round(min(bucket_balance, usable_in_month), 3)
+    accrued = round(available + leave_taken, 2)
+    return {
+        "yearly_total": PROBATION_PERIOD_LEAVE_CAP,
+        "accrued_days": accrued,
+        "available_days": available,
+        "bucket_days": round(bucket_balance, 2),
+        "leave_taken": round(leave_taken, 2),
+        "months_accrued": months,
+    }
+
+
 def leave_type_uses_yearly_balance_reset(leave_type):
     """True for Casual Leave and Sick Leave (cleared every calendar year on 1 Jan)."""
     if not leave_type:
@@ -314,19 +496,24 @@ def get_init_days_and_reset_for_assign(leave_type, assigned_date, employee=None)
     months_remaining = (12 - assigned_date.month) + 1
     next_1st = (assigned_date + relativedelta(months=1)).replace(day=1)
 
-    # Casual Leave (1/month, cap 12): retrospective from joining date to confirmation month
-    if leave_type.name in ("Casual Leave", "Casual Leave (CL)", "Casual Leave - Paid") and getattr(leave_type, "reset_based", None) == "monthly":
+    # Casual Leave (1/month, cap 12): retrospective from joining, minus Probation Casual Leave taken
+    if is_casual_leave_type(leave_type) and getattr(leave_type, "reset_based", None) == "monthly":
         if employee:
             join_date = _join_date(employee)
             if join_date:
                 months_from_joining = (assigned_date.year - join_date.year) * 12 + (assigned_date.month - join_date.month) + 1
-                init_days = min(12, months_from_joining)
-                return (init_days, date(assigned_date.year + 1, 1, 1))
+                pcl_taken = get_probation_casual_leave_taken(employee, assigned_date)
+                init_days = max(0, min(12, months_from_joining) - pcl_taken)
+                return (round(init_days, 2), date(assigned_date.year + 1, 1, 1))
         init_days = min(12, months_remaining)
         return (init_days, date(assigned_date.year + 1, 1, 1))
 
-    # Probation Leave (1/month, no carryforward): grant 1 for current month on assign; reset 1st of next month
-    if leave_type.name in ("Probation Leave", "Probation Leave (PL)") and getattr(leave_type, "reset_based", None) == "monthly":
+    # Probation Leave / Probation Casual Leave (1/month, no carryforward)
+    if (
+        leave_type.name in PROBATION_LEAVE_NAMES
+        or leave_type.name in PROBATION_CASUAL_LEAVE_NAMES
+        or is_probation_casual_leave_type(leave_type)
+    ) and getattr(leave_type, "reset_based", None) == "monthly":
         init_days = 1
         return (init_days, next_1st)
 
@@ -415,57 +602,22 @@ def computed_balance_for_validation(available_leave, as_of_date=None):
         balance = min(max(0.0, total_accrued - approved_taken()), cap)
         return round(balance, 3)
 
-    # Casual Leave: monthly 1, cap 12
-    # EL/CL applicable from Jan 1, 2026
-    CL_EPOCH_DATE = date(2026, 1, 1)
-    is_cl = (
-        reset_based == "monthly"
-        and ("Casual Leave" in lt_name or (total_days_val == 1.0 and "Casual" in lt_name))
-        and total_days_val == 1.0
-    )
+    # Casual Leave: monthly 1, cap 12, minus Probation Casual Leave taken
+    is_cl = is_casual_leave_type(leave_type) and reset_based == "monthly" and total_days_val == 1.0
     if is_cl and leave_type.total_days:
-        join_date = _join_date(available_leave.employee_id)
-        raw_start = getattr(available_leave, "assigned_date", None)
-        
-        if join_date:
-            accrual_start = max(CL_EPOCH_DATE, join_date.replace(day=1))
-        else:
-            accrual_start = (
-                max(CL_EPOCH_DATE, raw_start.replace(day=1))
-                if raw_start
-                else CL_EPOCH_DATE
-            )
-            
-        months = months_accrued(accrual_start)
-        total_accrued = 1.0 * months
-        cl_cap = leave_type.carryforward_max if leave_type.carryforward_max is not None else 12
-        balance = min(max(0.0, total_accrued - approved_taken()), cl_cap)
-        return round(balance, 3)
+        return get_casual_leave_balance_stats(available_leave, as_of)["available_days"]
 
     # Probation Leave / Interns Leave: 1 per month, NO carry forward.
-    # At any time at most 2 in bucket: current month + previous month (if unused). Can apply for
-    # past month but it does not carry forward to future months. Case-insensitive name match.
-    PROBATION_CAP = 2.0
+    # At any time at most 2 in bucket: current month + previous month (if unused).
     lt_name_lower = lt_name.lower()
     is_pl_or_interns = (
         total_days_val == 1.0
         and ("probation" in lt_name_lower or "interns leave" in lt_name_lower or "intern" in lt_name_lower)
     )
     if is_pl_or_interns and leave_type.total_days:
-        as_of_first = as_of.replace(day=1)
-        join_date = _join_date(available_leave.employee_id)
-        raw_start = getattr(available_leave, "assigned_date", None)
-        candidates = [as_of_first]
-        if join_date:
-            candidates.append(join_date.replace(day=1))
-        if raw_start:
-            candidates.append(raw_start.replace(day=1))
-        accrual_start = min(candidates)
-        months = months_accrued(accrual_start)
-        total_accrued = 1.0 * months
-        balance = max(0.0, total_accrued - approved_taken())
-        balance = min(balance, PROBATION_CAP)  # no carry forward: cap at 2 (this month + last month)
-        return round(balance, 3)
+        return get_probation_period_leave_balance_stats(available_leave, as_of)[
+            "available_days"
+        ]
 
     if is_sick_leave_type(leave_type):
         return get_sick_leave_balance_stats(available_leave, as_of)["available_days"]

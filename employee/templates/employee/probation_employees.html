@@ -67,7 +67,7 @@
                     data-current-end-display="{{ item.probation_will_complete_date|date:'d/m/Y' }}"
                     data-extend-url="{% url 'probation-extend' item.employee.id %}"
                   >{% trans "Extend" %}</button>
-                  <form action="{% url 'probation-confirm' item.employee.id %}" method="post" class="d-inline probation-action-form" data-confirm-title="{% trans 'Confirm Employee' %}" data-confirm-text="{% blocktrans with name=item.employee %}Confirm {{ name }}? Probation Leave will be removed and Earned Leave, Sick Leave, and Casual Leave will be assigned.{% endblocktrans %}">
+                  <form action="{% url 'probation-confirm' item.employee.id %}" method="post" class="d-inline probation-action-form" data-confirm-title="{% trans 'Confirm Employee' %}" data-confirm-text="{% blocktrans with name=item.employee %}Confirm {{ name }}? Probation Sick Leave and Probation Casual Leave will be removed. Earned Leave, Sick Leave (minus Probation Sick Leave taken), and Casual Leave (minus Probation Casual Leave taken) will be assigned.{% endblocktrans %}">
                     {% csrf_token %}
                     <button type="submit" class="oh-btn oh-btn--success oh-btn--small">{% trans "Confirm" %}</button>
                   </form>
@@ -105,7 +105,7 @@
                   {% endif %}
                   {% if item.probation_action %}
                     {% if item.can_revert %}
-                    <form action="{% url 'probation-revert' item.employee.id %}" method="post" class="d-inline probation-action-form" data-confirm-title="{% trans 'Revert Action' %}" data-confirm-text="{% if item.probation_action == 'confirmed' %}{% blocktrans with name=item.employee days=item.revert_days_left %}Revert confirmation for {{ name }}? EL/CL/SL will be removed and Probation Leave restored. {{ days }} day(s) left to revert.{% endblocktrans %}{% elif item.probation_action == 'extended' %}{% blocktrans with name=item.employee days=item.revert_days_left %}Revert extend for {{ name }}? Probation Will Complete Date returns to default. {{ days }} day(s) left to revert.{% endblocktrans %}{% else %}{% blocktrans with name=item.employee days=item.revert_days_left %}Revert this action for {{ name }}? They will return to Active. {{ days }} day(s) left to revert.{% endblocktrans %}{% endif %}">
+                    <form action="{% url 'probation-revert' item.employee.id %}" method="post" class="d-inline probation-action-form" data-confirm-title="{% trans 'Revert Action' %}" data-confirm-text="{% if item.probation_action == 'confirmed' %}{% blocktrans with name=item.employee days=item.revert_days_left %}Revert confirmation for {{ name }}? EL/CL/SL will be removed and Probation Sick Leave restored. {{ days }} day(s) left to revert.{% endblocktrans %}{% elif item.probation_action == 'extended' %}{% blocktrans with name=item.employee days=item.revert_days_left %}Revert extend for {{ name }}? Probation Will Complete Date returns to default. {{ days }} day(s) left to revert.{% endblocktrans %}{% else %}{% blocktrans with name=item.employee days=item.revert_days_left %}Revert this action for {{ name }}? They will return to Active. {{ days }} day(s) left to revert.{% endblocktrans %}{% endif %}">
                       {% csrf_token %}
                       <button type="submit" class="oh-btn oh-btn--info oh-btn--small" title="{% blocktrans with days=item.revert_days_left %}{{ days }} day(s) left to revert{% endblocktrans %}">
                         {% trans "Revert" %}

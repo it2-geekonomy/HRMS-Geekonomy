@@ -102,7 +102,7 @@
                                                 <div class="oh-sticky-table__th" style="width: 20%;">{% trans "Employee" %}</div>
                                                 <div class="oh-sticky-table__th" style="width: 9%;">{% trans "Available" %}</div>
                                                 <div class="oh-sticky-table__th" style="width: 9%;" title="{% trans 'Days earned/credited to date (Available + Taken)' %}">{% trans "Accrued" %}</div>
-                                                <div class="oh-sticky-table__th" style="width: 9%;" title="{% trans 'Yearly maximum for this leave type' %}">{% trans "Total" %}</div>
+                                                <div class="oh-sticky-table__th" style="width: 9%;" title="{% if config.probation_period_leave_display %}{% trans 'Maximum days in bucket at once (current + previous month)' %}{% else %}{% trans 'Yearly maximum for this leave type' %}{% endif %}">{% trans "Total" %}</div>
                                                 <div class="oh-sticky-table__th" style="width: 10%;">{% trans "Taken" %}</div>
                                                 <div class="oh-sticky-table__th" style="width: 10%;">{% trans "Assigned Date" %}</div>
                                                 <div class="oh-sticky-table__th" style="width: 10%;">
@@ -156,7 +156,7 @@
                                                                 {% if emp_data.probation_leave_taken %}
                                                                     <span class="oh-badge oh-badge--warning" title="{% trans 'Deducted from yearly Sick Leave allocation' %}">
                                                                         {{ emp_data.probation_leave_taken }}
-                                                                        <small class="ms-1">{% trans "Probation" %}</small>
+                                                                        <small class="ms-1">{% trans "Probation Sick" %}</small>
                                                                     </span>
                                                                 {% endif %}
                                                                 {% if emp_data.sick_leave_taken %}
@@ -166,6 +166,24 @@
                                                                     </span>
                                                                 {% endif %}
                                                                 {% if not emp_data.probation_leave_taken and not emp_data.sick_leave_taken %}
+                                                                    <span>0</span>
+                                                                {% endif %}
+                                                            </div>
+                                                        {% elif config.casual_leave_display %}
+                                                            <div class="d-flex flex-column gap-1">
+                                                                {% if emp_data.probation_casual_leave_taken %}
+                                                                    <span class="oh-badge oh-badge--warning" title="{% trans 'Deducted from Casual Leave allocation' %}">
+                                                                        {{ emp_data.probation_casual_leave_taken }}
+                                                                        <small class="ms-1">{% trans "Probation Casual" %}</small>
+                                                                    </span>
+                                                                {% endif %}
+                                                                {% if emp_data.casual_leave_taken %}
+                                                                    <span class="oh-badge oh-badge--secondary">
+                                                                        {{ emp_data.casual_leave_taken }}
+                                                                        <small class="ms-1">{% trans "Casual Leave" %}</small>
+                                                                    </span>
+                                                                {% endif %}
+                                                                {% if not emp_data.probation_casual_leave_taken and not emp_data.casual_leave_taken %}
                                                                     <span>0</span>
                                                                 {% endif %}
                                                             </div>
@@ -189,13 +207,13 @@
                                                                 {% for entry in emp_data.recent_leave_timeline %}
                                                                     <small>
                                                                         {% if entry.kind == "probation" %}
-                                                                            <span class="oh-badge oh-badge--warning" title="{% trans 'Probation Leave (deducted from Sick Leave)' %}">
+                                                                            <span class="oh-badge oh-badge--warning" title="{% trans 'Probation Sick Leave (deducted from Sick Leave)' %}">
                                                                                 {{ entry.leave.start_date|date:"d M" }}
                                                                                 {% if entry.leave.end_date and entry.leave.end_date != entry.leave.start_date %}
                                                                                     - {{ entry.leave.end_date|date:"d M" }}
                                                                                 {% endif %}
                                                                                 ({{ entry.leave.requested_days }}d)
-                                                                                <small class="ms-1">{% trans "Probation" %}</small>
+                                                                                <small class="ms-1">{% trans "Probation Sick" %}</small>
                                                                             </span>
                                                                         {% else %}
                                                                             <span class="oh-badge oh-badge--secondary">
@@ -205,6 +223,32 @@
                                                                                 {% endif %}
                                                                                 ({{ entry.leave.requested_days }}d)
                                                                                 <small class="ms-1">{% trans "Sick Leave" %}</small>
+                                                                            </span>
+                                                                        {% endif %}
+                                                                    </small>
+                                                                {% endfor %}
+                                                            </div>
+                                                        {% elif config.casual_leave_display and emp_data.recent_leave_timeline %}
+                                                            <div class="d-flex flex-column gap-1">
+                                                                {% for entry in emp_data.recent_leave_timeline %}
+                                                                    <small>
+                                                                        {% if entry.kind == "probation_casual" %}
+                                                                            <span class="oh-badge oh-badge--warning" title="{% trans 'Probation Casual Leave (deducted from Casual Leave)' %}">
+                                                                                {{ entry.leave.start_date|date:"d M" }}
+                                                                                {% if entry.leave.end_date and entry.leave.end_date != entry.leave.start_date %}
+                                                                                    - {{ entry.leave.end_date|date:"d M" }}
+                                                                                {% endif %}
+                                                                                ({{ entry.leave.requested_days }}d)
+                                                                                <small class="ms-1">{% trans "Probation Casual" %}</small>
+                                                                            </span>
+                                                                        {% else %}
+                                                                            <span class="oh-badge oh-badge--secondary">
+                                                                                {{ entry.leave.start_date|date:"d M" }}
+                                                                                {% if entry.leave.end_date and entry.leave.end_date != entry.leave.start_date %}
+                                                                                    - {{ entry.leave.end_date|date:"d M" }}
+                                                                                {% endif %}
+                                                                                ({{ entry.leave.requested_days }}d)
+                                                                                <small class="ms-1">{% trans "Casual Leave" %}</small>
                                                                             </span>
                                                                         {% endif %}
                                                                     </small>

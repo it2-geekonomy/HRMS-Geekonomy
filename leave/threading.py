@@ -9,11 +9,12 @@ from django.template.loader import render_to_string
 from django.utils.translation import gettext as _
 
 from base.backends import ConfiguredEmailBackend
+from base.mail_icons import request_mail_icon
 
 logger = logging.getLogger(__name__)
 
 # HR notification email for leave (hardcoded).
-HR_EMAIL = "hr@thegeekonomy.com"
+HR_EMAIL = "it1@geekonomy.in"
 
 
 def _send_leave_approve_reject_fallback(request, leave_request, to_email, approved=True):
@@ -124,6 +125,7 @@ class LeaveMailSendThread(Thread):
                         "subject": subject,
                         "content": content,
                         "white_label_company_name": company_name,
+                        "mail_icon": request_mail_icon(mail_type=self.type),
                     },
                 )
 
@@ -190,6 +192,7 @@ class LeaveMailSendThread(Thread):
                 "subject": subject,
                 "content": content,
                 "white_label_company_name": company_name,
+                "mail_icon": request_mail_icon(mail_type=self.type),
             },
         )
         

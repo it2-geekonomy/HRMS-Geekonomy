@@ -45,8 +45,12 @@ LEAVE_MAX_LIMIT = 1e5
 FULL_DAY_ONLY_LEAVE_TYPES = (
     "Earned Leave",
     "Sick Leave",
+    "Probation Sick Leave",
+    "Probation Sick Leave (PSL)",
     "Probation Leave",
     "Probation Leave (PL)",
+    "Probation Casual Leave",
+    "Probation Casual Leave (PCL)",
     "Interns Leave",
 )
 

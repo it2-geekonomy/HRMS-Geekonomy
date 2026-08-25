@@ -16,8 +16,17 @@ EARNED_LEAVE_NAMES = ("Earned Leave", "Earned Leave (EL)", "Earned Leave – Pai
 # Casual Leave: monthly 1/day, carryforward cap 12 (any of these in DB).
 CASUAL_LEAVE_NAMES = ("Casual Leave", "Casual Leave (CL)", "Casual Leave – Paid")
 
-# Probation Leave & Interns Leave: 1 per month, no carryforward (include name variants after rename).
-PROBATION_LEAVE_NAMES = ("Probation Leave", "Probation Leave (PL)")
+# Probation Leave, Probation Casual Leave & Interns Leave: 1 per month, no carryforward
+PROBATION_LEAVE_NAMES = (
+    "Probation Sick Leave",
+    "Probation Sick Leave (PSL)",
+    "Probation Leave",
+    "Probation Leave (PL)",
+)
+PROBATION_CASUAL_LEAVE_NAMES = (
+    "Probation Casual Leave",
+    "Probation Casual Leave (PCL)",
+)
 INTERNS_LEAVE_NAMES = ("Interns Leave",)
 
 COMP_OFF_LEAVE_NAMES = ("Comp Off Leave",)
@@ -51,12 +60,11 @@ def leave_reset():
             and leave_type.reset_based == "monthly"
             and round(float(leave_type.total_days or 0), 2) == 1.0
         )
-        # Probation Leave & Interns Leave: 1 per month, no carryforward
+        # Probation Leave, Probation Casual Leave & Interns Leave: 1 per month, no carryforward
         is_probation_accrual = (
             leave_type.name in PROBATION_LEAVE_NAMES
-            and leave_type.reset_based == "monthly"
-            and round(float(leave_type.total_days or 0), 2) == 1.0
-        )
+            or leave_type.name in PROBATION_CASUAL_LEAVE_NAMES
+        ) and leave_type.reset_based == "monthly" and round(float(leave_type.total_days or 0), 2) == 1.0
         is_interns_accrual = (
             leave_type.name in INTERNS_LEAVE_NAMES
             and leave_type.reset_based == "monthly"
@@ -132,10 +140,8 @@ def leave_reset():
                     )
                     available_leave.reset_date = new_reset_date
                     available_leave.save()
-            # On 1st of month: Probation Leave / Interns Leave (1 per month, no carryforward).
-            # Add 1 for the new month but keep previous month's unused balance so employee can
-            # still apply for the previous month (e.g. in Feb apply for Jan). Cap at 2 so we
-            # don't accumulate indefinitely (at most: previous + current month).
+            # On 1st of month: Probation Leave / Probation Casual Leave / Interns Leave
+            # (1 per month, no carryforward). Cap at 2 (previous + current month).
             elif (
                 (is_probation_accrual or is_interns_accrual)
                 and today_date.day == 1

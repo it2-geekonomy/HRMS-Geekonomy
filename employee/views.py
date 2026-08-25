@@ -4204,7 +4204,7 @@ def _set_probation_action(request, emp_id, action, save_complete_date=False):
 def probation_confirm(request, emp_id):
     """
     On Confirm: set probation_action to confirmed, save Probation Will Complete Date,
-    then remove Probation Leave (PL) and assign EL / SL / CL.
+    then remove Probation Sick Leave (PSL) and assign EL / SL / CL.
     """
     emp = _set_probation_action(request, emp_id, "confirmed", save_complete_date=True)
     if apps.is_installed("leave"):
@@ -4222,8 +4222,10 @@ def probation_confirm(request, emp_id):
                 messages.success(
                     request,
                     _(
-                        "Probation confirmed for %(name)s. Probation Leave removed and "
-                        "Earned Leave, Sick Leave, and Casual Leave assigned."
+                        "Probation confirmed for %(name)s. Probation Sick Leave and Probation "
+                        "Casual Leave removed. Earned Leave, Sick Leave, and Casual Leave "
+                        "assigned (Probation Sick Leave deducted from Sick Leave; Probation "
+                        "Casual Leave deducted from Casual Leave)."
                     )
                     % {"name": emp},
                 )
@@ -4336,7 +4338,7 @@ def probation_revert(request, emp_id):
     """
     Undo Extend / Confirm / Reject within 5 days: clear probation_action so the
     employee returns to Active. For Confirm only, also undo leave switch (remove
-    EL/CL/SL and restore Probation Leave). For Extend, also clear custom end date.
+    EL/CL/SL and restore Probation Sick Leave). For Extend, also clear custom end date.
     """
     emp = get_object_or_404(Employee, id=emp_id, is_active=True)
     work_info = getattr(emp, "employee_work_info", None)
@@ -4400,7 +4402,7 @@ def probation_revert(request, emp_id):
                     request,
                     _(
                         "%(action)s reverted for %(name)s. Regular leave removed and "
-                        "Probation Leave restored. Employee is back on Active."
+                        "Probation Sick Leave / Probation Casual Leave restored. Employee is back on Active."
                     )
                     % {"action": action_label, "name": emp},
                 )
