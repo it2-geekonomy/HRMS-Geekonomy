@@ -370,12 +370,9 @@ class Contract(HorillaModel):
         super().save(*args, **kwargs)
         if self.contract_status == "active" and self.wage is not None:
             try:
-                wage_int = int(self.wage)
                 work_info = self.employee_id.employee_work_info
-                work_info.basic_salary = wage_int
+                work_info.basic_salary = self.wage
                 work_info.save()
-            except ValueError:
-                logger.error((f"Failed to convert wage '{self.wage}' to an integer."))
             except Exception as e:
                 logger.error(f"An unexpected error occurred: {e}")
         return self

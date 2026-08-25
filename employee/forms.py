@@ -302,6 +302,10 @@ class EmployeeWorkInformationForm(ModelForm):
     def __init__(self, *args, disable=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["email"].widget.attrs["autocomplete"] = "email"
+        if "basic_salary" in self.fields:
+            self.fields["basic_salary"].widget.attrs.update(
+                {"step": "0.01", "inputmode": "decimal"}
+            )
 
         self.fields["job_position_id"].widget.attrs.update(
             {
@@ -397,7 +401,11 @@ class EmployeeWorkInformationUpdateForm(ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
+        if "basic_salary" in self.fields:
+            self.fields["basic_salary"].widget.attrs.update(
+                {"step": "0.01", "inputmode": "decimal"}
+            )
+
         # Filter teams based on selected department
         if 'department_id' in self.data and self.data['department_id']:
             department_id = self.data['department_id']

@@ -190,7 +190,11 @@
       if (num === 0) return 'Zero Rupees Only';
       function convertHundreds(n) {
         let result = '';
-        if (n > 99) { result += ones[Math.floor(n / 100)] + ' Hundred '; n %= 100; }
+        if (n > 99) {
+          result += ones[Math.floor(n / 100)] + ' Hundred ';
+          n %= 100;
+          if (n > 0) result += 'and ';
+        }
         if (n > 19) { result += tens[Math.floor(n / 10)] + ' '; n %= 10; }
         else if (n > 9) { result += teens[n - 10] + ' '; return result; }
         if (n > 0) result += ones[n] + ' ';
@@ -361,7 +365,7 @@
         <tr class="words-row">
           <td class="label">{% trans "Net Salary In Words" %}</td>
           <td colspan="3" id="amount-in-words" data-net-pay="{{ net_pay|floatformat:0 }}"{% if net_pay_in_words %} data-server-rendered="1"{% endif %}>
-            {% if net_pay_in_words %}{{ net_pay_in_words|title }}{% else %}{% trans "Loading..." %}{% endif %}
+            {% if net_pay_in_words %}{{ net_pay_in_words }}{% else %}{% trans "Loading..." %}{% endif %}
           </td>
         </tr>
       </table>

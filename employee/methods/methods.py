@@ -921,11 +921,15 @@ def bulk_create_work_info_import(success_lists):
             if not pd.isnull(work_info["Contract End Date"])
             else None
         )
-        basic_salary = (
-            convert_nan("Basic Salary", work_info)
-            if type(convert_nan("Basic Salary", work_info)) is int
-            else 0
-        )
+        basic_salary_raw = convert_nan("Basic Salary", work_info)
+        try:
+            basic_salary = (
+                float(basic_salary_raw)
+                if basic_salary_raw not in [None, ""]
+                else 0
+            )
+        except (TypeError, ValueError):
+            basic_salary = 0
         salary_hour = (
             convert_nan("Salary Hour", work_info)
             if type(convert_nan("Salary Hour", work_info)) is int

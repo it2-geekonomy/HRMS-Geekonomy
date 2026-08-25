@@ -1038,6 +1038,9 @@ def view_salary_data(request):
     get_key_instances(MonthlySalaryData, data_dict)
     generate_form = GenerateSalaryDataForm()
     month_choices = [(i, calendar.month_abbr[i]) for i in range(1, 13)]
+    pagination_params = request.GET.copy()
+    pagination_params.pop("page", None)
+    pagination_qs = pagination_params.urlencode()
     context = {
         "salary_data_list": salary_data_list,
         "salary_data_start_index": salary_data_list.start_index(),
@@ -1046,6 +1049,7 @@ def view_salary_data(request):
         "month_choices": month_choices,
         "total_final_salary": total_final_salary,
         "show_archived_only": show_archived_only,
+        "pagination_qs": pagination_qs,
     }
     return render(request, "payroll/salary_data/salary_data_list.html", context)
 
@@ -2724,10 +2728,35 @@ def _build_payslip_line_rows(data):
 
 
 def _number_to_words_indian(n):
-    """Convert integer amount to Indian style words, e.g. 23550 -> 'TWENTY THREE THOUSAND FIVE HUNDRED FIFTY RUPEES ONLY'."""
+    """
+    Convert amount to Indian-style words with 'and' before tens/ones after Hundred.
+    e.g. 28446 -> 'Twenty Eight Thousand Four Hundred and Forty Six Rupees Only'
+    """
     ones = ["", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE"]
-    teens = ["TEN", "ELEVEN", "TWELVE", "THIRTEEN", "FOURTEEN", "FIFTEEN", "SIXTEEN", "SEVENTEEN", "EIGHTEEN", "NINETEEN"]
-    tens = ["", "", "TWENTY", "THIRTY", "FORTY", "FIFTY", "SIXTY", "SEVENTY", "EIGHTY", "NINETY"]
+    teens = [
+        "TEN",
+        "ELEVEN",
+        "TWELVE",
+        "THIRTEEN",
+        "FOURTEEN",
+        "FIFTEEN",
+        "SIXTEEN",
+        "SEVENTEEN",
+        "EIGHTEEN",
+        "NINETEEN",
+    ]
+    tens = [
+        "",
+        "",
+        "TWENTY",
+        "THIRTY",
+        "FORTY",
+        "FIFTY",
+        "SIXTY",
+        "SEVENTY",
+        "EIGHTY",
+        "NINETY",
+    ]
     n = int(round(float(n)))
 
     def hundreds(val):
@@ -2737,6 +2766,9 @@ def _number_to_words_indian(n):
         if val >= 100:
             out += ones[val // 100] + " HUNDRED "
             val %= 100
+            # "Four Hundred and Forty Six" — 'and' before tens/ones
+            if val > 0:
+                out += "AND "
         if val >= 20:
             out += tens[val // 10] + " "
             val %= 10
@@ -2748,7 +2780,7 @@ def _number_to_words_indian(n):
         return out
 
     if n == 0:
-        return "ZERO RUPEES ONLY"
+        return "Zero Rupees Only"
     out = ""
     if n >= 100000:
         out += hundreds(n // 100000) + "LAKH "
@@ -2757,7 +2789,9 @@ def _number_to_words_indian(n):
         out += hundreds(n // 1000) + "THOUSAND "
         n %= 1000
     out += hundreds(n)
-    return (out.strip() or "ZERO") + " RUPEES ONLY"
+    words = ((out.strip() or "ZERO") + " RUPEES ONLY").title()
+    # Keep connector lowercase: "... Hundred and Forty Six ..."
+    return words.replace(" And ", " and ")
 
 
 def _payslip_logo_src(host, protocol):

@@ -890,8 +890,13 @@ class EmployeeWorkInformation(models.Model):
             "Updated when probation is extended."
         ),
     )
-    basic_salary = models.IntegerField(
-        null=True, blank=True, default=0, verbose_name=_("Basic Salary")
+    basic_salary = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        default=0,
+        verbose_name=_("Basic Salary"),
     )
     salary_hour = models.IntegerField(
         null=True, blank=True, default=0, verbose_name=_("Salary Per Hour")
