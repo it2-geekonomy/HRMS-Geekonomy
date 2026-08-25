@@ -150,19 +150,42 @@ def attendance_post_save(sender, instance, **kwargs):
 
     # Handle leave records
     if work_record.is_leave_record:
-        if status == "HDP":
+        leave_req = getattr(work_record, "leave_request_id", None)
+        is_half_leave = False
+        if leave_req is not None:
+            try:
+                from leave.signals import _is_half_day_leave_on_date
+
+                is_half_leave = _is_half_day_leave_on_date(
+                    leave_req, instance.attendance_date
+                )
+            except Exception:
+                is_half_leave = False
+
+        # Half-day leave + half/full/short presence → keep attendance type (calendar HP/L / SP/L)
+        if is_half_leave and status in ("HDP", "FDP", "SP"):
+            message = _("Half day present + leave")
+            work_record.work_record_type = status
+            work_record.message = message
+        elif status == "HDP":
             message = _("Half day leave")
             status = "HD"  # Change to Holiday/Leave status
+            work_record.work_record_type = status
+            work_record.message = message
         elif status == "SP":
             message = _("Short presence with leave")
-            status = "HD"  # Change to Holiday/Leave status
+            status = "HD"
+            work_record.work_record_type = status
+            work_record.message = message
         elif status == "FDP":
             message = _("On leave but attendance exists")
-            status = "HD"  # Change to Holiday/Leave status
+            status = "HD"
+            work_record.work_record_type = status
+            work_record.message = message
         else:
             message = _("An approved leave exists")
-        work_record.work_record_type = status
-        work_record.message = message
+            work_record.work_record_type = status
+            work_record.message = message
 
     work_record.save()
 

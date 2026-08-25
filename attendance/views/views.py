@@ -2419,6 +2419,35 @@ def _build_leave_request_cell_map(leave_requests_queryset, month_dates_set):
     return leave_request_cell_keys, leave_request_cell_urls
 
 
+def _classify_leave_attendance_overlay(wr, employee_id, day, is_half, pl_dates, hp_l_dates, sp_l_dates):
+    """
+    Mark calendar overlay keys for present+leave combinations.
+    Half-day leave + FDP/HDP (or L wrongly stored with attendance) → HP/L.
+    """
+    if not wr:
+        return
+    key = f"{employee_id}_{day.isoformat()}"
+    if is_half:
+        if wr.work_record_type == "FDP":
+            hp_l_dates.add(key)
+        elif wr.work_record_type == "HDP":
+            hp_l_dates.add(key)
+        elif wr.work_record_type == "SP":
+            sp_l_dates.add(key)
+        elif wr.work_record_type == "L" and (
+            wr.is_attendance_record
+            or bool(getattr(wr, "attendance_id_id", None))
+            or (getattr(wr, "at_work_second", None) or 0) > 0
+        ):
+            # Leave approval overwrote HDP→L; still show HP/L when attendance exists
+            hp_l_dates.add(key)
+    else:
+        if wr.work_record_type == "FDP":
+            pl_dates.add(key)
+        elif wr.work_record_type == "SP":
+            sp_l_dates.add(key)
+
+
 @login_required
 def work_records(request):
     today = date.today()
@@ -2573,19 +2602,14 @@ def work_records_change_month(request):
                 )
                 if is_half:
                     wr = work_records_dict.get((lr["employee_id"], d))
-                    if wr:
-                        if wr.work_record_type == "FDP":
-                            hp_l_dates.add(f"{lr['employee_id']}_{d.isoformat()}")
-                        elif wr.work_record_type == "HDP":
-                            hp_l_dates.add(f"{lr['employee_id']}_{d.isoformat()}")
-                        elif wr.work_record_type == "SP":
-                            sp_l_dates.add(f"{lr['employee_id']}_{d.isoformat()}")
+                    _classify_leave_attendance_overlay(
+                        wr, lr["employee_id"], d, True, pl_dates, hp_l_dates, sp_l_dates
+                    )
                 else:
                     wr = work_records_dict.get((lr["employee_id"], d))
-                    if wr and wr.work_record_type == "FDP":
-                        pl_dates.add(f"{lr['employee_id']}_{d.isoformat()}")
-                    elif wr and wr.work_record_type == "SP":
-                        sp_l_dates.add(f"{lr['employee_id']}_{d.isoformat()}")
+                    _classify_leave_attendance_overlay(
+                        wr, lr["employee_id"], d, False, pl_dates, hp_l_dates, sp_l_dates
+                    )
 
     # (employee_id, date) keys for cells that have a pending Attendance Request – use same
     # visibility as request-attendance-view. Include requests where attendance_date OR
@@ -2769,19 +2793,14 @@ def my_work_records_change_month(request):
                 )
                 if is_half:
                     wr = work_records_dict.get(d)
-                    if wr:
-                        if wr.work_record_type == "FDP":
-                            hp_l_dates.add(f"{employee.id}_{d.isoformat()}")
-                        elif wr.work_record_type == "HDP":
-                            hp_l_dates.add(f"{employee.id}_{d.isoformat()}")
-                        elif wr.work_record_type == "SP":
-                            sp_l_dates.add(f"{employee.id}_{d.isoformat()}")
+                    _classify_leave_attendance_overlay(
+                        wr, employee.id, d, True, pl_dates, hp_l_dates, sp_l_dates
+                    )
                 else:
                     wr = work_records_dict.get(d)
-                    if wr and wr.work_record_type == "FDP":
-                        pl_dates.add(f"{employee.id}_{d.isoformat()}")
-                    elif wr and wr.work_record_type == "SP":
-                        sp_l_dates.add(f"{employee.id}_{d.isoformat()}")
+                    _classify_leave_attendance_overlay(
+                        wr, employee.id, d, False, pl_dates, hp_l_dates, sp_l_dates
+                    )
 
     # (employee_id, date) keys for cells with a pending Attendance Request (own requests only)
     month_dates_set = set(month_dates)
@@ -2947,19 +2966,14 @@ def _work_record_export_data(request):
                 )
                 if is_half:
                     wr = work_records_dict.get((lr["employee_id"], d))
-                    if wr:
-                        if wr.work_record_type == "FDP":
-                            hp_l_dates.add(f"{lr['employee_id']}_{d.isoformat()}")
-                        elif wr.work_record_type == "HDP":
-                            hp_l_dates.add(f"{lr['employee_id']}_{d.isoformat()}")
-                        elif wr.work_record_type == "SP":
-                            sp_l_dates.add(f"{lr['employee_id']}_{d.isoformat()}")
+                    _classify_leave_attendance_overlay(
+                        wr, lr["employee_id"], d, True, pl_dates, hp_l_dates, sp_l_dates
+                    )
                 else:
                     wr = work_records_dict.get((lr["employee_id"], d))
-                    if wr and wr.work_record_type == "FDP":
-                        pl_dates.add(f"{lr['employee_id']}_{d.isoformat()}")
-                    elif wr and wr.work_record_type == "SP":
-                        sp_l_dates.add(f"{lr['employee_id']}_{d.isoformat()}")
+                    _classify_leave_attendance_overlay(
+                        wr, lr["employee_id"], d, False, pl_dates, hp_l_dates, sp_l_dates
+                    )
 
     # Attendance Request Raised (AR): same logic as calendar so Excel shows AR correctly
     month_dates_set = set(all_date_objects)
@@ -3085,7 +3099,13 @@ def _work_record_export_data(request):
             elif val == "MP":
                 val = "MP"
             elif val in ("L", "HD"):
-                val = "L"
+                cell_key = f"{employee.id}_{day.isoformat()}"
+                if cell_key in hp_l_dates:
+                    val = "HP/L"
+                elif cell_key in sp_l_dates:
+                    val = "SP/L"
+                else:
+                    val = "L"
             elif val == "CONF":
                 val = "AR"
             # Attendance Request Raised: show AR (same as calendar)

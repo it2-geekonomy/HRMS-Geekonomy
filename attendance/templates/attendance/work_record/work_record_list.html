@@ -229,7 +229,13 @@
                                     background-color: #607d8b; color: #fff;
                                 {% endif %}
                             {% elif work_record.is_leave_record %}
-                                background-color: #808080; color: #fff;
+                                {% if day|hp_p_key:employee.id in hp_l_dates %}
+                                    background-color: #dfdf52; color: #000;
+                                {% elif day|hp_p_key:employee.id in sp_l_dates %}
+                                    background-color: #ff6b6b; color: #fff;
+                                {% else %}
+                                    background-color: #808080; color: #fff;
+                                {% endif %}
                             {% elif work_record.work_record_type == 'ABS' or work_record.work_record_type == 'DFT' %}
                                 {% if effective_from and day >= effective_from and day <= current_date %}
                                     background-color: #2196F3; color: #fff;
@@ -296,7 +302,7 @@
                                     {% elif work_record.work_record_type == 'SP' %}{% if day|hp_p_key:employee.id in sp_l_dates %}SP/L{% else %}SP{% endif %}
                                     {% elif work_record.work_record_type == 'MP' %} MP
                                     {% elif work_record.work_record_type == 'HD' %}{% if day in holiday_dates %}PH{% else %}WO{% endif %}
-                                    {% elif work_record.is_leave_record %} L
+                                    {% elif work_record.is_leave_record %}{% if day|hp_p_key:employee.id in hp_l_dates %}HP/L{% elif day|hp_p_key:employee.id in sp_l_dates %}SP/L{% else %} L{% endif %}
                                     {% endif %}
                                 </a>
                             </div>

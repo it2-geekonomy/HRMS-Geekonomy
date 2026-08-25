@@ -14,6 +14,56 @@ logger = logging.getLogger(__name__)
 # Store old joining date to detect changes
 _old_joining_dates = {}
 
+ATTENDANCE_PRESENT_TYPES = ("FDP", "HDP", "SP")
+
+
+def _is_half_day_leave_on_date(leave_request, leave_date):
+    """True when this calendar date is half-day leave (first/second half), not full day."""
+    start = leave_request.start_date
+    end = leave_request.end_date or start
+    if leave_request.requested_days == 0.5 and start == end:
+        return True
+    if leave_date == start and leave_request.start_date_breakdown in (
+        "first_half",
+        "second_half",
+    ):
+        return True
+    if leave_date == end and leave_request.end_date_breakdown in (
+        "first_half",
+        "second_half",
+    ):
+        return True
+    return False
+
+
+def _restore_attendance_type_from_hours(work_record):
+    """
+    Infer FDP/HDP/SP from stored worked hours when leave wrongly overwrote type to L.
+    Returns restored type or None if hours are missing.
+    """
+    at_work = getattr(work_record, "at_work_second", None) or 0
+    if at_work <= 0 and work_record.attendance_id_id:
+        try:
+            from attendance.methods.utils import strtime_seconds
+
+            att = work_record.attendance_id
+            if att and att.attendance_worked_hour:
+                at_work = strtime_seconds(att.attendance_worked_hour)
+                work_record.at_work = att.attendance_worked_hour
+                work_record.at_work_second = at_work
+        except Exception:
+            pass
+    if at_work <= 0:
+        return None
+    # Same thresholds as attendance_post_save (8h full, 2h half, else short)
+    FULL_DAY_SECONDS = 8 * 3600
+    SHORT_PRESENCE_SECONDS = 2 * 3600
+    if at_work >= FULL_DAY_SECONDS:
+        return "FDP"
+    if at_work >= SHORT_PRESENCE_SECONDS:
+        return "HDP"
+    return "SP"
+
 
 def connect_signals():
     """Connect signals after apps are loaded to avoid circular imports"""
@@ -48,7 +98,7 @@ def auto_credit_leave_on_joining_date(sender, instance, created, **kwargs):
 def create_work_records_for_leave(sender, instance, created, **kwargs):
     """
     Create or update work records when leave requests are approved/rejected/cancelled.
-    This ensures "L" (Leave) appears in work records when an employee is on leave.
+    Full-day leave → "L". Half-day leave with attendance kept as HDP/FDP/SP → calendar shows HP/L.
     """
     # Only process if leave app is installed
     if not apps.is_installed('attendance'):
@@ -84,6 +134,7 @@ def create_work_records_for_leave(sender, instance, created, **kwargs):
             for leave_date in period_dates:
                 # Check if this date is a holiday or company leave (WO/PH)
                 is_holiday_or_company_leave = leave_date in excluded_dates
+                is_half = _is_half_day_leave_on_date(instance, leave_date)
 
                 # Determine the work record type - use 'HD' for holidays/company leaves, 'L' for regular leave
                 work_record_type = 'HD' if is_holiday_or_company_leave else 'L'
@@ -96,18 +147,46 @@ def create_work_records_for_leave(sender, instance, created, **kwargs):
                         'work_record_type': work_record_type,
                         'is_leave_record': True,
                         'leave_request_id': instance,
-                        'message': _("On leave"),
+                        'message': _("Half day leave") if is_half else _("On leave"),
                     }
                 )
 
                 # Update existing work record if it wasn't created
                 if not work_record_created:
-                    # Always set the correct work record type based on holiday/company leave status
                     # Holiday/company leave (WO/PH) takes priority over attendance
+                    if is_holiday_or_company_leave:
+                        work_record.work_record_type = "HD"
+                        work_record.is_leave_record = True
+                        work_record.leave_request_id = instance
+                        work_record.message = _("On leave")
+                        work_record.save()
+                        continue
+
+                    # Half-day leave + existing present/half/short presence → keep attendance type
+                    # so calendar shows HP/L (first or second half leave + other half present).
+                    has_attendance = (
+                        work_record.is_attendance_record
+                        or work_record.work_record_type in ATTENDANCE_PRESENT_TYPES
+                        or bool(work_record.attendance_id_id)
+                        or (work_record.at_work_second or 0) > 0
+                    )
+                    if is_half and has_attendance:
+                        if work_record.work_record_type not in ATTENDANCE_PRESENT_TYPES:
+                            restored = _restore_attendance_type_from_hours(work_record)
+                            if restored:
+                                work_record.work_record_type = restored
+                        work_record.is_leave_record = True
+                        work_record.leave_request_id = instance
+                        work_record.message = _("Half day leave")
+                        work_record.save()
+                        continue
+
                     work_record.work_record_type = work_record_type
                     work_record.is_leave_record = True
                     work_record.leave_request_id = instance
-                    work_record.message = _("On leave")
+                    work_record.message = (
+                        _("Half day leave") if is_half else _("On leave")
+                    )
                     work_record.save()
                 
         elif instance.status in ["rejected", "cancelled"]:

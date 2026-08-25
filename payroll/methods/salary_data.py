@@ -211,7 +211,15 @@ def get_paid_leave_days_for_employee(employee_id, month: int, year: int) -> floa
         if rec.date in wo_ph_dates:
             continue
         if rec.work_record_type == "L":
-            paid_leave += 1
+            # Half-day leave wrongly stored as L (with attendance) → 0.5 leave day
+            if rec.date in half_leave_dates and (
+                rec.is_attendance_record
+                or bool(getattr(rec, "attendance_id_id", None))
+                or (getattr(rec, "at_work_second", None) or 0) > 0
+            ):
+                paid_leave += 0.5
+            else:
+                paid_leave += 1
         elif rec.date in full_leave_dates and rec.work_record_type in (
             "FDP",
             "HDP",
