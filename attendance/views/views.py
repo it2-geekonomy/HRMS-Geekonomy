@@ -2434,18 +2434,97 @@ def _classify_leave_attendance_overlay(wr, employee_id, day, is_half, pl_dates, 
             hp_l_dates.add(key)
         elif wr.work_record_type == "SP":
             sp_l_dates.add(key)
-        elif wr.work_record_type == "L" and (
-            wr.is_attendance_record
-            or bool(getattr(wr, "attendance_id_id", None))
-            or (getattr(wr, "at_work_second", None) or 0) > 0
-        ):
-            # Leave approval overwrote HDP→L; still show HP/L when attendance exists
-            hp_l_dates.add(key)
+        elif wr.work_record_type == "L":
+            # Leave approval often overwrote HDP→L. Prefer work-record hours,
+            # else look up Attendance for that day (live data may have cleared flags).
+            has_att = (
+                wr.is_attendance_record
+                or bool(getattr(wr, "attendance_id_id", None))
+                or (getattr(wr, "at_work_second", None) or 0) > 0
+            )
+            if not has_att:
+                has_att = Attendance.objects.filter(
+                    employee_id_id=employee_id,
+                    attendance_date=day,
+                ).exists()
+            if has_att:
+                hp_l_dates.add(key)
     else:
         if wr.work_record_type == "FDP":
             pl_dates.add(key)
         elif wr.work_record_type == "SP":
             sp_l_dates.add(key)
+
+
+def _repair_half_leave_l_records(employee_ids, month_dates):
+    """
+    Fix live data: half-day leave + attendance stored as L → restore HDP/FDP/SP.
+    Safe to call on calendar load; only updates matching bad rows.
+    """
+    if not apps.is_installed("leave") or not employee_ids or not month_dates:
+        return 0
+    from leave.models import LeaveRequest, leave_requested_dates
+    from leave.signals import (
+        _is_half_day_leave_on_date,
+        _restore_attendance_type_from_hours,
+    )
+
+    first_day = month_dates[0]
+    last_day = month_dates[-1]
+    month_dates_set = set(month_dates)
+    leaves = LeaveRequest.objects.filter(
+        status="approved",
+        employee_id__in=employee_ids,
+        start_date__lte=last_day,
+        end_date__gte=first_day,
+    ).select_related("employee_id")
+
+    fixed = 0
+    for lr in leaves:
+        end = lr.end_date or lr.start_date
+        for d in leave_requested_dates(lr.start_date, end):
+            if d not in month_dates_set:
+                continue
+            if not _is_half_day_leave_on_date(lr, d):
+                continue
+            wr = WorkRecords.objects.filter(
+                employee_id=lr.employee_id, date=d
+            ).first()
+            if not wr or wr.work_record_type != "L":
+                continue
+            has_att = (
+                wr.is_attendance_record
+                or bool(wr.attendance_id_id)
+                or (wr.at_work_second or 0) > 0
+                or Attendance.objects.filter(
+                    employee_id=lr.employee_id, attendance_date=d
+                ).exists()
+            )
+            if not has_att:
+                continue
+            # Attach attendance hours if missing
+            if (wr.at_work_second or 0) <= 0:
+                att = Attendance.objects.filter(
+                    employee_id=lr.employee_id, attendance_date=d
+                ).first()
+                if att:
+                    wr.attendance_id = att
+                    wr.is_attendance_record = True
+                    if att.attendance_worked_hour:
+                        from attendance.methods.utils import strtime_seconds
+
+                        wr.at_work = att.attendance_worked_hour
+                        wr.at_work_second = strtime_seconds(att.attendance_worked_hour)
+            restored = _restore_attendance_type_from_hours(wr)
+            if not restored:
+                restored = "HDP"
+            wr.work_record_type = restored
+            wr.is_leave_record = True
+            wr.leave_request_id = lr
+            wr.message = "Half day leave"
+            wr.save()
+            fixed += 1
+    return fixed
 
 
 @login_required
@@ -2530,6 +2609,10 @@ def work_records_change_month(request):
         if day
     ]
 
+    employee_ids = [e.id for e in employees]
+    # Repair live L rows that should be HP/L (half leave + attendance) before rendering
+    _repair_half_leave_l_records(employee_ids, month_dates)
+
     work_records = WorkRecords.objects.filter(
         date__in=month_dates, employee_id__in=employees
     ).select_related("employee_id", "shift_id", "attendance_id")
@@ -2538,7 +2621,6 @@ def work_records_change_month(request):
 
     # Effective-from date per employee: show A (Absent) only on/after this date when no data; before it show block.
     # Use joining date or first attendance date, whichever is available.
-    employee_ids = [e.id for e in employees]
     joining_by_emp = {
         row["employee_id"]: row["date_joining"]
         for row in EmployeeWorkInformation.objects.filter(
@@ -2585,7 +2667,6 @@ def work_records_change_month(request):
             status="approved",
             employee_id__in=employee_ids,
             start_date__lte=last_day,
-            start_date__gte=first_day,
         ).filter(Q(end_date__gte=first_day) | Q(end_date__isnull=True)).values(
             "employee_id", "start_date", "end_date", "requested_days",
             "start_date_breakdown", "end_date_breakdown"
@@ -2739,6 +2820,8 @@ def my_work_records_change_month(request):
         if day
     ]
 
+    _repair_half_leave_l_records([employee.id], month_dates)
+
     work_records = WorkRecords.objects.filter(
         date__in=month_dates, employee_id=employee
     ).select_related("employee_id", "shift_id", "attendance_id")
@@ -2776,7 +2859,6 @@ def my_work_records_change_month(request):
             status="approved",
             employee_id=employee,
             start_date__lte=last_day,
-            start_date__gte=first_day,
         ).filter(Q(end_date__gte=first_day) | Q(end_date__isnull=True)).values(
             "employee_id", "start_date", "end_date", "requested_days",
             "start_date_breakdown", "end_date_breakdown"
@@ -2915,14 +2997,16 @@ def _work_record_export_data(request):
     )
     employee_ids = [e.id for e in employees]
 
+    num_days = calendar.monthrange(year, month)[1]
+    all_date_objects = [date(year, month, day) for day in range(1, num_days + 1)]
+    _repair_half_leave_l_records(employee_ids, all_date_objects)
+
     records = WorkRecords.objects.filter(
         date__month=month,
         date__year=year,
         date__lte=date.today(),
         employee_id__in=employee_ids,
     ).select_related("employee_id")
-    num_days = calendar.monthrange(year, month)[1]
-    all_date_objects = [date(year, month, day) for day in range(1, num_days + 1)]
     leave_dates = set(monthly_leave_days(month, year))
     holiday_dates = set(monthly_holiday_dates(month, year))
 
@@ -2949,7 +3033,6 @@ def _work_record_export_data(request):
             status="approved",
             employee_id__in=employee_ids,
             start_date__lte=last_day,
-            start_date__gte=first_day,
         ).filter(Q(end_date__gte=first_day) | Q(end_date__isnull=True)).values(
             "employee_id", "start_date", "end_date", "requested_days",
             "start_date_breakdown", "end_date_breakdown"
