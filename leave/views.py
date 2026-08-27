@@ -5835,7 +5835,7 @@ def _build_leave_configuration_data(request, apply_filters=False):
                 prob_stats = get_probation_period_leave_balance_stats(av_leave)
                 total_leave_days = prob_stats["yearly_total"]
                 accrued_days = prob_stats["accrued_days"]
-                available_days = prob_stats["available_days"]
+                available_days = prob_stats["bucket_days"]
                 leave_taken = prob_stats["leave_taken"]
                 carryforward_days = 0
             elif computed_balance is not None:
@@ -5969,9 +5969,17 @@ def _build_leave_configuration_data(request, apply_filters=False):
                 "(e.g. 4 months − 1 PCL = 3 available)"
             )
         if probation_period_leave_display:
-            rules.append(
-                "Max 2 days in bucket (current + previous month; no further carry forward)"
-            )
+            if is_probation_sick_leave_type(leave_type) or is_probation_casual_leave_type(
+                leave_type
+            ):
+                rules.append(
+                    "Total: 3 days (3-month probation × 1 day/month); "
+                    "bucket holds max 2 at once (current + previous month)"
+                )
+            else:
+                rules.append(
+                    "Max 2 days in bucket (current + previous month; no further carry forward)"
+                )
             if is_probation_sick_leave_type(leave_type):
                 rules.append(
                     "On confirm: taken days are deducted from yearly Sick Leave"

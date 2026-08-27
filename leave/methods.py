@@ -33,6 +33,7 @@ PROBATION_CASUAL_LEAVE_NAMES = (
     "Probation Casual Leave (PCL)",
 )
 PROBATION_PERIOD_LEAVE_CAP = 2.0
+PROBATION_LEAVE_POLICY_TOTAL = 3.0  # 3-month probation × 1 day/month
 INTERNS_LEAVE_NAMES = ("Interns Leave",)
 
 # Temporary exception: these badge IDs may approve their own leave requests.
@@ -215,6 +216,13 @@ def is_probation_casual_leave_type(leave_type):
     return "probation" in lt_lower and "casual" in lt_lower
 
 
+def is_probation_sick_or_casual_leave_type(leave_type):
+    """Probation Sick Leave or Probation Casual Leave (3-month probation policy)."""
+    return is_probation_sick_leave_type(leave_type) or is_probation_casual_leave_type(
+        leave_type
+    )
+
+
 def is_probation_or_interns_monthly(leave_type):
     """Probation / Probation Casual / Interns: 1 day per month on the 1st, no yearly wipe."""
     if not leave_type or getattr(leave_type, "reset_based", None) != "monthly":
@@ -383,11 +391,18 @@ def get_probation_period_leave_balance_stats(
 ):
     """
     Probation Sick Leave / Probation Casual Leave / Interns Leave:
-    1 day per month, max 2 in bucket (current + previous month), no carry forward.
-    available_days = usable right now (bucket balance capped by 1 per calendar month).
+    - PSL/PCL: Total = 3 (probation months), Accrued = days credited (max 3),
+      Available (Leave Configuration) = bucket balance (max 2 at once).
+    - usable balance (available_days) = bucket capped by 1 usable per calendar month (validation).
     """
     as_of = as_of_date or date.today()
     leave_type = available_leave.leave_type_id
+    is_psl_pcl = is_probation_sick_or_casual_leave_type(leave_type)
+    policy_total = (
+        PROBATION_LEAVE_POLICY_TOTAL
+        if is_psl_pcl
+        else PROBATION_PERIOD_LEAVE_CAP
+    )
     LeaveRequest = apps.get_model("leave", "LeaveRequest")
     leave_taken = float(
         LeaveRequest.objects.filter(
@@ -398,9 +413,9 @@ def get_probation_period_leave_balance_stats(
         or 0.0
     )
     months = _probation_period_months_accrued(available_leave, as_of)
-    total_accrued = float(months)
+    accrued_credited = min(float(months), policy_total)
     bucket_balance = min(
-        max(0.0, total_accrued - leave_taken), PROBATION_PERIOD_LEAVE_CAP
+        max(0.0, accrued_credited - leave_taken), PROBATION_PERIOD_LEAVE_CAP
     )
     days_in_month = probation_leave_days_in_month(
         available_leave.employee_id,
@@ -410,12 +425,11 @@ def get_probation_period_leave_balance_stats(
         exclude_leave_request_id=exclude_leave_request_id,
     )
     usable_in_month = max(0.0, 1.0 - float(days_in_month))
-    available = round(min(bucket_balance, usable_in_month), 3)
-    accrued = round(available + leave_taken, 2)
+    usable_now = round(min(bucket_balance, usable_in_month), 3)
     return {
-        "yearly_total": PROBATION_PERIOD_LEAVE_CAP,
-        "accrued_days": accrued,
-        "available_days": available,
+        "yearly_total": policy_total,
+        "accrued_days": round(accrued_credited, 2),
+        "available_days": usable_now,
         "bucket_days": round(bucket_balance, 2),
         "leave_taken": round(leave_taken, 2),
         "months_accrued": months,
