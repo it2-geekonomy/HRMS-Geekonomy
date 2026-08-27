@@ -233,6 +233,8 @@
                                     background-color: #dfdf52; color: #000;
                                 {% elif day|hp_p_key:employee.id in sp_l_dates %}
                                     background-color: #ff6b6b; color: #fff;
+                                {% elif day|hp_p_key:employee.id in a_l_dates %}
+                                    background-color: #5c6bc0; color: #fff;
                                 {% else %}
                                     background-color: #808080; color: #fff;
                                 {% endif %}
@@ -277,6 +279,8 @@
                             <div
                                 {% if work_record.work_record_type == 'SP' and day|hp_p_key:employee.id in sp_l_dates %}
                                     title="{% trans 'Short Presence + Leave' %}"
+                                {% elif day|hp_p_key:employee.id in a_l_dates %}
+                                    title="{% trans 'Absent + Half Day Leave (0.5 paid)' %}"
                                 {% elif work_record.title_message %}
                                     title="{{work_record.title_message}}"
                                 {% endif %}
@@ -302,7 +306,7 @@
                                     {% elif work_record.work_record_type == 'SP' %}{% if day|hp_p_key:employee.id in sp_l_dates %}SP/L{% else %}SP{% endif %}
                                     {% elif work_record.work_record_type == 'MP' %} MP
                                     {% elif work_record.work_record_type == 'HD' %}{% if day in holiday_dates %}PH{% else %}WO{% endif %}
-                                    {% elif work_record.is_leave_record %}{% if day|hp_p_key:employee.id in hp_l_dates %}HP/L{% elif day|hp_p_key:employee.id in sp_l_dates %}SP/L{% else %} L{% endif %}
+                                    {% elif work_record.is_leave_record %}{% if day|hp_p_key:employee.id in hp_l_dates %}HP/L{% elif day|hp_p_key:employee.id in sp_l_dates %}SP/L{% elif day|hp_p_key:employee.id in a_l_dates %}A/L{% else %} L{% endif %}
                                     {% endif %}
                                 </a>
                             </div>

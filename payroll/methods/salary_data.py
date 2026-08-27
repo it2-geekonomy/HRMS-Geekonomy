@@ -129,7 +129,8 @@ def get_days_worked_for_employee(employee_id, month: int, year: int) -> float:
     - FDP (Present) = 1 day
     - P/L (Present + approved full-day leave) = 1 day
     - HDP/HP (Half day present) = 0.5 day, or 1 day if HP/L (HP + approved half-day leave)
-    - L (Paid Leave) / is_leave_record = 1 day
+    - A/L (half leave + no attendance) = 0.5 day
+    - L (full Paid Leave) = 1 day
 
     Do NOT count days that are WO (Week Off) or PH (Public Holiday). Even if the
     employee punched in on a WO/PH day (P, HP, L, HP/P), that day is excluded from
@@ -179,7 +180,16 @@ def get_days_worked_for_employee(employee_id, month: int, year: int) -> float:
             # SP (Short Presence) is LOP - no salary for that day
             days_worked += 0
         elif rec.is_leave_record or rec.work_record_type == "L":
-            days_worked += 1
+            if rec.date in half_leave_dates:
+                has_att = (
+                    rec.is_attendance_record
+                    or bool(getattr(rec, "attendance_id_id", None))
+                    or (getattr(rec, "at_work_second", None) or 0) > 0
+                )
+                # A/L (half leave, no punch) = 0.5 paid; HP/L stored as L with attendance = 1
+                days_worked += 1.0 if has_att else 0.5
+            else:
+                days_worked += 1
     return days_worked
 
 
@@ -211,12 +221,8 @@ def get_paid_leave_days_for_employee(employee_id, month: int, year: int) -> floa
         if rec.date in wo_ph_dates:
             continue
         if rec.work_record_type == "L":
-            # Half-day leave wrongly stored as L (with attendance) → 0.5 leave day
-            if rec.date in half_leave_dates and (
-                rec.is_attendance_record
-                or bool(getattr(rec, "attendance_id_id", None))
-                or (getattr(rec, "at_work_second", None) or 0) > 0
-            ):
+            # Half-day leave (A/L or HP/L stored as L) → 0.5 leave day
+            if rec.date in half_leave_dates:
                 paid_leave += 0.5
             else:
                 paid_leave += 1
