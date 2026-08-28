@@ -14,7 +14,7 @@ from base.mail_icons import request_mail_icon
 logger = logging.getLogger(__name__)
 
 # HR notification email for leave (hardcoded).
-HR_EMAIL = "it1@geekonomy.in"
+HR_EMAIL = "hr@thegeekonomy.com"
 
 
 def _send_leave_approve_reject_fallback(request, leave_request, to_email, approved=True):
