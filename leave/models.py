@@ -971,18 +971,19 @@ class LeaveRequest(HorillaModel):
                 raise ValidationError(_("Requests cannot be made for past dates."))
 
         # Earned Leave: must be applied at least 5 days before the start date
+        # Temporarily disabled — re-enable when requested.
         lt_name = (leave_type.name or "").strip()
-        if leave_type and "Earned Leave" in lt_name:
-            today = date.today()
-            min_start_date = today + timedelta(days=5)
-            if self.start_date < min_start_date:
-                raise ValidationError(
-                    _(
-                        "Earned Leave must be applied at least 5 days before the start date. "
-                        "Please choose a start date on or after %(min_date)s."
-                    )
-                    % {"min_date": min_start_date.strftime("%d/%m/%Y")}
-                )
+        # if leave_type and "Earned Leave" in lt_name:
+        #     today = date.today()
+        #     min_start_date = today + timedelta(days=5)
+        #     if self.start_date < min_start_date:
+        #         raise ValidationError(
+        #             _(
+        #                 "Earned Leave must be applied at least 5 days before the start date. "
+        #                 "Please choose a start date on or after %(min_date)s."
+        #             )
+        #             % {"min_date": min_start_date.strftime("%d/%m/%Y")}
+        #         )
 
         # Comp Off Leave: must be applied at least 5 days before the start date (same as Earned Leave)
         lt_name_lower = lt_name.lower()
