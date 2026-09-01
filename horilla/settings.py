@@ -231,6 +231,10 @@ DEFAULT_FROM_EMAIL = env(
 HR_EMAIL = env("HR_EMAIL", default="hr@thegeekonomy.com")
 HR_PHONE = env("HR_PHONE", default="")
 
+# Block search engines (Bing/Google) — internal HRMS must not be indexed
+HRMS_BLOCK_SEARCH_INDEXING = env.bool("HRMS_BLOCK_SEARCH_INDEXING", default=True)
+HRMS_X_ROBOTS_TAG = "noindex, nofollow, noarchive, nosnippet"
+
 
 SIMPLE_HISTORY_REVERT_DISABLED = True
 

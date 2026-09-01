@@ -75,6 +75,8 @@ services:
       GUNICORN_WORKERS: ${GUNICORN_WORKERS:-1}
       GUNICORN_THREADS: ${GUNICORN_THREADS:-2}
 
+      HRMS_BLOCK_SEARCH_INDEXING: ${HRMS_BLOCK_SEARCH_INDEXING:-True}
+
     volumes:
       - horilla-media:/app/media
       - horilla-static:/app/staticfiles

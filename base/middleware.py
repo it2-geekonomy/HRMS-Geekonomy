@@ -282,3 +282,22 @@ class TwoFactorAuthMiddleware:
                 return self.get_response(request)
 
         return self.get_response(request)
+
+
+class BlockSearchIndexingMiddleware:
+    """Add X-Robots-Tag on every response when HRMS_BLOCK_SEARCH_INDEXING is enabled."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        from django.conf import settings
+
+        response = self.get_response(request)
+        if getattr(settings, "HRMS_BLOCK_SEARCH_INDEXING", True):
+            response["X-Robots-Tag"] = getattr(
+                settings,
+                "HRMS_X_ROBOTS_TAG",
+                "noindex, nofollow, noarchive, nosnippet",
+            )
+        return response

@@ -338,3 +338,14 @@ def enable_profile_edit(request):
         pass
 
     return {"profile_edit_enabled": enable}
+
+
+def block_search_indexing(request):
+    """Expose HRMS_BLOCK_SEARCH_INDEXING for noindex meta tags in templates."""
+    from django.conf import settings
+
+    return {
+        "block_search_indexing": getattr(
+            settings, "HRMS_BLOCK_SEARCH_INDEXING", True
+        )
+    }

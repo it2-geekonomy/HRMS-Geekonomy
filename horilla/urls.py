@@ -16,7 +16,7 @@ Including another URLconf
 
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.urls import include, path, re_path
 
 import notifications.urls
@@ -28,11 +28,27 @@ def health_check(request):
     return JsonResponse({"status": "ok"}, status=200)
 
 
+def robots_txt(request):
+    """Tell crawlers not to index any HRMS URL."""
+    lines = [
+        "User-agent: *",
+        "Disallow: /",
+        "",
+        "User-agent: Googlebot",
+        "Disallow: /",
+        "",
+        "User-agent: Bingbot",
+        "Disallow: /",
+    ]
+    return HttpResponse("\n".join(lines), content_type="text/plain")
+
+
 # Specific prefixes must come before path("", include(...)) so they are tried first.
 # Otherwise base/horilla_automations/horilla_views can receive e.g. "recruitment/pipeline/"
 # and 404 before recruitment.urls is ever reached (causes 404 on live with Gunicorn).
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("robots.txt", robots_txt, name="robots-txt"),
     path("accounts/", include("django.contrib.auth.urls")),
     path("employee/", include("employee.urls")),
     path("recruitment/", include("recruitment.urls")),
