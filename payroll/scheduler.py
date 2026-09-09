@@ -66,11 +66,29 @@ def generate_payslip(date, companies, all):
         contract = Contract.objects.filter(
             employee_id=employee, contract_status="active"
         ).first()
-        if end_date < contract.contract_start_date:
+        if not contract:
             continue
-        if start_date < contract.contract_start_date:
-            start_date = contract.contract_start_date
-        payslip_data = payroll_calculation(employee, start_date, end_date)
+        emp_start_date = start_date
+        emp_end_date = end_date
+        if emp_end_date < contract.contract_start_date:
+            continue
+        if (
+            contract.contract_end_date
+            and emp_start_date > contract.contract_end_date
+        ):
+            continue
+        if emp_start_date < contract.contract_start_date:
+            emp_start_date = contract.contract_start_date
+        if (
+            contract.contract_end_date
+            and emp_end_date > contract.contract_end_date
+        ):
+            emp_end_date = contract.contract_end_date
+        if emp_start_date > emp_end_date:
+            continue
+        payslip_data = payroll_calculation(employee, emp_start_date, emp_end_date)
+        if not payslip_data:
+            continue
         payslip_data["payslip"] = payslip
         data = {}
         data["employee"] = employee

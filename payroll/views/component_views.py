@@ -889,6 +889,9 @@ def generate_payslip(request):
             # Normalize to list so we can count and iterate reliably (QuerySet is consumed by iteration)
             employee_list = list(employees)
             skipped_no_contract = []
+            skipped_before_contract = []
+            skipped_after_contract = []
+            skipped_invalid = []
 
             for employee in employee_list:
                 contract = Contract.objects.filter(
@@ -897,12 +900,44 @@ def generate_payslip(request):
                 if not contract:
                     skipped_no_contract.append(employee)
                     continue
-                # Use per-employee period so one employee's contract start doesn't affect others
+
+                # Per-employee period (same rules as single create + auto scheduler)
                 emp_start_date = start_date
                 emp_end_date = end_date
+
+                # Period entirely before contract start → skip (do not generate)
+                if emp_end_date < contract.contract_start_date:
+                    skipped_before_contract.append(employee)
+                    continue
+
+                # Period entirely after contract end → skip
+                if (
+                    contract.contract_end_date
+                    and emp_start_date > contract.contract_end_date
+                ):
+                    skipped_after_contract.append(employee)
+                    continue
+
+                # Mid-period join: clamp start to contract start (matches single create)
                 if emp_start_date < contract.contract_start_date:
                     emp_start_date = contract.contract_start_date
+
+                # Mid-period exit: clamp end to contract end
+                if (
+                    contract.contract_end_date
+                    and emp_end_date > contract.contract_end_date
+                ):
+                    emp_end_date = contract.contract_end_date
+
+                if emp_start_date > emp_end_date:
+                    skipped_invalid.append(employee)
+                    continue
+
                 payslip = payroll_calculation(employee, emp_start_date, emp_end_date)
+                if not payslip:
+                    skipped_invalid.append(employee)
+                    continue
+
                 payslips.append(payslip)
                 json_data.append(payslip["json_data"])
 
@@ -923,24 +958,23 @@ def generate_payslip(request):
                 data["installments"] = payslip["installments"]
                 instance = save_payslip(**data)
                 instances.append(instance)
-                notify.send(
-                    request.user.employee_get,
-                    recipient=employee.employee_user_id,
-                    verb="Payslip has been generated for you.",
-                    verb_ar="تم إصدار كشف راتب لك.",
-                    verb_de="Gehaltsabrechnung wurde für Sie erstellt.",
-                    verb_es="Se ha generado la nómina para usted.",
-                    verb_fr="La fiche de paie a été générée pour vous.",
-                    redirect=reverse(
-                        "view-created-payslip", kwargs={"payslip_id": instance.id}
-                    ),
-                    icon="close",
-                )
 
             msg = _("%(count)s payslip(s) saved as draft.") % {"count": len(instances)}
             if skipped_no_contract:
-                msg += " " + _("%(count)s employee(s) skipped (no active contract).") % {
+                msg += " " + _("%(count)s skipped (no active contract).") % {
                     "count": len(skipped_no_contract)
+                }
+            if skipped_before_contract:
+                msg += " " + _(
+                    "%(count)s skipped (pay period before contract start date)."
+                ) % {"count": len(skipped_before_contract)}
+            if skipped_after_contract:
+                msg += " " + _(
+                    "%(count)s skipped (pay period after contract end date)."
+                ) % {"count": len(skipped_after_contract)}
+            if skipped_invalid:
+                msg += " " + _("%(count)s skipped (invalid pay period / no wage data).") % {
+                    "count": len(skipped_invalid)
                 }
             messages.success(request, msg)
             return redirect(
@@ -1021,6 +1055,34 @@ def create_payslip(request, new_post_data=None):
                 employee_id=employee_id, contract_status="active"
             ).first()
 
+            end_date_raw = request.POST.get("end_date")
+            end_date_check = (
+                datetime.strptime(end_date_raw, "%Y-%m-%d").date()
+                if isinstance(end_date_raw, str) and end_date_raw
+                else end_date_raw
+            )
+
+            # Same as bulk: do not create when pay period is fully before contract start
+            if (
+                contract
+                and end_date_check
+                and end_date_check < contract.contract_start_date
+            ):
+                messages.error(
+                    request,
+                    _(
+                        "Cannot create payslip: pay period ends before the employee's "
+                        "contract start date (%(date)s)."
+                    )
+                    % {"date": contract.contract_start_date},
+                )
+                form = forms.PayslipForm(request.POST)
+                return render(
+                    request,
+                    "payroll/payslip/create_payslip.html",
+                    {"individual_form": form},
+                )
+
             if contract and start_date < contract.contract_start_date:
                 new_post_data = request.POST.copy()
                 new_post_data["start_date"] = contract.contract_start_date
@@ -1039,6 +1101,16 @@ def create_payslip(request, new_post_data=None):
                 start_date = form.cleaned_data["start_date"]
                 end_date = form.cleaned_data["end_date"]
                 payslip_data = payroll_calculation(employee, start_date, end_date)
+                if not payslip_data:
+                    messages.error(
+                        request,
+                        _("Unable to calculate payslip for the selected period."),
+                    )
+                    return render(
+                        request,
+                        "payroll/payslip/create_payslip.html",
+                        {"individual_form": form},
+                    )
                 payslip_data["payslip"] = payslip
                 data = {}
                 data["employee"] = employee
@@ -1061,19 +1133,6 @@ def create_payslip(request, new_post_data=None):
                 form = forms.PayslipForm()
                 messages.success(request, _("Payslip Saved"))
                 payslip = payslip_data["instance"]
-                notify.send(
-                    request.user.employee_get,
-                    recipient=employee.employee_user_id,
-                    verb="Payslip has been generated for you.",
-                    verb_ar="تم إصدار كشف راتب لك.",
-                    verb_de="Gehaltsabrechnung wurde für Sie erstellt.",
-                    verb_es="Se ha generado la nómina para usted.",
-                    verb_fr="La fiche de paie a été générée pour vous.",
-                    redirect=reverse(
-                        "view-created-payslip", kwargs={"payslip_id": payslip.pk}
-                    ),
-                    icon="close",
-                )
                 return HttpResponse(
                     f'<script>window.location.href = "/payroll/view-payslip/{payslip_data["instance"].id}/"</script>'
                 )
@@ -1154,7 +1213,10 @@ def view_payslip(request):
     if request.user.has_perm("payroll.view_payslip"):
         payslips = Payslip.objects.all()
     else:
-        payslips = Payslip.objects.filter(employee_id__employee_user_id=request.user)
+        # Employees only see paid payslips in their portal
+        payslips = Payslip.objects.filter(
+            employee_id__employee_user_id=request.user, status="paid"
+        )
     export_column = forms.PayslipExportColumnForm()
     filter_form = PayslipFilter(request.GET, payslips)
     payslips = filter_form.qs
@@ -1220,7 +1282,9 @@ def filter_payslip(request):
         employee = Employee.objects.filter(employee_user_id=request.user.id).first()
         employee_id = employee.id
         emp_request["employee_id"] = str(employee_id)
-        payslips = PayslipFilter(emp_request).qs
+        # Employees only see paid payslips
+        emp_request["status"] = "paid"
+        payslips = PayslipFilter(emp_request).qs.filter(status="paid")
     template = "payroll/payslip/payslip_table.html"
     view = request.GET.get("view")
     if view == "card":

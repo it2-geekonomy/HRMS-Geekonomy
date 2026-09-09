@@ -62,7 +62,12 @@ from payroll.forms.component_forms import (
     PayrollSettingsForm,
     PayslipAutoGenerateForm,
 )
-from payroll.methods.methods import paginator_qry, save_payslip
+from payroll.methods.methods import (
+    employee_may_view_payslip,
+    notify_employee_payslip_paid,
+    paginator_qry,
+    save_payslip,
+)
 from payroll.methods.salary_data import (
     compute_salary_data_for_employee,
     get_lop_amount,
@@ -757,9 +762,12 @@ def update_payslip_status(request, payslip_id):
     view = request.POST.get("view")
     payslip = Payslip.objects.filter(id=payslip_id).first()
     if payslip:
+        previous_status = payslip.status
         payslip.status = status
         payslip.save()
         messages.success(request, _("Payslip status updated"))
+        if status == "paid" and previous_status != "paid":
+            notify_employee_payslip_paid(request.user.employee_get, payslip)
     else:
         messages.error(request, _("Payslip not found"))
     if view:
@@ -790,7 +798,15 @@ def update_payslip_status_no_id(request):
         ids = json.loads(ids_json)
         status = request.POST["status"]
         slips = Payslip.objects.filter(id__in=ids)
+        to_notify = []
+        if status == "paid":
+            to_notify = list(slips.exclude(status="paid"))
         slips.update(status=status)
+        if status == "paid":
+            actor = getattr(request.user, "employee_get", None)
+            for slip in to_notify:
+                slip.status = "paid"
+                notify_employee_payslip_paid(actor, slip)
         message = {
             "type": "success",
             "message": f"{slips.count()} Payslips status updated.",
@@ -833,6 +849,10 @@ def bulk_update_payslip_status(request):
         instance.net_pay = data["net_pay"]
         instance.pay_head_data = data
         instance.save()
+        if status == "paid":
+            notify_employee_payslip_paid(
+                getattr(request.user, "employee_get", None), instance
+            )
 
     return JsonResponse({"type": "success", "message": "Payslips status updated"})
 
@@ -864,10 +884,7 @@ def view_payslip_pdf(request, payslip_id):
 
     if not request.user.is_authenticated:
         return redirect(reverse("login"))
-    if not (
-        request.user.has_perm("payroll.view_payslip")
-        or payslip.employee_id.employee_user_id == request.user
-    ):
+    if not employee_may_view_payslip(request.user, payslip):
         return redirect(filter_payslip)
     data = get_view_payslip_pdf_context(
         payslip, request=request, for_pdf=False, pdf_kit_render=False
@@ -882,10 +899,7 @@ def view_created_payslip(request, payslip_id, **kwargs):
     This method is used to view the saved payslips
     """
     payslip = Payslip.objects.filter(id=payslip_id).first()
-    if payslip is not None and (
-        request.user.has_perm("payroll.view_payslip")
-        or payslip.employee_id.employee_user_id == request.user
-    ):
+    if payslip is not None and employee_may_view_payslip(request.user, payslip):
         # the data must be dictionary in the payslip model for the json field
         data = payslip.pay_head_data.copy()
         _sync_payslip_lop_from_salary_data(data, payslip)
@@ -2938,10 +2952,7 @@ def payslip_pdf(request, id):
     if not Payslip.objects.filter(id=id).exists():
         return render(request, "405.html")
     payslip = Payslip.objects.get(id=id)
-    if not (
-        request.user.has_perm("payroll.view_payslip")
-        or payslip.employee_id.employee_user_id == request.user
-    ):
+    if not employee_may_view_payslip(request.user, payslip):
         return redirect(filter_payslip)
 
     # Same PDF as HRMS: fetch the exact view-payslip-pdf page and convert to PDF (no separate generation)

@@ -624,3 +624,47 @@ def save_payslip(**kwargs):
     instance.save()
     instance.installment_ids.set(kwargs["installments"])
     return instance
+
+
+def employee_may_view_payslip(user, payslip):
+    """
+    HR with view_payslip sees all statuses.
+    Employees only see their own payslips when status is paid.
+    """
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if user.has_perm("payroll.view_payslip"):
+        return True
+    if not payslip or not payslip.employee_id:
+        return False
+    if payslip.employee_id.employee_user_id_id != user.id:
+        return False
+    return payslip.status == "paid"
+
+
+def notify_employee_payslip_paid(actor, payslip):
+    """Notify employee when their payslip is marked paid (portal-visible)."""
+    if not payslip or payslip.status != "paid":
+        return
+    employee = payslip.employee_id
+    if not employee or not employee.employee_user_id:
+        return
+    try:
+        from django.urls import reverse
+        from notifications.signals import notify
+
+        notify.send(
+            actor,
+            recipient=employee.employee_user_id,
+            verb="Your payslip is ready and marked as paid.",
+            verb_ar="كشف راتبك جاهز وتم تمييزه كمدفوع.",
+            verb_de="Ihre Gehaltsabrechnung ist bereit und als bezahlt markiert.",
+            verb_es="Su nómina está lista y marcada como pagada.",
+            verb_fr="Votre fiche de paie est prête et marquée comme payée.",
+            redirect=reverse(
+                "view-created-payslip", kwargs={"payslip_id": payslip.id}
+            ),
+            icon="close",
+        )
+    except Exception:
+        pass

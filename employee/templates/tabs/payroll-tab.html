@@ -4,7 +4,7 @@
         text-decoration: none;
     }
 </style>
-{% if employee.payslip_set.all %}
+{% if perms.payroll.view_payslip %}
 <div class="d-flex flex-row-reverse">
   <span class="m-3">
     <span class="oh-dot oh-dot--small me-1" style="background-color:gray"></span>
@@ -18,13 +18,15 @@
     <span class="oh-dot oh-dot--small me-1" style="background-color:rgb(103, 171, 238)"></span>
     {% trans "Confirmed" %}
   </span>
-  <span class="m-3" >
+  <span class="m-3">
     <span class="oh-dot oh-dot--small me-1" style="background-color:yellowgreen"></span>
     {% trans "Paid" %}
   </span>
 </div>
+{% endif %}
 
-  <div class="oh-sticky-table">
+{% if employee.payslip_set.exists %}
+  <div class="oh-sticky-table" id="employeePayslipTable">
     <div class="oh-sticky-table__table oh-table--sortable">
         <div class="oh-sticky-table__thead">
             <div class="oh-sticky-table__tr">
@@ -40,7 +42,8 @@
         </div>
         <div class="oh-sticky-table__tbody">
             {% for payslip in employee.payslip_set.all %}
-              <a href="{% url 'view-created-payslip' payslip.id %}" class="oh-sticky-table__tr" >
+              {% if perms.payroll.view_payslip or payslip.status == "paid" %}
+              <a href="{% url 'view-created-payslip' payslip.id %}" class="oh-sticky-table__tr payslip-visible-row">
                   <div class="oh-sticky-table__sd {% if payslip.status == "review_ongoing" %}row-status--orange {% elif payslip.status == "confirmed" %} row-status--blue {% elif payslip.status == "paid" %} row-status--yellow {% elif payslip.status == "draft" %} row-status--gray{% endif %}">
                     <div class="d-flex">
                     <div class="oh-profile oh-profile--md">
@@ -53,48 +56,46 @@
                       </div>
                       <span class="oh-profile__name oh-text--dark">{{payslip.employee_id}}</span>
                     </div>
-
                   </div>
-
                   </div>
-                  <div class="oh-sticky-table__td dateformat_changer">
-                    {{payslip.start_date}}
-                  </div>
-                  <div class="oh-sticky-table__td dateformat_changer">
-                    {{payslip.end_date}}
-                  </div>
-                  <div class="oh-sticky-table__td">
-                    {{payslip.get_status_display}}
-                  </div>
-                    <div class="oh-sticky-table__td">
-                      {{payslip.gross_pay|floatformat:2|currency_symbol_position}}
-                    </div>
-                    <div class="oh-sticky-table__td">
-                      {{payslip.deduction|floatformat:2|currency_symbol_position}}
-                    </div>
-                    <div class="oh-sticky-table__td">
-                      {{payslip.net_pay|floatformat:2|currency_symbol_position}}
-                    </div>
+                  <div class="oh-sticky-table__td dateformat_changer">{{payslip.start_date}}</div>
+                  <div class="oh-sticky-table__td dateformat_changer">{{payslip.end_date}}</div>
+                  <div class="oh-sticky-table__td">{{payslip.get_status_display}}</div>
+                  <div class="oh-sticky-table__td">{{payslip.gross_pay|floatformat:2|currency_symbol_position}}</div>
+                  <div class="oh-sticky-table__td">{{payslip.deduction|floatformat:2|currency_symbol_position}}</div>
+                  <div class="oh-sticky-table__td">{{payslip.net_pay|floatformat:2|currency_symbol_position}}</div>
                   <div class="oh-sticky-table__td">
                     <div class="oh-btn-group">
-                      <div type="button" id="download" data-id={{payslip.id}} title="{% trans 'Download' %}" class="oh-btn oh-btn--light-bkg w-100"> <ion-icon name="download"></ion-icon></div>
+                      <div type="button" class="oh-btn oh-btn--light-bkg w-100 payslip-download-btn" data-id="{{payslip.id}}" title="{% trans 'Download' %}"><ion-icon name="download"></ion-icon></div>
                     </div>
                   </div>
               </a>
+              {% endif %}
             {% endfor %}
         </div>
     </div>
-</div>
+  </div>
+  <div class="d-flex justify-content-center align-items-center" id="employeeNoPayslipMsg" style="height:40vh; display:none;">
+    <h5 class="oh-404__subtitle">{% trans "No Payslips have been generated." %}</h5>
+  </div>
+  <script>
+    (function () {
+      if (!document.querySelector(".payslip-visible-row")) {
+        var table = document.getElementById("employeePayslipTable");
+        var empty = document.getElementById("employeeNoPayslipMsg");
+        if (table) table.style.display = "none";
+        if (empty) empty.style.display = "flex";
+      }
+    })();
+  </script>
 {% else %}
 <div class="d-flex justify-content-center align-items-center" style="height:40vh">
   <h5 class="oh-404__subtitle">{% trans "No Payslips have been generated." %}</h5>
 </div>
 {% endif %}
 <script>
-  // Use jQuery to select an element by its ID and add a click event handler
-  $("#download").click(function(e) {
+  $(document).on("click", ".payslip-download-btn", function(e) {
     e.preventDefault();
-    payslip_id = $(this).data("id");
-    window.location.href = `/payroll/payslip-pdf/${payslip_id}`
+    window.location.href = `/payroll/payslip-pdf/${$(this).data("id")}`;
   });
 </script>
