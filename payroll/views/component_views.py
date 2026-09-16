@@ -13,6 +13,7 @@ from urllib.parse import parse_qs
 
 import pandas as pd
 from django.apps import apps
+from django.conf import settings
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import DecimalField, Sum
@@ -1480,30 +1481,62 @@ def send_slip(request):
     view = request.GET.get("view")
     payslip_ids = request.GET.getlist("id")
     payslips = Payslip.objects.filter(id__in=payslip_ids)
-    if not getattr(
-        email_backend, "dynamic_from_email_with_display_name", None
-    ) or not len(email_backend.dynamic_from_email_with_display_name):
-        messages.error(request, "Email server is not configured")
+
+    def _return_list():
+        """Return payslip list HTML for HTMX, or reload/redirect for full page."""
         if view:
             return HttpResponse("<script>window.location.reload()</script>")
-        else:
-            return redirect(filter_payslip)
+        if request.META.get("HTTP_HX_REQUEST"):
+            # Avoid redirect so Django messages stay in this HTMX response
+            get_copy = request.GET.copy()
+            get_copy.pop("id", None)
+            get_copy.pop("view", None)
+            request.GET = get_copy
+            return filter_payslip(request)
+        return redirect(reverse("filter-payslip") + ("?" + request.GET.urlencode() if request.GET else ""))
 
+    from_email = getattr(email_backend, "dynamic_from_email_with_display_name", None) or ""
+    if not str(from_email).strip() and not getattr(settings, "RESEND_API_KEY", ""):
+        messages.error(request, _("Email server is not configured"))
+        return _return_list()
+    if not str(from_email).strip() and getattr(settings, "RESEND_API_KEY", ""):
+        # Resend uses DEFAULT_FROM_EMAIL; still allow send
+        pass
+
+    if not payslips.exists():
+        messages.error(request, _("No payslip selected."))
+        return _return_list()
+
+    missing_mail = []
     result_dict = defaultdict(
         lambda: {"employee_id": None, "instances": [], "count": 0}
     )
     for payslip in payslips:
         employee_id = payslip.employee_id
+        to_mail = employee_id.get_mail() if employee_id else None
+        if not to_mail:
+            missing_mail.append(str(employee_id) if employee_id else str(payslip.id))
+            continue
         result_dict[employee_id]["employee_id"] = employee_id
         result_dict[employee_id]["instances"].append(payslip)
         result_dict[employee_id]["count"] += 1
+
+    if missing_mail:
+        messages.error(
+            request,
+            _("No email on file for: %(names)s") % {"names": ", ".join(missing_mail)},
+        )
+    if not result_dict:
+        messages.error(request, _("Payslip mail not started — employee email missing."))
+        return _return_list()
+
     mail_thread = MailSendThread(request, result_dict=result_dict, ids=payslip_ids)
     mail_thread.start()
-    messages.info(request, "Mail processing")
-    if view:
-        return HttpResponse("<script>window.location.reload()</script>")
-    else:
-        return redirect(filter_payslip)
+    messages.info(
+        request,
+        _("Mail processing. Payslip email is being sent in the background."),
+    )
+    return _return_list()
 
 
 @login_required

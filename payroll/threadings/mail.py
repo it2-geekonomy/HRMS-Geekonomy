@@ -115,32 +115,58 @@ class MailSendThread(Thread):
                 continue
 
             employee = record["instances"][0].employee_id
+            to_email = employee.get_mail() if employee else None
+            if not to_email:
+                logger.warning(
+                    "Payslip mail: no recipient email for employee %s", employee
+                )
+                continue
+
             email_backend = ConfiguredEmailBackend()
-            display_email_name = email_backend.dynamic_from_email_with_display_name
-            if self.request:
-                try:
-                    display_email_name = f"{self.request.user.employee_get.get_full_name()} <{self.request.user.employee_get.email}>"
-                except Exception:
-                    logger.error("Payslip mail: failed to get display name", exc_info=True)
+            # Resend requires a verified DEFAULT_FROM_EMAIL. Do not use the
+            # logged-in HR user's personal mailbox as From (breaks live sends).
+            if getattr(settings, "RESEND_API_KEY", None):
+                from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or getattr(
+                    email_backend, "dynamic_from_email_with_display_name", None
+                )
+            else:
+                from_email = getattr(
+                    email_backend, "dynamic_from_email_with_display_name", None
+                )
+            if not from_email:
+                logger.error("Payslip mail: from_email not configured, aborting send")
+                continue
 
             email = EmailMessage(
                 f"Hello, {record['instances'][0].get_name()} Your Payslips is Ready!",
                 html_message,
-                display_email_name,
-                [employee.get_mail()],
-                reply_to=[display_email_name],
+                from_email,
+                [to_email],
             )
             email.attachments = attachments
             email.content_subtype = "html"
             _attach_payslip_mail_logo(email)
 
             try:
-                email.send()
-                # Only mark as sent the payslips we actually attached
-                if attached_ids:
-                    Payslip.objects.filter(id__in=attached_ids).update(sent_to_employee=True)
+                sent = email.send()
+                if sent:
+                    if attached_ids:
+                        Payslip.objects.filter(id__in=attached_ids).update(
+                            sent_to_employee=True
+                        )
+                    logger.info(
+                        "Payslip mail: sent payslip(s) %s to %s", attached_ids, to_email
+                    )
+                else:
+                    logger.error(
+                        "Payslip mail: send() returned 0 for payslip(s) %s to %s",
+                        attached_ids,
+                        to_email,
+                    )
             except Exception as e:
-                logger.exception(e)
+                logger.exception(
+                    "Payslip mail: failed sending to %s: %s", to_email, e
+                )
 
         return
 
@@ -175,6 +201,8 @@ def send_payslips_on_11th():
         "dynamic_from_email_with_display_name",
         None,
     ) or "HR <noreply@example.com>"
+    if getattr(settings, "RESEND_API_KEY", None):
+        from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or from_email
     if not from_email or not str(from_email).strip():
         logger.warning("Payslip auto-send: email server not configured, skipping")
         return
@@ -224,7 +252,6 @@ def send_payslips_on_11th():
             body=html_message,
             from_email=from_email,
             to=[email_to],
-            reply_to=[from_email],
         )
         email.attachments = attachments
         email.content_subtype = "html"
