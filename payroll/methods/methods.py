@@ -608,6 +608,7 @@ def save_payslip(**kwargs):
         employee_id=kwargs["employee"],
         start_date=kwargs["start_date"],
         end_date=kwargs["end_date"],
+        archived=False,
     ).first()
     instance = filtered_instance if filtered_instance is not None else Payslip()
     instance.employee_id = kwargs["employee"]
