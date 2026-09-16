@@ -63,6 +63,7 @@ from base.models import (
     RotatingWorkType,
     RotatingWorkTypeAssign,
     ShiftRequest,
+    WEEKS,
     ShiftRequestComment,
     Tags,
     TrackLateComeEarlyOut,
@@ -231,9 +232,9 @@ class ModelForm(forms.ModelForm):
                     if field.label is not None:
                         label = _(field.label)
                     field.empty_label = _("---Choose {label}---").format(label=label)
-                field.widget.attrs.update(
-                    {"class": "oh-select oh-select-2 select2-hidden-accessible"}
-                )
+                # Do not add select2-hidden-accessible here — Select2 adds it on init.
+                # Pre-hiding selects makes fields invisible if Select2 fails or is delayed.
+                field.widget.attrs.update({"class": "oh-select oh-select-2 w-100"})
             elif isinstance(widget, (forms.Textarea)):
                 field.widget.attrs.update(
                     {
@@ -303,9 +304,7 @@ class Form(forms.Form):
                 if field.label is not None:
                     label = field.label.replace("id", " ")
                 field.empty_label = _("---Choose {label}---").format(label=label)
-                field.widget.attrs.update(
-                    {"class": "oh-select oh-select-2 select2-hidden-accessible"}
-                )
+                field.widget.attrs.update({"class": "oh-select oh-select-2 w-100"})
             elif isinstance(widget, (forms.Textarea)):
                 label = _(field.label)
                 field.widget.attrs.update(
@@ -2806,13 +2805,20 @@ class CompanyLeaveForm(ModelForm):
         Custom initialization to configure the 'based_on' field.
         """
         super().__init__(*args, **kwargs)
-        self.fields["based_on_week"].widget.option_template_name = (
-            "horilla_widgets/select_option.html"
-        )
+        week = self.fields["based_on_week"]
+        week.widget.option_template_name = "horilla_widgets/select_option.html"
+        week.required = False
+        # Blank week = every week ("All")
+        week.choices = [("", _("All"))] + list(WEEKS)
+        for name in ("based_on_week", "based_on_week_day", "company_id"):
+            if name in self.fields:
+                self.fields[name].widget.attrs["class"] = "oh-select oh-select-2 w-100"
+        if "company_id" in self.fields:
+            self.fields["company_id"].required = False
 
 
 class CompanyLeaveDateOverrideForm(ModelForm):
-    """Form to add/edit one-off WO or force-working date overrides."""
+    """Form to add a special Week Off or Working Day date."""
 
     class Meta:
         model = CompanyLeaveDateOverride

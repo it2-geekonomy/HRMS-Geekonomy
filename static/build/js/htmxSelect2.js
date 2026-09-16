@@ -4001,7 +4001,7 @@ staticUrl = $("#statiUrl").attr("data-url");
 
 $(document).on("htmx:afterSettle", function (event) {
     var target = $(event.target);
-    target.find(".oh-select, .oh-select-2").each(function () {
+    target.find("select.oh-select, select.oh-select-2").each(function () {
         var $el = $(this);
         // If Select2 was already initialized, destroy first to avoid duplicate controls
         if ($el.hasClass("select2-hidden-accessible") && $el.data("select2")) {
@@ -4013,10 +4013,17 @@ $(document).on("htmx:afterSettle", function (event) {
             width: "100%",
             multiple: $el.prop("multiple") || $el.hasClass("select2-multiple"),
         });
-        // Safety: if duplicates were created, keep only the nearest container
-        var $siblings = $el.parent().children(".select2");
-        if ($siblings.length > 1) {
-            $siblings.not(":last").remove();
+        // Only remove consecutive duplicate containers for THIS select,
+        // not other selects' Select2 UIs in the same form.
+        var $n = $el.next();
+        var seen = 0;
+        while ($n.length && $n.is(".select2, .select2-container")) {
+            seen += 1;
+            var $next = $n.next();
+            if (seen > 1) {
+                $n.remove();
+            }
+            $n = $next;
         }
     });
 

@@ -757,9 +757,9 @@ form label {
   left: -9999px !important;
 }
 
-/* Remove duplicate Select2 containers - keep only the last one */
-.oh-select + .select2-container ~ .select2-container,
-.oh-select-2 + .select2-container ~ .select2-container {
+/* Remove duplicate Select2 containers (only consecutive duplicates after same select) */
+.oh-select + .select2-container + .select2-container,
+.oh-select-2 + .select2-container + .select2-container {
   display: none !important;
 }
 

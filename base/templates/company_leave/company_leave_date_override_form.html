@@ -18,7 +18,7 @@
     </div>
 {% endif %}
 <div class="oh-modal__dialog-header pb-0">
-    <span class="oh-modal__dialog-title">{% trans "Add Week Off / Working Day Override" %}</span>
+    <span class="oh-modal__dialog-title">{% trans "Add Special Date" %}</span>
     <button class="oh-modal__close" aria-label="Close">
         <ion-icon name="close-outline"></ion-icon>
     </button>
@@ -27,7 +27,7 @@
     <form hx-post="{% url 'company-leave-date-override-create' %}" hx-target="#objectCreateModalTarget"
         class="oh-profile-section pt-1">
         <p class="text-muted small mb-2">
-            {% trans "Use Week Off (WO) for one-off holidays that are not in the regular Saturday pattern. Use Force Working Day to reopen a Saturday that would otherwise be WO." %}
+            {% trans "Choose Week Off (WO) to give a holiday on a day that is normally working. Choose Working Day to keep a Saturday open when it would otherwise be WO." %}
         </p>
         <label class="oh-label d-block" for="{{ form.date.id_for_label }}">{{ form.date.label }}</label>
         {{ form.date }}

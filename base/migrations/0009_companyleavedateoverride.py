@@ -7,11 +7,11 @@ import django.db.models.deletion
 def seed_existing_overrides(apps, schema_editor):
     CompanyLeaveDateOverride = apps.get_model("base", "CompanyLeaveDateOverride")
     seeds = [
-        (datetime.date(2026, 5, 23), "week_off", "Migrated from temporary WO override"),
-        (datetime.date(2026, 5, 30), "working", "Migrated from temporary force-working override"),
-        (datetime.date(2026, 7, 18), "week_off", "Migrated from temporary WO override"),
-        (datetime.date(2026, 7, 25), "week_off", "Migrated from temporary WO override"),
-        (datetime.date(2026, 9, 12), "week_off", "Migrated from temporary WO override"),
+        (datetime.date(2026, 5, 23), "week_off", "Special Week Off"),
+        (datetime.date(2026, 5, 30), "working", "Marked as Working Day"),
+        (datetime.date(2026, 7, 18), "week_off", "Special Week Off"),
+        (datetime.date(2026, 7, 25), "week_off", "Special Week Off"),
+        (datetime.date(2026, 9, 12), "week_off", "Special Week Off"),
     ]
     for day, override_type, note in seeds:
         CompanyLeaveDateOverride.objects.get_or_create(
@@ -66,11 +66,11 @@ class Migration(migrations.Migration):
                     models.CharField(
                         choices=[
                             ("week_off", "Week Off (WO)"),
-                            ("working", "Force Working Day"),
+                            ("working", "Working Day"),
                         ],
                         default="week_off",
                         max_length=20,
-                        verbose_name="Override Type",
+                        verbose_name="Type",
                     ),
                 ),
                 (
@@ -78,7 +78,7 @@ class Migration(migrations.Migration):
                     models.CharField(
                         blank=True,
                         default="",
-                        help_text="Optional reason, e.g. Festival / special holiday WO.",
+                        help_text="Optional reason, e.g. Festival holiday.",
                         max_length=255,
                         verbose_name="Note",
                     ),

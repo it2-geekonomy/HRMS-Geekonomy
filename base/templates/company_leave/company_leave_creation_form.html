@@ -13,6 +13,13 @@
                     {{ error }}
                 </div>
             {% endfor %}
+            {% for field in form %}
+                {% for error in field.errors %}
+                    <div class="oh-alert oh-alert--animated oh-alert--danger">
+                        {{ field.label }}: {{ error }}
+                    </div>
+                {% endfor %}
+            {% endfor %}
         </div>
     </div>
 {% endif %}
@@ -28,15 +35,15 @@
         <label class="oh-label d-block" for="{{form.based_on_week.id_for_label}}">
             {{form.based_on_week.label}}
         </label>
-        {{form.based_on_week}} {{form.based_on_week.errors}}
+        {{form.based_on_week}}
         <label class="oh-label d-block" for="{{form.based_on_week_day.id_for_label}}">
             {{form.based_on_week_day.label}}
         </label>
-        {{form.based_on_week_day}} {{form.based_on_week_day.errors}}
+        {{form.based_on_week_day}}
         <label class="oh-label d-block" for="{{form.company_id.id_for_label}}">
             {{form.company_id.label}}
         </label>
-        {{form.company_id}} {{form.company_id.errors}}
+        {{form.company_id}}
         <div class="oh-modal__dialog-footer p-0 mt-3">
             <button type="submit" class="oh-btn oh-btn--secondary oh-btn--shadow">
                 {% trans "Save" %}
@@ -44,13 +51,3 @@
         </div>
     </form>
 </div>
-<script>
-    var week_select = $("#objectCreateModalTarget #id_based_on_week");
-
-    week_select
-        .find("option")
-        .filter(function () {
-            return $(this).text() === "---------";
-        })
-        .text("All");
-</script>

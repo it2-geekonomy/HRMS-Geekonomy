@@ -8,6 +8,8 @@ import calendar
 import json
 import os
 import logging
+import base64
+import mimetypes
 import subprocess
 import tempfile
 from io import BytesIO
@@ -16,6 +18,7 @@ from datetime import date, datetime, timedelta
 from itertools import groupby
 from urllib.parse import parse_qs
 
+from django.conf import settings
 from django.contrib.staticfiles.finders import find
 from django.core.signing import BadSignature, TimestampSigner
 from django.templatetags.static import static
@@ -2508,13 +2511,19 @@ def generate_payslip_pdf(template_path, context, html=False, payslip=None, reque
             pdf_status = pisa.CreatePDF(
                 src=html_content, dest=result, encoding="utf-8"
             )
-            if pdf_status.err:
+            result.seek(0)
+            pdf_bytes = result.getvalue()
+            # Image warnings set err but often still produce a valid PDF — use it.
+            if pdf_status.err and (not pdf_bytes or not pdf_bytes.startswith(b"%PDF")):
                 return HttpResponse(
                     _("Error generating PDF (pdfkit and pisa failed)"),
                     status=500,
                 )
-            result.seek(0)
-            pdf_bytes = result.getvalue()
+            if pdf_status.err:
+                logger.warning(
+                    "Payslip PDF: pisa reported errors but produced a PDF (len=%s)",
+                    len(pdf_bytes or b""),
+                )
 
         if not pdf_bytes or not pdf_bytes.startswith(b"%PDF"):
             return HttpResponse(
@@ -2838,25 +2847,45 @@ def _number_to_words_indian(n):
     return words.replace(" And ", " and ")
 
 
+def _static_image_data_uri(static_path):
+    """
+    Embed a static image as a data URI so PDF engines (pisa) can load it
+    without broken file:// URLs or outbound HTTP inside Docker.
+    """
+    path = find(static_path)
+    if not path or not os.path.isfile(path):
+        path = os.path.join(settings.BASE_DIR, "static", *static_path.split("/"))
+    if not path or not os.path.isfile(path):
+        return ""
+    try:
+        mime = mimetypes.guess_type(path)[0] or "image/png"
+        with open(path, "rb") as image_file:
+            encoded = base64.b64encode(image_file.read()).decode("ascii")
+        return f"data:{mime};base64,{encoded}"
+    except OSError as exc:
+        logger.warning("Payslip PDF: could not read static image %s: %s", static_path, exc)
+        return ""
+
+
 def _payslip_logo_src(host, protocol):
-    """Return logo URL/path for PDF: file:// when no host (email), else full URL so pisa/pdfkit can load it."""
+    """Logo for payslip PDF/HTML. Prefer data URI (works in Docker + pisa)."""
     static_path = "images/ui/geekonomy-logo-mail.png"
+    data_uri = _static_image_data_uri(static_path)
+    if data_uri:
+        return data_uri
     if host:
         return f"{protocol}://{host}{static(static_path)}"
-    path = find(static_path)
-    if path:
-        return "file:///" + os.path.normpath(path).replace("\\", "/")
     return ""
 
 
 def _payslip_watermark_src(host, protocol):
     """Grey Geekonomy logo used as payslip page watermark."""
     static_path = "payroll/images/geekonomy-grey-logo-watermark.png"
+    data_uri = _static_image_data_uri(static_path)
+    if data_uri:
+        return data_uri
     if host:
         return f"{protocol}://{host}{static(static_path)}"
-    path = find(static_path)
-    if path:
-        return "file:///" + os.path.normpath(path).replace("\\", "/")
     return ""
 
 

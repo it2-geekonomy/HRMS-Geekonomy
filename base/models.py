@@ -1866,7 +1866,7 @@ class CompanyLeaves(HorillaModel):
 
 class CompanyLeaveDateOverride(HorillaModel):
     """
-    One-off date overrides for company week-offs (WO) or forced working days.
+    One-off date overrides for company week-offs (WO) or working days.
 
     Use this instead of hardcoding temporary Saturday WO dates in code.
     Example: mark 2026-09-12 as Week Off when alternate Saturday would be working.
@@ -1876,7 +1876,7 @@ class CompanyLeaveDateOverride(HorillaModel):
     OVERRIDE_WORKING = "working"
     OVERRIDE_CHOICES = [
         (OVERRIDE_WEEK_OFF, _("Week Off (WO)")),
-        (OVERRIDE_WORKING, _("Force Working Day")),
+        (OVERRIDE_WORKING, _("Working Day")),
     ]
 
     date = models.DateField(verbose_name=_("Date"), unique=True)
@@ -1884,14 +1884,14 @@ class CompanyLeaveDateOverride(HorillaModel):
         max_length=20,
         choices=OVERRIDE_CHOICES,
         default=OVERRIDE_WEEK_OFF,
-        verbose_name=_("Override Type"),
+        verbose_name=_("Type"),
     )
     note = models.CharField(
         max_length=255,
         blank=True,
         default="",
         verbose_name=_("Note"),
-        help_text=_("Optional reason, e.g. Festival / special holiday WO."),
+        help_text=_("Optional reason, e.g. Festival holiday."),
     )
     company_id = models.ForeignKey(
         Company, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_("Company")
