@@ -72,6 +72,17 @@
                             </button>
                         </div>
                     </div>
+                    <div class="oh-btn-group ml-2">
+                        <button class="oh-btn oh-btn--secondary oh-btn--shadow" data-toggle="oh-modal-toggle"
+                            data-target="#objectCreateModal"
+                            hx-get="{% url 'company-leave-date-override-create' %}"
+                            hx-target="#objectCreateModalTarget"
+                            hx-on:click="$('#objectCreateModalTarget').css('max-width', '420px');"
+                            title="{% trans 'Add one-off Week Off or Force Working Day' %}">
+                            <ion-icon name="calendar-outline" class="me-1"></ion-icon>
+                            {% trans "Add WO Date" %}
+                        </button>
+                    </div>
                 {% endif %}
 
             </div>
@@ -81,6 +92,66 @@
 
 <div class="oh-wrapper" id="companyLeave">
     {% include 'company_leave/company_leave.html' %}
+</div>
+
+<div class="oh-wrapper mt-4 mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="oh-main__titlebar-title fw-bold mb-0" style="font-size:1.1rem;">
+            {% trans "One-off Week Off / Working Day Overrides" %}
+        </h2>
+    </div>
+    <p class="text-muted small mb-3">
+        {% trans "These dates override the regular company leave pattern on work records (WO calendar). Prefer this over asking for a code change." %}
+    </p>
+    {% if date_overrides %}
+        <div class="oh-sticky-table">
+            <div class="oh-sticky-table__table">
+                <div class="oh-sticky-table__thead">
+                    <div class="oh-sticky-table__tr">
+                        <div class="oh-sticky-table__th ps-4">{% trans "Date" %}</div>
+                        <div class="oh-sticky-table__th">{% trans "Type" %}</div>
+                        <div class="oh-sticky-table__th">{% trans "Note" %}</div>
+                        {% if perms.base.delete_companyleaves %}
+                            <div class="oh-sticky-table__th">{% trans "Actions" %}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="oh-sticky-table__tbody">
+                    {% for item in date_overrides %}
+                        <div class="oh-sticky-table__tr" style="height:56px;">
+                            <div class="oh-sticky-table__sd ps-4 dateformat_changer">{{ item.date }}</div>
+                            <div class="oh-sticky-table__sd">
+                                {% if item.override_type == "week_off" %}
+                                    <span class="oh-badge oh-badge--secondary">{% trans "Week Off (WO)" %}</span>
+                                {% else %}
+                                    <span class="oh-badge oh-badge--success">{% trans "Force Working Day" %}</span>
+                                {% endif %}
+                            </div>
+                            <div class="oh-sticky-table__sd">{{ item.note|default:"—" }}</div>
+                            {% if perms.base.delete_companyleaves %}
+                                <div class="oh-sticky-table__td">
+                                    <div class="oh-btn-group">
+                                        <a class="oh-btn oh-btn--danger-outline oh-btn--light-bkg w-100"
+                                            hx-confirm="{% trans 'Delete this date override?' %}"
+                                            hx-post="{% url 'company-leave-date-override-delete' item.id %}"
+                                            title="{% trans 'Delete' %}">
+                                            <ion-icon name="trash-outline"></ion-icon>
+                                        </a>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="oh-404" style="padding: 1.5rem 0;">
+            <h3 style="font-size:16px" class="oh-404__subtitle">
+                {% trans "No one-off overrides yet. Click “Add WO Date” to mark a specific day as Week Off." %}
+            </h3>
+        </div>
+    {% endif %}
 </div>
 
 <script src="{% static '/base/filter.js' %}"></script>

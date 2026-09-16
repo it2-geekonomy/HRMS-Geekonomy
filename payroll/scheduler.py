@@ -59,7 +59,10 @@ def generate_payslip(date, companies, all):
     # Payslip creation
     for employee in active_employees:
         payslip = Payslip.objects.filter(
-            employee_id=employee, start_date=start_date, end_date=end_date
+            employee_id=employee,
+            start_date=start_date,
+            end_date=end_date,
+            archived=False,
         ).first()
         if payslip:
             continue
