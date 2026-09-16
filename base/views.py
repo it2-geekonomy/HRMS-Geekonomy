@@ -79,6 +79,7 @@ from base.forms import (
     ChangePasswordForm,
     ChangeUsernameForm,
     CompanyForm,
+    CompanyLeaveDateOverrideForm,
     CompanyLeaveForm,
     DepartmentForm,
     DocumentTemplateForm,
@@ -140,6 +141,7 @@ from base.models import (
     BaserequestFile,
     BiometricAttendance,
     Company,
+    CompanyLeaveDateOverride,
     CompanyLeaves,
     DashboardEmployeeCharts,
     Department,
@@ -7640,6 +7642,7 @@ def company_leave_view(request):
     page_number = request.GET.get("page")
     page_obj = paginator_qry(queryset, page_number)
     company_leave_filter = CompanyLeaveFilter()
+    date_overrides = CompanyLeaveDateOverride.objects.all().order_by("-date")
     return render(
         request,
         "company_leave/company_leave_view.html",
@@ -7649,6 +7652,7 @@ def company_leave_view(request):
             "week_days": WEEK_DAYS,
             "form": company_leave_filter.form,
             "pd": previous_data,
+            "date_overrides": date_overrides,
         },
     )
 
@@ -7740,6 +7744,40 @@ def company_leave_delete(request, id):
     if not CompanyLeaves.objects.filter():
         return HttpResponse("<script>window.location.reload();</script>")
     return redirect(f"/company-leave-filter?{query_string}")
+
+
+@login_required
+@hx_request_required
+@permission_required("base.add_companyleaves")
+def company_leave_date_override_create(request):
+    """Create a one-off WO / force-working date override."""
+    form = CompanyLeaveDateOverrideForm()
+    if request.method == "POST":
+        form = CompanyLeaveDateOverrideForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(
+                request, _("Date override added. Work records will use it as configured.")
+            )
+            return HttpResponse("<script>window.location.reload();</script>")
+    return render(
+        request,
+        "company_leave/company_leave_date_override_form.html",
+        {"form": form},
+    )
+
+
+@login_required
+@hx_request_required
+@permission_required("base.delete_companyleaves")
+def company_leave_date_override_delete(request, id):
+    """Delete a one-off WO / force-working date override."""
+    try:
+        CompanyLeaveDateOverride.objects.get(id=id).delete()
+        messages.success(request, _("Date override deleted."))
+    except CompanyLeaveDateOverride.DoesNotExist:
+        messages.error(request, _("Date override not found."))
+    return HttpResponse("<script>window.location.reload();</script>")
 
 
 @login_required

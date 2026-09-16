@@ -1116,6 +1116,16 @@ urlpatterns = [
     path(
         "company-leave-filter", views.company_leave_filter, name="company-leave-filter"
     ),
+    path(
+        "company-leave-date-override-create",
+        views.company_leave_date_override_create,
+        name="company-leave-date-override-create",
+    ),
+    path(
+        "company-leave-date-override-delete/<int:id>",
+        views.company_leave_date_override_delete,
+        name="company-leave-date-override-delete",
+    ),
     path("view-penalties", views.view_penalties, name="view-penalties"),
     # Employee dashboard charts
     path("my-key-result-status/", views.my_key_result_status, name="my-key-result-status"),
