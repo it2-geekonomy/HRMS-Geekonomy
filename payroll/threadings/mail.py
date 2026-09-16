@@ -79,18 +79,24 @@ def _build_payslip_pdf_attachments(instances):
     for instance in instances:
         response = payslip_pdf_content(instance.id)
         if response is None or getattr(response, "status_code", 200) != 200:
+            err_body = ""
+            if response is not None:
+                raw = getattr(response, "content", b"") or b""
+                err_body = raw[:300].decode("utf-8", errors="replace")
             logger.warning(
-                "Payslip mail: skipping invalid PDF for payslip id=%s (status=%s)",
+                "Payslip mail: skipping invalid PDF for payslip id=%s (status=%s) body=%s",
                 instance.id,
                 getattr(response, "status_code", None),
+                err_body,
             )
             continue
         content = getattr(response, "content", None) or b""
         if not content or not content.startswith(b"%PDF"):
             logger.warning(
-                "Payslip mail: skipping non-PDF content for payslip id=%s (len=%s)",
+                "Payslip mail: skipping non-PDF content for payslip id=%s (len=%s) head=%r",
                 instance.id,
                 len(content),
+                content[:80],
             )
             continue
         attachments.append(

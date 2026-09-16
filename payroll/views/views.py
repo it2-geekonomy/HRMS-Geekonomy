@@ -2458,6 +2458,46 @@ def _payslip_pdf_via_same_url(payslip_id, request):
     return None
 
 
+def _pisa_link_callback(uri, rel):
+    """
+    Resolve /static/... (and similar) to local files for xhtml2pdf.
+    Data URIs are returned unchanged.
+    """
+    if not uri:
+        return uri
+    if uri.startswith("data:"):
+        return uri
+    cleaned = uri.split("?")[0].split("#")[0]
+    static_prefix = settings.STATIC_URL or "/static/"
+    if not static_prefix.startswith("/"):
+        static_prefix = "/" + static_prefix
+    if cleaned.startswith(static_prefix):
+        relative = cleaned[len(static_prefix) :]
+        path = find(relative)
+        if path and os.path.isfile(path):
+            return path
+        fallback = os.path.join(settings.BASE_DIR, "static", *relative.split("/"))
+        if os.path.isfile(fallback):
+            return fallback
+    if cleaned.startswith("file:"):
+        return cleaned
+    if os.path.isfile(cleaned):
+        return cleaned
+    return uri
+
+
+def _html_for_pisa(html_content):
+    """Drop @font-face rules that often break pisa in Docker; keep layout usable."""
+    import re
+
+    return re.sub(
+        r"@font-face\s*\{.*?\}",
+        "/* font-face removed for pisa */",
+        html_content,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+
 def generate_payslip_pdf(template_path, context, html=False, payslip=None, request=None):
     """
     Generate a PDF file from an HTML template and context data.
@@ -2500,29 +2540,46 @@ def generate_payslip_pdf(template_path, context, html=False, payslip=None, reque
         # Try pdfkit (wkhtmltopdf) if installed
         if not pdf_bytes or not pdf_bytes.startswith(b"%PDF"):
             try:
-                pdf_bytes = pdfkit.from_string(html_content, False, options=_payslip_pdfkit_options())
+                pdf_bytes = pdfkit.from_string(
+                    html_content, False, options=_payslip_pdfkit_options()
+                )
             except Exception:
                 pdf_bytes = None
 
         # Last resort: xhtml2pdf (pisa) - layout may differ from on-screen
         if not pdf_bytes or not pdf_bytes.startswith(b"%PDF"):
-            logger.warning("Payslip PDF: using pisa fallback (install Chrome or wkhtmltopdf for on-screen match)")
-            result = BytesIO()
-            pdf_status = pisa.CreatePDF(
-                src=html_content, dest=result, encoding="utf-8"
+            logger.warning(
+                "Payslip PDF: using pisa fallback (install Chrome or wkhtmltopdf for on-screen match)"
             )
+            pisa_html = _html_for_pisa(html_content)
+            result = BytesIO()
+            try:
+                pdf_status = pisa.CreatePDF(
+                    src=pisa_html,
+                    dest=result,
+                    encoding="utf-8",
+                    link_callback=_pisa_link_callback,
+                )
+            except Exception as pisa_exc:
+                logger.exception("Payslip PDF: pisa.CreatePDF raised: %s", pisa_exc)
+                return HttpResponse(
+                    f"Error generating PDF (pisa exception): {pisa_exc}",
+                    status=500,
+                )
             result.seek(0)
             pdf_bytes = result.getvalue()
-            # Image warnings set err but often still produce a valid PDF — use it.
-            if pdf_status.err and (not pdf_bytes or not pdf_bytes.startswith(b"%PDF")):
+            if pdf_status.err:
+                logger.warning(
+                    "Payslip PDF: pisa err=%s log=%s out_len=%s",
+                    pdf_status.err,
+                    getattr(pdf_status, "log", None),
+                    len(pdf_bytes or b""),
+                )
+            # Image/font warnings set err but often still produce a valid PDF
+            if not pdf_bytes or not pdf_bytes.startswith(b"%PDF"):
                 return HttpResponse(
                     _("Error generating PDF (pdfkit and pisa failed)"),
                     status=500,
-                )
-            if pdf_status.err:
-                logger.warning(
-                    "Payslip PDF: pisa reported errors but produced a PDF (len=%s)",
-                    len(pdf_bytes or b""),
                 )
 
         if not pdf_bytes or not pdf_bytes.startswith(b"%PDF"):
@@ -2535,6 +2592,7 @@ def generate_payslip_pdf(template_path, context, html=False, payslip=None, reque
         response["Content-Disposition"] = "inline; filename=payslip.pdf"
         return response
     except Exception as e:
+        logger.exception("Payslip PDF: generate_payslip_pdf failed: %s", e)
         return HttpResponse(f"Error generating PDF: {str(e)}", status=500)
 
 
