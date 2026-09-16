@@ -12,7 +12,7 @@
 
 <section class="oh-wrapper oh-main__topbar" x-data="{searchShow: false}">
   <div class="oh-main__titlebar oh-main__titlebar--left">
-    <h1 class="oh-main__titlebar-title fw-bold">{% trans "Payslip" %}</h1>
+    <h1 class="oh-main__titlebar-title fw-bold">{% trans "Payslip" %}{% if show_archived %} <span class="text-muted fs-6 fw-normal">({% trans "Archived" %})</span>{% endif %}</h1>
     <a
       class="oh-main__titlebar-search-toggle"
       role="button"
@@ -42,6 +42,15 @@
         value="{{request.GET.view}}"
         id="payslipViewType"
       />
+      <input type="hidden" name="archived" value="{% if show_archived %}1{% else %}0{% endif %}" id="payslipArchivedInput" />
+      {% if perms.payroll.view_payslip %}
+        <a href="{% url 'view-payslip' %}{% if not show_archived %}?archived=1{% endif %}"
+          class="oh-btn oh-btn--light-bkg mr-2"
+          title="{% if show_archived %}{% trans 'Show active' %}{% else %}{% trans 'Show archived' %}{% endif %}">
+          <ion-icon name="{% if show_archived %}folder-open-outline{% else %}archive-outline{% endif %}"></ion-icon>
+          {% if show_archived %}{% trans "Active" %}{% else %}{% trans "Archived" %}{% endif %}
+        </a>
+      {% endif %}
       {% if perms.payroll.view_payslip and payslips %}
         <div
           class="oh-input-group oh-input__search-group"
@@ -202,6 +211,15 @@
                     data-toggle="oh-modal-toggle"
                     data-target="#objectDetailsModal"
                     >{% trans "Export" %}</a
+                  >
+                </li>
+              {% endif %}
+              {% if perms.payroll.change_payslip and payslips %}
+                <li class="oh-dropdown__item">
+                  <a
+                    class="oh-dropdown__link"
+                    id="archivePayslipBulk"
+                    >{% if show_archived %}{% trans "Restore" %}{% else %}{% trans "Archive" %}{% endif %}</a
                   >
                 </li>
               {% endif %}

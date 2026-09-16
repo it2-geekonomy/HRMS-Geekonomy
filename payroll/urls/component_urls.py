@@ -77,6 +77,11 @@ urlpatterns = [
     ),
     path("filter-payslip", component_views.filter_payslip, name="filter-payslip"),
     path(
+        "archive-payslip/<int:payslip_id>/",
+        component_views.archive_payslip,
+        name="archive-payslip",
+    ),
+    path(
         "payslip-info-export",
         component_views.payslip_export,
         name="payslip-info-export",
