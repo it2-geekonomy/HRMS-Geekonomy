@@ -2487,15 +2487,47 @@ def _pisa_link_callback(uri, rel):
 
 
 def _html_for_pisa(html_content):
-    """Drop @font-face rules that often break pisa in Docker; keep layout usable."""
+    """
+    Sanitize HTML/CSS for xhtml2pdf.
+    Modern CSS and percentage heights crash reportlab table layout with:
+    TypeError: unsupported operand type(s) for -: 'str' and 'int'.
+    """
     import re
 
-    return re.sub(
+    html_content = re.sub(
         r"@font-face\s*\{.*?\}",
         "/* font-face removed for pisa */",
         html_content,
         flags=re.IGNORECASE | re.DOTALL,
     )
+    html_content = re.sub(
+        r"<script\b[^>]*>.*?</script>",
+        "",
+        html_content,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    bad_props = [
+        r"aspect-ratio\s*:[^;{}]+;?",
+        r"mix-blend-mode\s*:[^;{}]+;?",
+        r"transform\s*:[^;{}]+;?",
+        r"object-fit\s*:[^;{}]+;?",
+        r"object-position\s*:[^;{}]+;?",
+        r"pointer-events\s*:[^;{}]+;?",
+        r"-webkit-[a-z-]+\s*:[^;{}]+;?",
+        r"letter-spacing\s*:[^;{}]+;?",
+        r"display\s*:\s*inline-flex\s*;?",
+        r"align-items\s*:[^;{}]+;?",
+        r"justify-content\s*:[^;{}]+;?",
+        r"gap\s*:[^;{}]+;?",
+        r"max-width\s*:\s*55%\s*;?",
+        # These break reportlab table height math inside xhtml2pdf
+        r"min-height\s*:[^;{}]+;?",
+        r"height\s*:\s*100%\s*;?",
+        r"height\s*:\s*100vh\s*;?",
+    ]
+    for pat in bad_props:
+        html_content = re.sub(pat, "", html_content, flags=re.IGNORECASE)
+    return html_content
 
 
 def generate_payslip_pdf(template_path, context, html=False, payslip=None, request=None):

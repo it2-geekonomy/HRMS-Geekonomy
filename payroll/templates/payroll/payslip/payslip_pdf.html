@@ -14,42 +14,34 @@
     }
     * { box-sizing: border-box; }
     html, body {
-      height: 100%;
+      /* avoid height:100% — xhtml2pdf/reportlab crashes on it */
     }
     body {
       margin: 0;
       padding: 16px;
       background: #fff;
-      font-family: "Poppins", Arial, sans-serif;
+      font-family: Arial, Helvetica, sans-serif;
       font-size: 11px;
       line-height: 1.4;
       color: #111;
-      -webkit-font-smoothing: antialiased;
     }
     .payslip-page {
       position: relative;
       max-width: 820px;
       margin: 0 auto;
-      min-height: 1122px; /* ~A4 height at 96dpi */
       padding: 12px 24px 28px;
       overflow: visible;
     }
+    /* Keep watermark CSS simple — xhtml2pdf crashes on aspect-ratio/transform/mix-blend-mode */
     .watermark {
       position: absolute;
-      top: 50%;
-      left: 50%;
+      top: 300px;
+      left: 240px;
       width: 340px;
-      height: auto;
-      max-width: 55%;
-      aspect-ratio: 1 / 1;
+      height: 340px;
       margin: 0;
-      transform: translate(-50%, -50%);
       opacity: 0.1;
-      mix-blend-mode: multiply;
-      pointer-events: none;
       z-index: 0;
-      object-fit: contain;
-      object-position: center center;
     }
     .payslip-content {
       position: relative;
@@ -67,12 +59,10 @@
       max-width: 420px;
       vertical-align: middle;
       margin-right: 8px;
-      object-fit: contain;
     }
     .letterhead-brand {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
+      display: block;
+      text-align: center;
       margin-bottom: 6px;
     }
     .letterhead-address {
@@ -165,18 +155,13 @@
       body { margin: 0; padding: 0; }
       .payslip-page {
         max-width: none;
-        min-height: 100vh;
         padding: 0 4mm;
       }
       .watermark {
-        top: 50%;
-        left: 50%;
-        width: 320px;
-        height: auto;
-        max-width: 55%;
-        aspect-ratio: 1 / 1;
-        transform: translate(-50%, -50%);
-        object-fit: contain;
+        top: 300px;
+        left: 240px;
+        width: 340px;
+        height: 340px;
       }
       @page { size: A4; margin: 8mm 10mm; }
     }
