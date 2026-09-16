@@ -41,6 +41,7 @@ from base.models import (
     AttendanceAllowedIP,
     BaserequestFile,
     Company,
+    CompanyLeaveDateOverride,
     CompanyLeaves,
     Department,
     DriverViewed,
@@ -2808,6 +2809,29 @@ class CompanyLeaveForm(ModelForm):
         self.fields["based_on_week"].widget.option_template_name = (
             "horilla_widgets/select_option.html"
         )
+
+
+class CompanyLeaveDateOverrideForm(ModelForm):
+    """Form to add/edit one-off WO or force-working date overrides."""
+
+    class Meta:
+        model = CompanyLeaveDateOverride
+        fields = ["date", "override_type", "note", "company_id"]
+        widgets = {
+            "date": forms.DateInput(attrs={"type": "date", "class": "oh-input w-100"}),
+            "note": forms.TextInput(
+                attrs={
+                    "class": "oh-input w-100",
+                    "placeholder": _("Optional note"),
+                }
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["override_type"].widget.attrs["class"] = "oh-select w-100"
+        if "company_id" in self.fields:
+            self.fields["company_id"].required = False
 
 
 class PenaltyAccountForm(ModelForm):

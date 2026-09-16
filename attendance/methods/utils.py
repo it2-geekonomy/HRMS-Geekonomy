@@ -17,7 +17,7 @@ from django.http import HttpResponse
 from django.utils.translation import gettext_lazy as _
 
 from base.methods import get_pagination
-from base.models import WEEK_DAYS, CompanyLeaves, Holidays
+from base.models import WEEK_DAYS, CompanyLeaveDateOverride, CompanyLeaves, Holidays
 from employee.models import Employee
 from horilla.horilla_settings import HORILLA_DATE_FORMATS, HORILLA_TIME_FORMATS
 
@@ -582,37 +582,25 @@ def monthly_leave_days(month, year):
                         if date_obj not in leave_dates:
                             leave_dates.append(date_obj)
     
-    # Explicit one-time Saturday WO override.
+    # Explicit one-time Saturday WO override (structural cycle shift start).
     if (
         SATURDAY_ONE_TIME_WEEK_OFF.year == year
         and SATURDAY_ONE_TIME_WEEK_OFF.month == month
         and SATURDAY_ONE_TIME_WEEK_OFF not in leave_dates
     ):
         leave_dates.append(SATURDAY_ONE_TIME_WEEK_OFF)
-    
-    # Temporary override: May 23, 2026 as WO for May 2026 only
-    if year == 2026 and month == 5:
-        may_23_2026 = date(2026, 5, 23)
-        if may_23_2026 not in leave_dates:
-            leave_dates.append(may_23_2026)
 
-    # Temporary override: May 30, 2026 as working day for May 2026 only (remove from WO)
-    if year == 2026 and month == 5:
-        may_30_2026 = date(2026, 5, 30)
-        if may_30_2026 in leave_dates:
-            leave_dates.remove(may_30_2026)
-
-    # Temporary override: July 18, 2026 as WO for July 2026 only
-    if year == 2026 and month == 7:
-        july_18_2026 = date(2026, 7, 18)
-        if july_18_2026 not in leave_dates:
-            leave_dates.append(july_18_2026)
-
-    # Temporary override: July 25, 2026 as WO for July 2026 only
-    if year == 2026 and month == 7:
-        july_25_2026 = date(2026, 7, 25)
-        if july_25_2026 not in leave_dates:
-            leave_dates.append(july_25_2026)
+    # Configurable one-off WO / force-working overrides
+    # (managed at /configuration/company-leave-view → Add WO Date)
+    for override in CompanyLeaveDateOverride.objects.filter(
+        date__year=year, date__month=month
+    ):
+        if override.override_type == CompanyLeaveDateOverride.OVERRIDE_WEEK_OFF:
+            if override.date not in leave_dates:
+                leave_dates.append(override.date)
+        elif override.override_type == CompanyLeaveDateOverride.OVERRIDE_WORKING:
+            if override.date in leave_dates:
+                leave_dates.remove(override.date)
 
     return leave_dates
 
