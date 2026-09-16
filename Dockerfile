@@ -4,12 +4,15 @@ FROM python:3.10-slim
 # Set work directory
 WORKDIR /app
 
-# Install system dependencies + PostgreSQL client
+# Install system dependencies + PostgreSQL client + Chromium (payslip PDF)
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
     postgresql-client \
     gcc \
+    chromium \
+    fonts-liberation \
+    fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements

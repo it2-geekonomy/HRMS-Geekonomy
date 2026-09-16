@@ -53,8 +53,12 @@ def _normalize_addresses(addresses):
 def _attachment_payload(attachment):
     """
     Convert a Django EmailMessage attachment into Resend's attachment format.
+    Skip inline CID images (Content-Disposition: inline) — those belong in HTML.
     """
     if isinstance(attachment, MIMEBase):
+        disposition = (attachment.get("Content-Disposition") or "").lower()
+        if disposition.startswith("inline"):
+            return None
         payload = attachment.get_payload(decode=True) or b""
         filename = attachment.get_filename() or "attachment"
         content_type = attachment.get_content_type() or "application/octet-stream"
@@ -72,6 +76,9 @@ def _attachment_payload(attachment):
             filename, content, mimetype = attachment[:3]
         if isinstance(content, str):
             content = content.encode("utf-8")
+        # Only send real file attachments (payslip PDFs), not image/png logos
+        if mimetype and str(mimetype).startswith("image/"):
+            return None
         return {
             "filename": filename or "attachment",
             "content": base64.b64encode(content or b"").decode("ascii"),

@@ -2366,6 +2366,10 @@ def equalize_lists_length(allowances, deductions):
 logger = logging.getLogger(__name__)
 
 _CHROMIUM_BROWSERS = (
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
     r"C:\Program Files\Google\Chrome\Application\chrome.exe",
     r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
     r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
@@ -2400,9 +2404,10 @@ def _chromium_pdf_to_bytes(target):
                 with open(pdf_path, "rb") as pdf_file:
                     data = pdf_file.read()
                 if data.startswith(b"%PDF") and len(data) > 200:
+                    logger.info("Payslip PDF: rendered via %s (%s bytes)", browser, len(data))
                     return data
             except Exception as exc:
-                logger.debug("Headless PDF via %s failed: %s", browser, exc)
+                logger.warning("Headless PDF via %s failed: %s", browser, exc)
         return None
     finally:
         try:
@@ -2559,7 +2564,9 @@ def generate_payslip_pdf(template_path, context, html=False, payslip=None, reque
         try:
             with os.fdopen(html_fd, "w", encoding="utf-8") as html_file:
                 html_file.write(html_content)
-            html_uri = "file:///" + os.path.normpath(html_path).replace("\\", "/")
+            from pathlib import Path as _Path
+
+            html_uri = _Path(html_path).resolve().as_uri()
             pdf_bytes = _chromium_pdf_to_bytes(html_uri)
         except Exception:
             pdf_bytes = None

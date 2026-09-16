@@ -4,10 +4,11 @@ mail.py
 This module is used handle mail sent in thread
 """
 
+import base64
 import logging
+import mimetypes
 from collections import defaultdict
 from datetime import date, datetime, timedelta
-from email.mime.image import MIMEImage
 from pathlib import Path
 from threading import Thread
 
@@ -24,7 +25,6 @@ logger = logging.getLogger(__name__)
 
 # On the 11th of every month, send unsent payslips (for previous month) to employees.
 PAYSLIP_AUTO_SEND_DAY = 11
-PAYSLIP_MAIL_LOGO_CID = "payslip-logo"
 
 
 def _payslip_mail_logo_path():
@@ -36,26 +36,25 @@ def _payslip_mail_logo_path():
     return ui / "geekonomy-logo-mail.png"
 
 
+def _payslip_mail_logo_data_uri():
+    """Inline logo for HTML mail (avoids Resend treating CID images as attachments)."""
+    logo_path = _payslip_mail_logo_path()
+    if not logo_path.is_file():
+        logger.warning("Payslip mail: logo not found at %s", logo_path)
+        return ""
+    mime = mimetypes.guess_type(str(logo_path))[0] or "image/png"
+    encoded = base64.b64encode(logo_path.read_bytes()).decode("ascii")
+    return f"data:{mime};base64,{encoded}"
+
+
 def _payslip_mail_template_context(record, host, protocol):
     return {
         "record": record,
         "host": host,
         "protocol": protocol,
-        "logo_cid": PAYSLIP_MAIL_LOGO_CID,
+        "logo_data_uri": _payslip_mail_logo_data_uri(),
         "current_year": datetime.now().year,
     }
-
-
-def _attach_payslip_mail_logo(email):
-    logo_path = _payslip_mail_logo_path()
-    if not logo_path.is_file():
-        logger.warning("Payslip mail: logo not found at %s", logo_path)
-        return
-    with open(logo_path, "rb") as logo_file:
-        img = MIMEImage(logo_file.read(), _subtype="png")
-    img.add_header("Content-ID", f"<{PAYSLIP_MAIL_LOGO_CID}>")
-    img.add_header("Content-Disposition", "inline", filename="geekonomy-logo.png")
-    email.attach(img)
 
 
 def _payslip_from_email():
@@ -176,9 +175,9 @@ class MailSendThread(Thread):
                     [to_email],
                     connection=email_backend,
                 )
-                email.attachments = attachments
+                # Only payslip PDFs — never attach the header logo
+                email.attachments = list(attachments)
                 email.content_subtype = "html"
-                _attach_payslip_mail_logo(email)
 
                 try:
                     sent = email.send(fail_silently=False)
@@ -281,9 +280,8 @@ def send_payslips_on_11th():
                 to=[email_to],
                 connection=email_backend,
             )
-            email.attachments = attachments
+            email.attachments = list(attachments)
             email.content_subtype = "html"
-            _attach_payslip_mail_logo(email)
 
             try:
                 sent = email.send(fail_silently=False)

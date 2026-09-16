@@ -54,18 +54,6 @@
       color: #6f6f6f;
       font-size: 12px;
     }
-
-    .hr-callout-table {
-      table-layout: fixed;
-      width: 100%;
-      border: 1px solid #f0f0f0;
-      font-size: 14px;
-    }
-
-    .hr-callout-table td {
-      padding: 10px;
-      background-color: #fafafa;
-    }
   </style>
 </head>
 
@@ -77,25 +65,17 @@
           <table class="hr-table-main__header">
             <tr>
               <td style="width: 50%">
-                {% if logo_cid %}
-                <img src="cid:{{ logo_cid }}" alt="Geekonomy" height="40" style="height:40px; width:auto; max-width:200px; display:block;" />
-                {% else %}
+                {% if logo_data_uri %}
+                <img src="{{ logo_data_uri }}" alt="Geekonomy" height="40" style="height:40px; width:auto; max-width:200px; display:block;" />
+                {% elif host %}
                 <img src="{{protocol}}://{{ host }}{% static 'images/ui/geekonomy-logo-mail.png' %}" alt="Geekonomy" height="40" style="height:40px; width:auto; max-width:200px; display:block;" />
                 {% endif %}
               </td>
               <td style="width: 50%; text-align: right">
-                <a href="#" class="hr-link">View in browser</a>
+                <a href="{{protocol}}://{{ host }}{% url 'view-payslip' %}" class="hr-link">View in browser</a>
               </td>
             </tr>
           </table>
-        </td>
-      </tr>
-      <tr>
-        <td align="center" style="padding-top:20px;padding-bottom: 20px ;">
-          <img
-            src="https://ci3.googleusercontent.com/meips/ADKq_NZzfB2Yeamia3PRl_MPY2l5X-HKt_GdWTuHkHyUh4s8jl9IFTbklpAOA-tF3RxEN2nsK759vl1ak1ZOroD08dPnWxnWvqmXUiB209X05-AMQwPCCzM-yu5L4EfrVOE4435gYyWmY4yo4CEMOi0nA9cvN18Pd9wYHnxxGg=s0-d-e1-ft#https://d1oco4z2z1fhwp.cloudfront.net/templates/default/6506/1882ba7c-c779-44c4-9642-99e296fb98be.png"
-            style="display:block;height:auto;border:0;width:20%" width="272" title="donation box" class="CToWUd"
-            data-bit="iit">
         </td>
       </tr>
       <tr>
@@ -106,13 +86,13 @@
       <tr>
         <td align="center" style="padding-top: 0px;">
           <p style="width: 95%;">
-            Hi, {{record.instances.0.get_name}}. You got {{record.count}} attachments of payslips,<br> Have a good day.
+            Hi, {{record.instances.0.get_name}}. You got {{record.count}} payslip PDF attachment(s).<br> Have a good day.
           </p>
         </td>
       </tr>
       <tr>
         <td style="padding: 15px" align="center">
-          <a href="{{protocol}}://{{ host }}{% url "view-payslip" %}" style="
+          <a href="{{protocol}}://{{ host }}{% url 'view-payslip' %}" style="
                 background-color: #22c55e;
                 color: #fff;
                 border-radius: 10px;
@@ -132,7 +112,6 @@
               padding-bottom: 10px;
               padding-top: 10px;
               color: #5c5c5c;
-              {% comment %} background-color: #e54f37; {% endcomment %}
               font-size: 12px;
             ">
           &copy; {{current_year}} Geekonomy
