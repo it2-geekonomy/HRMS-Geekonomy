@@ -1864,6 +1864,50 @@ class CompanyLeaves(HorillaModel):
         return f"{dict(WEEK_DAYS).get(self.based_on_week_day)} | {dict(WEEKS).get(self.based_on_week)}"
 
 
+class CompanyLeaveDateOverride(HorillaModel):
+    """
+    One-off date overrides for company week-offs (WO) or forced working days.
+
+    Use this instead of hardcoding temporary Saturday WO dates in code.
+    Example: mark 2026-09-12 as Week Off when alternate Saturday would be working.
+    """
+
+    OVERRIDE_WEEK_OFF = "week_off"
+    OVERRIDE_WORKING = "working"
+    OVERRIDE_CHOICES = [
+        (OVERRIDE_WEEK_OFF, _("Week Off (WO)")),
+        (OVERRIDE_WORKING, _("Force Working Day")),
+    ]
+
+    date = models.DateField(verbose_name=_("Date"), unique=True)
+    override_type = models.CharField(
+        max_length=20,
+        choices=OVERRIDE_CHOICES,
+        default=OVERRIDE_WEEK_OFF,
+        verbose_name=_("Override Type"),
+    )
+    note = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name=_("Note"),
+        help_text=_("Optional reason, e.g. Festival / special holiday WO."),
+    )
+    company_id = models.ForeignKey(
+        Company, null=True, blank=True, on_delete=models.PROTECT, verbose_name=_("Company")
+    )
+    objects = HorillaCompanyManager()
+
+    class Meta:
+        ordering = ["-date"]
+        verbose_name = _("Company Leave Date Override")
+        verbose_name_plural = _("Company Leave Date Overrides")
+
+    def __str__(self):
+        label = dict(self.OVERRIDE_CHOICES).get(self.override_type, self.override_type)
+        return f"{self.date} — {label}"
+
+
 class PenaltyAccounts(HorillaModel):
     """
     LateComeEarlyOutPenaltyAccount

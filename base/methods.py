@@ -21,7 +21,7 @@ from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.utils.translation import gettext as _
 
-from base.models import Company, CompanyLeaves, DynamicPagination, Holidays
+from base.models import Company, CompanyLeaveDateOverride, CompanyLeaves, DynamicPagination, Holidays
 from employee.models import Employee, EmployeeWorkInformation
 from horilla.horilla_apps import NESTED_SUBORDINATE_VISIBILITY
 from horilla.horilla_middlewares import _thread_locals
@@ -234,6 +234,7 @@ def sortby(request, queryset, key):
             ordering["ordering"] = ""
             order = f"-{sortby}"
 
+        ordered = False
         for part in field_parts:
             field = model_meta.get_field(part)
             if isinstance(field, models.ForeignKey):
@@ -244,6 +245,11 @@ def sortby(request, queryset, key):
                     queryset = queryset.order_by(f"{ordering['ordering']}lower_title")
                 else:
                     queryset = queryset.order_by(f'{ordering["ordering"]}{sortby}')
+                ordered = True
+
+        # Bare FK path (e.g. sortby=employee_id) never hits the else branch above
+        if not ordered:
+            queryset = queryset.order_by(f'{ordering["ordering"]}{sortby}')
 
         orderingList = [item for item in orderingList if item["id"] != id]
         orderingList.append(ordering)
@@ -901,6 +907,14 @@ def get_company_leave_dates(year):
                         ).date()
                         if leave_date not in company_leave_dates:
                             company_leave_dates.append(leave_date)
+    # Apply configurable one-off WO / force-working overrides
+    for override in CompanyLeaveDateOverride.objects.filter(date__year=year):
+        if override.override_type == CompanyLeaveDateOverride.OVERRIDE_WEEK_OFF:
+            if override.date not in company_leave_dates:
+                company_leave_dates.append(override.date)
+        elif override.override_type == CompanyLeaveDateOverride.OVERRIDE_WORKING:
+            if override.date in company_leave_dates:
+                company_leave_dates.remove(override.date)
     return company_leave_dates
 
 
