@@ -19,6 +19,17 @@
               hx-confirm="{% trans 'Do you want to send the payslip by mail?' %}" hx-get="{% url "send-slip" %}?id={{instance.id}}&view=individual-payslip" hx-target="#payslips-table"
               title="{% trans 'Send via mail' %}" {% if payslip.sent_to_employee %}class="oh-btn sent-to-employee w-100"{% else %}class="oh-btn oh-btn--light-bkg w-100"{% endif %}> <ion-icon name="mail-outline"></ion-icon></a>
           {% endif %}
+          {% if perms.payroll.change_payslip %}
+            <form method="post" action="{% url 'archive-payslip' instance.id %}" class="w-100" style="display:inline;">
+              {% csrf_token %}
+              <button type="submit"
+                onclick="return confirm('{% if instance.archived %}{% trans "Restore this payslip?" %}{% else %}{% trans "Archive this payslip?" %}{% endif %}');"
+                title="{% if instance.archived %}{% trans 'Restore' %}{% else %}{% trans 'Archive' %}{% endif %}"
+                class="oh-btn oh-btn--light-bkg w-100">
+                <ion-icon name="{% if instance.archived %}arrow-undo-outline{% else %}archive-outline{% endif %}"></ion-icon>
+              </button>
+            </form>
+          {% endif %}
         </div>
       {% if perms.payroll.change_payslip %}
         <div class="oh-payslip__header-left">
