@@ -2529,9 +2529,21 @@ def _html_for_pisa(html_content):
         r"min-height\s*:[^;{}]+;?",
         r"height\s*:\s*100%\s*;?",
         r"height\s*:\s*100vh\s*;?",
+        r"height\s*:\s*277mm\s*;?",
     ]
     for pat in bad_props:
         html_content = re.sub(pat, "", html_content, flags=re.IGNORECASE)
+    # Pisa-safe centered watermark (no transform): pin with equal sides + margin:auto
+    pisa_wm = (
+        ".watermark{position:absolute;top:0;left:0;right:0;bottom:0;"
+        "margin:auto;width:340px;height:340px;opacity:0.1;z-index:0;}"
+    )
+    html_content = re.sub(
+        r"\.watermark\s*\{[^}]*\}",
+        pisa_wm,
+        html_content,
+        flags=re.IGNORECASE,
+    )
     return html_content
 
 
