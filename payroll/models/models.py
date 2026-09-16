@@ -1377,6 +1377,11 @@ class Payslip(HorillaModel):
         max_length=20, null=True, default="draft", choices=status_choices
     )
     sent_to_employee = models.BooleanField(null=True, default=False)
+    archived = models.BooleanField(
+        default=False,
+        verbose_name=_("Archived"),
+        help_text=_("Archived payslips are hidden from the default list."),
+    )
     objects = HorillaCompanyManager("employee_id__employee_work_info__company_id")
     installment_ids = models.ManyToManyField(Deduction, editable=False)
     history = HorillaAuditLog(
@@ -1406,13 +1411,17 @@ class Payslip(HorillaModel):
             raise ValidationError(_("The start date cannot be in the future."))
 
     def save(self, *args, **kwargs):
-        if (
+        # Only active (non-archived) slips must be unique per employee/period so
+        # HR can archive a shared payslip and generate a replacement if needed.
+        if not self.archived and (
             Payslip.objects.filter(
                 employee_id=self.employee_id,
                 start_date=self.start_date,
                 end_date=self.end_date,
-            ).count()
-            > 1
+                archived=False,
+            )
+            .exclude(pk=self.pk)
+            .exists()
         ):
             raise ValidationError(_("Employee ,start and end date must be unique"))
 

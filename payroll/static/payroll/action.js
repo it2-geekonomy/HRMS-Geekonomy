@@ -14,6 +14,22 @@ var deletePayslipMessages = {
   fr: "Voulez-vous vraiment supprimer tous les bulletins de paie sélectionnés?",
 };
 
+var archivePayslipMessages = {
+  ar: "هل تريد أرشفة كشوف الدفع المحددة؟",
+  de: "Möchten Sie die ausgewählten Gehaltsabrechnungen archivieren?",
+  es: "¿Desea archivar las nóminas seleccionadas?",
+  en: "Do you want to archive the selected payslips?",
+  fr: "Voulez-vous archiver les bulletins de paie sélectionnés?",
+};
+
+var restorePayslipMessages = {
+  ar: "هل تريد استعادة كشوف الدفع المحددة؟",
+  de: "Möchten Sie die ausgewählten Gehaltsabrechnungen wiederherstellen?",
+  es: "¿Desea restaurar las nóminas seleccionadas?",
+  en: "Do you want to restore the selected payslips?",
+  fr: "Voulez-vous restaurer les bulletins de paie sélectionnés?",
+};
+
 var deleteContractMessages = {
   ar: "هل ترغب حقًا في حذف جميع العقود المحددة؟",
   de: "Möchten Sie wirklich alle ausgewählten Verträge löschen?",
@@ -397,6 +413,71 @@ $("#deletePayslipBulk").click(function (e) {
         }
       });
     }
+  });
+});
+
+$("#archivePayslipBulk").off("click").on("click", function (e) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  getCurrentLanguageCode(function (languageCode) {
+    var showingArchived = $("#payslipArchivedInput").val() === "1";
+    var confirmMessage = showingArchived
+      ? restorePayslipMessages[languageCode] || restorePayslipMessages.en
+      : archivePayslipMessages[languageCode] || archivePayslipMessages.en;
+    var textMessage = noRowPayrollMessages[languageCode] || noRowPayrollMessages.en;
+    var checkedRows = $(".payslip-checkbox").filter(":checked");
+    var ids = [];
+    try {
+      ids = JSON.parse($("#selectedPayslip").attr("data-ids") || "[]");
+    } catch (err) {
+      ids = [];
+    }
+    if ((!ids || ids.length === 0) && checkedRows.length === 0) {
+      Swal.fire({
+        text: textMessage,
+        icon: "warning",
+        confirmButtonText: "Close",
+      });
+      return;
+    }
+    Swal.fire({
+      text: confirmMessage,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#008000",
+      cancelButtonColor: "#d33",
+      confirmButtonText: "Confirm",
+    }).then(function (result) {
+      if (!result.isConfirmed) {
+        return;
+      }
+      if (!ids || ids.length === 0) {
+        ids = [];
+        checkedRows.each(function () {
+          ids.push($(this).attr("id"));
+        });
+      }
+      $.ajax({
+        type: "POST",
+        url: "/payroll/payslip-bulk-archive",
+        data: {
+          csrfmiddlewaretoken: getCookie("csrftoken"),
+          ids: JSON.stringify(ids),
+          archive: showingArchived ? "0" : "1",
+        },
+        success: function () {
+          location.reload();
+        },
+        error: function () {
+          Swal.fire({
+            text: "Unable to archive payslips.",
+            icon: "error",
+            confirmButtonText: "Close",
+          });
+        },
+      });
+    });
   });
 });
 
