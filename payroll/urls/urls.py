@@ -189,6 +189,11 @@ urlpatterns = [
         name="payslip-bulk-delete",
     ),
     path(
+        "payslip-bulk-archive",
+        views.payslip_bulk_archive,
+        name="payslip-bulk-archive",
+    ),
+    path(
         "update-batch-group-name",
         views.slip_group_name_update,
         name="update-batch-group-name",

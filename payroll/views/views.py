@@ -834,6 +834,7 @@ def bulk_update_payslip_status(request):
             "employee_id": employee,
             "start_date": data["start_date"],
             "end_date": data["end_date"],
+            "archived": False,
         }
         filtered_instance = Payslip.objects.filter(**payslip_kwargs).first()
         instance = filtered_instance if filtered_instance is not None else Payslip()
@@ -998,10 +999,10 @@ def view_payroll_dashboard(request):
     """
     from payroll.forms.forms import DashboardExport
 
-    paid = Payslip.objects.filter(status="paid")
-    posted = Payslip.objects.filter(status="confirmed")
-    review_ongoing = Payslip.objects.filter(status="review_ongoing")
-    draft = Payslip.objects.filter(status="draft")
+    paid = Payslip.objects.filter(status="paid", archived=False)
+    posted = Payslip.objects.filter(status="confirmed", archived=False)
+    review_ongoing = Payslip.objects.filter(status="review_ongoing", archived=False)
+    draft = Payslip.objects.filter(status="draft", archived=False)
     export_form = DashboardExport()
     context = {
         "paid": paid,
@@ -2240,6 +2241,35 @@ def payslip_bulk_delete(request):
 
 @login_required
 @permission_required("payroll.change_payslip")
+def payslip_bulk_archive(request):
+    """
+    Bulk archive or restore selected payslips.
+    POST archive=1 archives; archive=0 restores.
+    """
+    ids = request.POST.get("ids", "[]")
+    ids = json.loads(ids)
+    archive = request.POST.get("archive", "1") in ("1", "true", "yes")
+    updated = Payslip.objects.filter(id__in=ids).exclude(archived=archive).update(
+        archived=archive
+    )
+    if updated:
+        if archive:
+            messages.success(
+                request,
+                _("%(count)s payslip(s) archived.") % {"count": updated},
+            )
+        else:
+            messages.success(
+                request,
+                _("%(count)s payslip(s) restored from archive.") % {"count": updated},
+            )
+    else:
+        messages.info(request, _("No payslips were updated."))
+    return JsonResponse({"message": "Success"})
+
+
+@login_required
+@permission_required("payroll.change_payslip")
 def slip_group_name_update(request):
     """
     This method is used to update the group of the payslip
@@ -3012,13 +3042,14 @@ def contract_select_filter(request):
 @login_required
 def payslip_select(request):
     page_number = request.GET.get("page")
+    show_archived = request.GET.get("archived") in ("1", "true", "yes")
 
     if page_number == "all":
         if request.user.has_perm("payroll.view_payslip"):
-            employees = Payslip.objects.all()
+            employees = Payslip.objects.filter(archived=show_archived)
         else:
             employees = Payslip.objects.filter(
-                employee_id__employee_user_id=request.user
+                employee_id__employee_user_id=request.user, status="paid"
             )
 
     payslip_ids = [str(emp.id) for emp in employees]
@@ -3034,9 +3065,15 @@ def payslip_select_filter(request):
     page_number = request.GET.get("page")
     filtered = request.GET.get("filter")
     filters = json.loads(filtered) if filtered else {}
+    show_archived = (
+        str(filters.get("archived", request.GET.get("archived", "0"))).lower()
+        in ("1", "true", "yes")
+    )
 
     if page_number == "all":
-        payslip_filter = PayslipFilter(filters, queryset=Payslip.objects.all())
+        payslip_filter = PayslipFilter(
+            filters, queryset=Payslip.objects.filter(archived=show_archived)
+        )
 
         # Get the filtered queryset
         filtered_employees = payslip_filter.qs

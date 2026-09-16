@@ -1093,7 +1093,10 @@ def create_payslip(request, new_post_data=None):
             start_date = form.cleaned_data["start_date"]
             end_date = form.cleaned_data["end_date"]
             payslip = Payslip.objects.filter(
-                employee_id=employee, start_date=start_date, end_date=end_date
+                employee_id=employee,
+                start_date=start_date,
+                end_date=end_date,
+                archived=False,
             ).first()
 
             if form.is_valid():
@@ -1210,10 +1213,11 @@ def view_payslip(request):
     """
     This method is used to render the template for viewing a payslip.
     """
+    show_archived = request.GET.get("archived") in ("1", "true", "yes")
     if request.user.has_perm("payroll.view_payslip"):
-        payslips = Payslip.objects.all()
+        payslips = Payslip.objects.filter(archived=show_archived)
     else:
-        # Employees only see paid payslips in their portal
+        # Employees only see paid payslips in their portal (including archived)
         payslips = Payslip.objects.filter(
             employee_id__employee_user_id=request.user, status="paid"
         )
@@ -1229,7 +1233,11 @@ def view_payslip(request):
     previous_data = request.GET.urlencode()
     data_dict = parse_qs(previous_data)
     get_key_instances(Payslip, data_dict)
-    
+    data_dict.pop("sortby", None)
+    data_dict.pop("page", None)
+    if data_dict.get("archived") in (["0"], ["false"], ["no"]):
+        data_dict.pop("archived", None)
+
     # Attach display_deduction and display_net_pay (including LOP) so list matches individual view
     # This ensures correct values are shown on initial page load, not just after filtering
     try:
@@ -1252,7 +1260,7 @@ def view_payslip(request):
         attach_display_totals(slip_list if slip_list is not None else [])
     except Exception:
         pass
-    
+
     return render(
         request,
         "payroll/payslip/view_payslips.html",
@@ -1264,6 +1272,8 @@ def view_payslip(request):
             "bulk_form": bulk_form,
             "filter_dict": data_dict,
             "gp_fields": PayslipReGroup.fields,
+            "show_archived": show_archived,
+            "pd": previous_data,
         },
     )
 
@@ -1275,8 +1285,9 @@ def filter_payslip(request):
     Filter and retrieve a list of payslips based on the provided query parameters.
     """
     query_string = request.GET.urlencode()
+    show_archived = request.GET.get("archived") in ("1", "true", "yes")
     if request.user.has_perm("payroll.view_payslip"):
-        payslips = PayslipFilter(request.GET).qs
+        payslips = PayslipFilter(request.GET).qs.filter(archived=show_archived)
     else:
         emp_request = request.GET.copy()
         employee = Employee.objects.filter(employee_user_id=request.user.id).first()
@@ -1295,6 +1306,10 @@ def filter_payslip(request):
     if not request.GET.get("dashboard"):
         data_dict = parse_qs(query_string)
         get_key_instances(Payslip, data_dict)
+        data_dict.pop("sortby", None)
+        data_dict.pop("page", None)
+        if data_dict.get("archived") in (["0"], ["false"], ["no"]):
+            data_dict.pop("archived", None)
     if "status" in data_dict:
         status_list = data_dict["status"]
         if len(status_list) > 1:
@@ -1333,8 +1348,33 @@ def filter_payslip(request):
             "payslips": payslips,
             "pd": query_string,
             "filter_dict": data_dict,
+            "show_archived": show_archived,
         },
     )
+
+
+@login_required
+@permission_required("payroll.change_payslip")
+@require_http_methods(["POST"])
+def archive_payslip(request, payslip_id):
+    """Archive or restore a single payslip."""
+    payslip = Payslip.objects.filter(id=payslip_id).first()
+    if not payslip:
+        messages.error(request, _("Payslip not found."))
+    else:
+        new_archived = not payslip.archived
+        Payslip.objects.filter(id=payslip.id).update(archived=new_archived)
+        payslip.archived = new_archived
+        if payslip.archived:
+            messages.success(request, _("Payslip archived."))
+        else:
+            messages.success(request, _("Payslip restored from archive."))
+    if request.META.get("HTTP_HX_REQUEST"):
+        # Keep the user on the same active/archived list they were viewing
+        return filter_payslip(request)
+    if payslip and not payslip.archived:
+        return redirect(f"{reverse('view-payslip')}?archived=1")
+    return redirect(reverse("view-payslip"))
 
 
 @login_required
