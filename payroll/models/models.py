@@ -1458,10 +1458,18 @@ class Payslip(HorillaModel):
         """
         if self.group_name:
             return self.group_name
+        slip_word = "Payslip"
+        try:
+            from leave.intern_leave import is_intern
+
+            if is_intern(self.employee_id):
+                slip_word = "Stipend Slip"
+        except Exception:
+            pass
         return (
-            f"Payslip {self.start_date} to {self.end_date} for {self.employee_id}"
+            f"{slip_word} {self.start_date} to {self.end_date} for {self.employee_id}"
             if self.start_date != self.end_date
-            else f"Payslip for {self.start_date} for {self.employee_id}"
+            else f"{slip_word} for {self.start_date} for {self.employee_id}"
         )
 
     def get_days_in_month(self):

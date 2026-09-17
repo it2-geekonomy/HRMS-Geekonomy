@@ -248,7 +248,7 @@
           <col style="width:32%"><col style="width:18%"><col style="width:32%"><col style="width:18%">
         </colgroup>
         <tr class="title-row">
-          <td colspan="4">{% trans "SALARY SLIP" %}</td>
+          <td colspan="4">{{ slip_title|default:"SALARY SLIP" }}</td>
         </tr>
         <tr class="section-head">
           <td colspan="2">{% trans "EMPLOYEE DETAILS" %}</td>
@@ -300,8 +300,8 @@
           <col style="width:32%"><col style="width:18%"><col style="width:32%"><col style="width:18%">
         </colgroup>
         <tr>
-          <td class="label">{% trans "Gross Wage" %}</td>
-          <td class="value amount">{{ currency_symbol|default:"₹ " }}{{ gross_pay|floatformat:0 }}</td>
+          <td class="label">{{ gross_wage_label|default:"Gross Wage" }}</td>
+          <td class="value amount">{{ currency_symbol|default:"₹ " }}{{ display_gross_pay|default:gross_pay|floatformat:0 }}</td>
           <td class="label">{% trans "LOP Days" %}</td>
           <td class="value amount">{{ lop_days|format_days|default:"0" }}</td>
         </tr>
@@ -327,7 +327,7 @@
           <col style="width:32%"><col style="width:18%"><col style="width:32%"><col style="width:18%">
         </colgroup>
         <tr class="section-head">
-          <td colspan="2">{% trans "EARNINGS" %}</td>
+          <td colspan="2">{{ earnings_section_title|default:"EARNINGS" }}</td>
           <td colspan="2">{% trans "DEDUCTIONS" %}</td>
         </tr>
 
@@ -345,24 +345,30 @@
         {% endfor %}
 
         <tr>
-          <td class="label">{% trans "Gross Earnings" %}</td>
-          <td class="value amount">{{ currency_symbol|default:"₹ " }}{{ gross_pay|floatformat:0 }}</td>
+          <td class="label">{{ gross_earnings_label|default:"Gross Earnings" }}</td>
+          <td class="value amount">{{ currency_symbol|default:"₹ " }}{{ display_gross_pay|default:gross_pay|floatformat:0 }}</td>
           <td class="label">{% trans "Gross Deductions" %}</td>
           <td class="value amount">{{ currency_symbol|default:"₹ " }}{{ total_deductions|floatformat:0 }}</td>
         </tr>
         <tr class="net-row">
-          <td class="label" colspan="2">{% trans "Net Salary" %}</td>
+          <td class="label" colspan="2">{{ net_pay_label|default:"Net Salary" }}</td>
           <td class="value amount" colspan="2">{{ currency_symbol|default:"₹ " }}{{ net_pay|floatformat:0 }}</td>
         </tr>
         <tr class="words-row">
-          <td class="label">{% trans "Net Salary In Words" %}</td>
+          <td class="label">{{ net_pay_words_label|default:"Net Salary In Words" }}</td>
           <td colspan="3" id="amount-in-words" data-net-pay="{{ net_pay|floatformat:0 }}"{% if net_pay_in_words %} data-server-rendered="1"{% endif %}>
             {% if net_pay_in_words %}{{ net_pay_in_words }}{% else %}{% trans "Loading..." %}{% endif %}
           </td>
         </tr>
       </table>
 
-      <p class="footer-disclaimer">{% trans "This is a system generated payslip and does not require company seal and signature." %}</p>
+      <p class="footer-disclaimer">
+        {% if is_intern %}
+          {% trans "This is a system generated stipend slip and does not require company seal and signature." %}
+        {% else %}
+          {% trans "This is a system generated payslip and does not require company seal and signature." %}
+        {% endif %}
+      </p>
     </div>
   </div>
 </body>

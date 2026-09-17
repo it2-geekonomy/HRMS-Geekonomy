@@ -2784,7 +2784,34 @@ def get_view_payslip_pdf_context(
     elif pdf_kit_render:
         data["pdf_kit_render"] = True
 
-    data["payslip_line_rows"] = _build_payslip_line_rows(data)
+    # Intern → Stipend Slip (presentation only; stored pay_head_data unchanged)
+    try:
+        from leave.intern_leave import is_intern as _is_intern_employee
+
+        intern = _is_intern_employee(payslip.employee_id)
+    except Exception:
+        intern = False
+    data["is_intern"] = intern
+    if intern:
+        data["slip_title"] = "STIPEND SLIP"
+        data["earnings_section_title"] = "STIPEND"
+        data["gross_earnings_label"] = "Total Stipend"
+        data["net_pay_label"] = "Net Stipend"
+        data["net_pay_words_label"] = "Net Stipend In Words"
+        data["gross_wage_label"] = "Stipend"
+        # Company convention: monthly stipend/CTC = basic * 2 (same as Salary Data)
+        basic = float(data.get("basic_pay") or 0)
+        data["display_gross_pay"] = basic * 2
+    else:
+        data["slip_title"] = "SALARY SLIP"
+        data["earnings_section_title"] = "EARNINGS"
+        data["gross_earnings_label"] = "Gross Earnings"
+        data["net_pay_label"] = "Net Salary"
+        data["net_pay_words_label"] = "Net Salary In Words"
+        data["gross_wage_label"] = "Gross Wage"
+        data["display_gross_pay"] = data.get("gross_pay", 0)
+
+    data["payslip_line_rows"] = _build_payslip_line_rows(data, is_intern=intern)
     data.update(_payslip_header_detail_fields(payslip, data))
 
     return data
@@ -2841,14 +2868,28 @@ def _payslip_header_detail_fields(payslip, data):
     }
 
 
-def _build_payslip_line_rows(data):
-    """Pair earnings and deductions into table rows for the salary slip layout."""
-    earnings = [{"title": "Basic", "amount": data.get("basic_pay", 0)}]
-    for item in data.get("all_allowances") or []:
-        title = item.get("title") if isinstance(item, dict) else getattr(item, "title", None)
-        amount = item.get("amount") if isinstance(item, dict) else getattr(item, "amount", None)
-        if title and amount:
-            earnings.append({"title": title, "amount": amount})
+def _build_payslip_line_rows(data, is_intern=False):
+    """Pair earnings and deductions into table rows for the salary/stipend slip layout."""
+    if is_intern:
+        # Interns: one stipend line = basic * 2 (same monthly convention as Salary Data)
+        basic = float(data.get("basic_pay") or 0)
+        stipend_amount = basic * 2
+        earnings = [{"title": "Stipend", "amount": stipend_amount}]
+    else:
+        earnings = [{"title": "Basic", "amount": data.get("basic_pay", 0)}]
+        for item in data.get("all_allowances") or []:
+            title = (
+                item.get("title")
+                if isinstance(item, dict)
+                else getattr(item, "title", None)
+            )
+            amount = (
+                item.get("amount")
+                if isinstance(item, dict)
+                else getattr(item, "amount", None)
+            )
+            if title and amount:
+                earnings.append({"title": title, "amount": amount})
 
     deductions = []
     for item in data.get("all_deductions") or []:
