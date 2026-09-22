@@ -401,7 +401,7 @@ def get_probation_period_leave_balance_stats(
     policy_total = (
         PROBATION_LEAVE_POLICY_TOTAL
         if is_psl_pcl
-        else PROBATION_PERIOD_LEAVE_CAP
+        else 12.0
     )
     LeaveRequest = apps.get_model("leave", "LeaveRequest")
     leave_taken = float(
