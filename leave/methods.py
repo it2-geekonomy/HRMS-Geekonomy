@@ -556,7 +556,7 @@ def get_init_days_and_reset_for_assign(leave_type, assigned_date, employee=None)
     return (float(leave_type.total_days or 0), None)
 
 
-def computed_balance_for_validation(available_leave, as_of_date=None):
+def computed_balance_for_validation(available_leave, as_of_date=None, exclude_leave_request_id=None):
     """
     For monthly accrual types (Earned Leave, Casual Leave, Probation Leave), return
     the same total available days used for display, so leave request validation
@@ -629,9 +629,9 @@ def computed_balance_for_validation(available_leave, as_of_date=None):
         and ("probation" in lt_name_lower or "interns leave" in lt_name_lower or "intern" in lt_name_lower)
     )
     if is_pl_or_interns and leave_type.total_days:
-        return get_probation_period_leave_balance_stats(available_leave, as_of)[
-            "available_days"
-        ]
+        return get_probation_period_leave_balance_stats(
+            available_leave, as_of, exclude_leave_request_id=exclude_leave_request_id
+        )["available_days"]
 
     if is_sick_leave_type(leave_type):
         return get_sick_leave_balance_stats(available_leave, as_of)["available_days"]

@@ -1055,7 +1055,7 @@ class LeaveRequest(HorillaModel):
         )
         as_of = date.today() if is_probation_or_interns else self.start_date
         computed_total = computed_balance_for_validation(
-            available_leave, as_of_date=as_of
+            available_leave, as_of_date=as_of, exclude_leave_request_id=self.id
         )
         if computed_total is not None:
             total_leave_days = computed_total

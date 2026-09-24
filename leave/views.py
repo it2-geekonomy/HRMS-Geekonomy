@@ -1033,7 +1033,9 @@ def leave_request_approve(request, id, emp_id=None):
         "probation" in lt_name_lower or "interns leave" in lt_name_lower or "intern" in lt_name_lower
     )
     as_of = date.today() if is_probation_or_interns else leave_request.start_date
-    computed = computed_balance_for_validation(available_leave, as_of_date=as_of)
+    computed = computed_balance_for_validation(
+        available_leave, as_of_date=as_of, exclude_leave_request_id=leave_request.id
+    )
     if computed is not None:
         total_available_leave = computed
     else:
