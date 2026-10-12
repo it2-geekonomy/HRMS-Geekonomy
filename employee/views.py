@@ -31,6 +31,7 @@ from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.db.models import F, ProtectedError, Q
+from django.db.models.functions import Coalesce
 from django.db.models.query import QuerySet
 from django.forms import DateInput, Select
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
@@ -4106,10 +4107,15 @@ def probation_employees_view(request):
     base = Employee.objects.filter(
         is_active=True,
         employee_work_info__date_joining__isnull=False,
-    ).filter(full_time_q).filter(no_intern)
+    ).filter(full_time_q).filter(no_intern).annotate(
+        effective_start=Coalesce(
+            "employee_work_info__probation_start_date",
+            "employee_work_info__date_joining",
+        )
+    )
     if status_filter == "active":
         queryset = base.filter(
-            employee_work_info__date_joining__gte=active_cutoff,
+            effective_start__gte=active_cutoff,
             employee_work_info__probation_action__isnull=True,
         )
     elif status_filter == "extended":
@@ -4120,16 +4126,16 @@ def probation_employees_view(request):
         queryset = base.filter(employee_work_info__probation_action="rejected")
     elif status_filter == "all":
         queryset = base.filter(
-            employee_work_info__date_joining__gte=probation_cutoff,
+            effective_start__gte=probation_cutoff,
         )
     else:
         queryset = base.filter(
-            employee_work_info__date_joining__gte=probation_cutoff,
+            effective_start__gte=probation_cutoff,
             employee_work_info__probation_action__isnull=True,
         )
     queryset = queryset.select_related(
         "employee_work_info", "employee_work_info__employee_type_id"
-    ).order_by("employee_work_info__date_joining")
+    ).order_by("effective_start")
     employees = filtersubordinatesemployeemodel(
         request, queryset, perm="employee.view_employee"
     )
@@ -4139,7 +4145,8 @@ def probation_employees_view(request):
         if not work_info or not work_info.date_joining:
             continue
         join_date = work_info.date_joining
-        default_end = join_date + relativedelta(months=3)
+        probation_start = work_info.probation_start_date or join_date
+        default_end = probation_start + relativedelta(months=3)
         probation_will_complete_date = work_info.probation_end_date or default_end
         # Actions on Active when end date reached; also on Extended when new end date reached
         show_actions = False
@@ -4158,6 +4165,7 @@ def probation_employees_view(request):
         probation_list.append({
             "employee": emp,
             "joining_date": join_date,
+            "probation_start_date": probation_start,
             "probation_will_complete_date": probation_will_complete_date,
             "default_probation_end": default_end,
             "show_extend_confirm": show_actions,
@@ -4189,9 +4197,10 @@ def _set_probation_action(request, emp_id, action, save_complete_date=False):
         work_info.probation_action_date = timezone.now().date()
         update_fields = ["probation_action", "probation_action_date"]
         if save_complete_date and work_info.date_joining:
+            probation_start = work_info.probation_start_date or work_info.date_joining
             # Same date shown on Probation Employees list
             work_info.probation_end_date = work_info.probation_end_date or (
-                work_info.date_joining + relativedelta(months=3)
+                probation_start + relativedelta(months=3)
             )
             update_fields.append("probation_end_date")
         work_info.save(update_fields=update_fields)
@@ -4258,7 +4267,8 @@ def probation_extend(request, emp_id):
         return redirect("probation-employees-view")
 
     join_date = work_info.date_joining
-    current_end = work_info.probation_end_date or (join_date + relativedelta(months=3))
+    probation_start = work_info.probation_start_date or join_date
+    current_end = work_info.probation_end_date or (probation_start + relativedelta(months=3))
     mode = (request.POST.get("extend_mode") or "months").strip().lower()
     new_end = None
 

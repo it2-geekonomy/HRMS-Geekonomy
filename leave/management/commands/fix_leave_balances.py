@@ -74,7 +74,10 @@ class Command(BaseCommand):
                     continue
                 
                 joining_date = work_info.date_joining
-                probation_end_date = joining_date + relativedelta(months=3)
+                probation_end_date = (
+                    work_info.probation_end_date
+                    or ((work_info.probation_start_date or joining_date) + relativedelta(months=3))
+                )
                 
                 # --- Interns: 1 ISL per 3 months, no CL/EL/SL ---
                 if is_intern(employee):

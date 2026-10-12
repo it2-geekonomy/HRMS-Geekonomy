@@ -22,8 +22,8 @@ def send_probation_reminder_emails():
     """
     today = timezone.now().date()
     target_complete_date = today + timedelta(days=7)
-    # Probation completes at date_joining + 3 months; we want that date = target_complete_date
-    target_joining_date = target_complete_date - relativedelta(months=3)
+    # Default probation completes at probation_start (or date_joining) + 3 months
+    target_start_date = target_complete_date - relativedelta(months=3)
 
     full_time_q = (
         Q(employee_type_id__employee_type__iexact="Full Time")
@@ -36,8 +36,16 @@ def send_probation_reminder_emails():
     work_infos = (
         EmployeeWorkInformation.objects.filter(
             employee_id__is_active=True,
-            date_joining=target_joining_date,
             probation_action__isnull=True,
+        )
+        .filter(
+            Q(probation_end_date=target_complete_date)
+            | Q(probation_end_date__isnull=True, probation_start_date=target_start_date)
+            | Q(
+                probation_end_date__isnull=True,
+                probation_start_date__isnull=True,
+                date_joining=target_start_date,
+            )
         )
         .filter(full_time_q)
         .filter(no_intern)

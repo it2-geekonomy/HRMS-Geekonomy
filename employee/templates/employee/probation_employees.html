@@ -35,6 +35,7 @@
           <div class="oh-sticky-table__tr">
             <div class="oh-sticky-table__th">{% trans "Employee" %}</div>
             <div class="oh-sticky-table__th">{% trans "Joining Date" %}</div>
+            <div class="oh-sticky-table__th">{% trans "Probation Start Date" %}</div>
             <div class="oh-sticky-table__th">{% trans "Probation Will Complete Date" %}</div>
             <div class="oh-sticky-table__th oh-sticky-table__right">{% trans "Actions" %}</div>
           </div>
@@ -53,6 +54,7 @@
               </a>
             </div>
             <div class="oh-sticky-table__td">{{ item.joining_date|date:"d/m/Y" }}</div>
+            <div class="oh-sticky-table__td">{{ item.probation_start_date|date:"d/m/Y" }}</div>
             <div class="oh-sticky-table__td">{{ item.probation_will_complete_date|date:"d/m/Y" }}</div>
             <div class="oh-sticky-table__td oh-sticky-table__right">
               {% if status_filter == "active" or status_filter == "extended" %}
@@ -123,7 +125,7 @@
           </div>
           {% empty %}
           <div class="oh-sticky-table__tr">
-            <div class="oh-sticky-table__td" colspan="4">
+            <div class="oh-sticky-table__td" colspan="5">
               <div class="oh-empty">
                 <p class="oh-empty__subtitle">{% trans "No probation employees found." %}</p>
                 {% if status_filter != "active" %}

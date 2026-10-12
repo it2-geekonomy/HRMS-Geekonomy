@@ -66,7 +66,10 @@ class Command(BaseCommand):
                 continue
             
             # Calculate probation end date for this employee
-            employee_probation_end = joining_date + relativedelta(months=3)
+            employee_probation_end = (
+                work_info.probation_end_date
+                or ((work_info.probation_start_date or joining_date) + relativedelta(months=3))
+            )
             
             # Only process if probation period has ended
             if today < employee_probation_end:

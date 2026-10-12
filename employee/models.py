@@ -17,6 +17,7 @@ from django.db.models.query import QuerySet
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.templatetags.static import static
+from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy as trans
 
@@ -881,12 +882,21 @@ class EmployeeWorkInformation(models.Model):
     probation_action_date = models.DateField(
         blank=True, null=True, verbose_name=_("Probation Action Date")
     )
+    probation_start_date = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name=_("Probation Start Date"),
+        help_text=_(
+            "Date probation begins (e.g. for converted interns). "
+            "If blank, defaults to joining date."
+        ),
+    )
     probation_end_date = models.DateField(
         blank=True,
         null=True,
         verbose_name=_("Probation Will Complete Date"),
         help_text=_(
-            "Optional override. Default is joining date + 3 months. "
+            "Optional override. Default is probation start date (or joining date) + 3 months. "
             "Updated when probation is extended."
         ),
     )
@@ -911,10 +921,34 @@ class EmployeeWorkInformation(models.Model):
     )
     objects = HorillaCompanyManager()
 
+    @property
+    def effective_probation_start_date(self):
+        return self.probation_start_date or self.date_joining
+
     def __str__(self) -> str:
         return f"{self.employee_id} - {self.job_position_id}"
 
     def save(self, *args, **kwargs):
+        # Auto-detect intern to full-time conversion
+        if self.pk:
+            prev = (
+                EmployeeWorkInformation.objects.filter(pk=self.pk)
+                .select_related("employee_type_id")
+                .first()
+            )
+            if prev and prev.employee_type_id:
+                prev_type = (prev.employee_type_id.employee_type or "").lower()
+                curr_type = (
+                    (self.employee_type_id.employee_type or "").lower()
+                    if self.employee_type_id
+                    else ""
+                )
+                # If converted from Intern to Full-Time / non-intern and probation_start_date is not set
+                if "intern" in prev_type and "intern" not in curr_type:
+                    if not self.probation_start_date or self.probation_start_date == prev.date_joining:
+                        self.probation_start_date = timezone.now().date()
+                    if self.probation_end_date and self.probation_end_date <= self.probation_start_date:
+                        self.probation_end_date = None
         self.full_clean()
         super().save(*args, **kwargs)
 
