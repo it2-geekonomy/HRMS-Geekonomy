@@ -396,10 +396,36 @@ def request_attendance_export(request):
         request.resolver_match
         and request.resolver_match.url_name == "request-attendance-export-form"
     ):
+        base_queryset = get_all_attendances_for_request_view(request)
+        export_filter = AttendanceFilters(
+            request.GET,
+            queryset=base_queryset,
+        )
+        if request.user.has_perm("attendance.view_attendance"):
+            employee_qs = Employee.objects.all()
+        else:
+            employee_qs = filtersubordinatesemployeemodel(
+                request, Employee.objects.all(), perm="attendance.view_attendance"
+            )
+            if hasattr(request.user, "employee_get") and request.user.employee_get:
+                employee_qs = employee_qs | Employee.objects.filter(id=request.user.employee_get.id)
+        export_filter.form.fields["employee_id"].queryset = employee_qs.order_by(
+            "employee_first_name", "employee_last_name"
+        )
+        export_filter.form.fields["employee_id"].widget.attrs.update(
+            {
+                "class": "oh-select oh-select-2 select2-hidden-accessible w-100",
+                "data-placeholder": _("All Employees"),
+                "id": "id_export_employee_id",
+            }
+        )
         return render(
             request,
             "requests/attendance/export_filter.html",
-            {"export_form": AttendanceExportForm()},
+            {
+                "export_form": AttendanceExportForm(),
+                "export_filter": export_filter,
+            },
         )
     date_from = request.GET.get("attendance_date__gte")
     date_to = request.GET.get("attendance_date__lte")
@@ -409,13 +435,29 @@ def request_attendance_export(request):
             _("Please select both 'Date from' and 'Date to' for export."),
         )
         return redirect(reverse("request-attendance-view") + "?tab=all")
+
+    file_name = "All_Attendances_export"
+    employee_ids = [eid for eid in request.GET.getlist("employee_id") if eid]
+    if len(employee_ids) == 1:
+        try:
+            emp = Employee.objects.filter(id=employee_ids[0]).first()
+            if emp:
+                emp_name = f"{emp.get_full_name()}".strip().replace(" ", "_")
+                file_name = f"{emp_name}_Attendance_export"
+        except Exception:
+            pass
+    elif len(employee_ids) > 1:
+        file_name = f"Attendances_export_{len(employee_ids)}_Employees"
+
     return export_data(
         request=request,
         model=Attendance,
         filter_class=AttendanceFilters,
         form_class=AttendanceExportForm,
-        file_name="All_Attendances_export",
-        base_queryset=get_all_attendances_for_request_view(request),
+        file_name=file_name,
+        base_queryset=get_all_attendances_for_request_view(request).select_related(
+            "employee_id", "shift_id", "work_type_id"
+        ),
     )
 
 

@@ -19,6 +19,7 @@ from django.db.models.functions import Lower
 from django.forms.models import ModelChoiceField
 from django.http import HttpResponse
 from django.template.loader import render_to_string
+from django.utils.functional import Promise
 from django.utils.translation import gettext as _
 
 from base.models import Company, CompanyLeaveDateOverride, CompanyLeaves, DynamicPagination, Holidays
@@ -492,38 +493,42 @@ def closest_numbers(numbers: list, input_number: int) -> tuple:
     return (previous_number, next_number)
 
 
-def format_export_value(value, employee):
-    work_info = EmployeeWorkInformation.objects.filter(employee_id=employee).first()
-    time_format = (
-        work_info.company_id.time_format
-        if work_info and work_info.company_id
-        else "HH:mm"
-    )
-    date_format = (
-        work_info.company_id.date_format
-        if work_info and work_info.company_id
-        else "MMM. D, YYYY"
-    )
+def format_export_value(
+    value, employee=None, time_format_str=None, date_format_str=None
+):
+    if time_format_str is None or date_format_str is None:
+        work_info = (
+            EmployeeWorkInformation.objects.filter(employee_id=employee)
+            .select_related("company_id")
+            .first()
+            if employee
+            else None
+        )
+        time_format = (
+            work_info.company_id.time_format
+            if work_info and work_info.company_id
+            else "HH:mm"
+        )
+        date_format = (
+            work_info.company_id.date_format
+            if work_info and work_info.company_id
+            else "MMM. D, YYYY"
+        )
+        time_format_str = HORILLA_TIME_FORMATS.get(time_format, "%H:%M")
+        date_format_str = HORILLA_DATE_FORMATS.get(date_format, "%b. %d, %Y")
 
-    if isinstance(value, time):
-        # Convert the string to a datetime.time object
-        check_in_time = datetime.strptime(str(value).split(".")[0], "%H:%M:%S").time()
-
-        # Print the formatted time for each format
-        for format_name, format_string in HORILLA_TIME_FORMATS.items():
-            if format_name == time_format:
-                value = check_in_time.strftime(format_string)
-
-    elif type(value) == date:
-        # Convert the string to a datetime.date object
-        start_date = datetime.strptime(str(value), "%Y-%m-%d").date()
-        # Print the formatted date for each format
-        for format_name, format_string in HORILLA_DATE_FORMATS.items():
-            if format_name == date_format:
-                value = start_date.strftime(format_string)
-
-    elif isinstance(value, datetime):
+    if isinstance(value, datetime):
         value = str(value)
+    elif isinstance(value, time):
+        try:
+            value = value.strftime(time_format_str)
+        except Exception:
+            value = str(value)
+    elif isinstance(value, date):
+        try:
+            value = value.strftime(date_format_str)
+        except Exception:
+            value = str(value)
 
     return value
 
@@ -557,7 +562,28 @@ def export_data(
         "late_come": _("Late Come"),
         "early_out": _("Early Out"),
     }
-    employee = request.user.employee_get
+    employee = getattr(request.user, "employee_get", None)
+
+    # Pre-resolve date and time formats once for the user's company (avoids 100k+ DB queries)
+    work_info = (
+        EmployeeWorkInformation.objects.filter(employee_id=employee)
+        .select_related("company_id")
+        .first()
+        if employee
+        else None
+    )
+    time_format = (
+        work_info.company_id.time_format
+        if work_info and work_info.company_id
+        else "HH:mm"
+    )
+    date_format = (
+        work_info.company_id.date_format
+        if work_info and work_info.company_id
+        else "MMM. D, YYYY"
+    )
+    time_format_str = HORILLA_TIME_FORMATS.get(time_format, "%H:%M")
+    date_format_str = HORILLA_DATE_FORMATS.get(date_format, "%b. %d, %Y")
 
     selected_columns = []
     today_date = date.today().strftime("%Y-%m-%d")
@@ -565,7 +591,6 @@ def export_data(
     data_export = {}
 
     form = form_class()
-    model_fields = model._meta.get_fields()
     if base_queryset is not None:
         export_objects = filter_class(request.GET, queryset=base_queryset).qs
     else:
@@ -577,8 +602,12 @@ def export_data(
     if not selected_fields:
         selected_fields = form.fields["selected_fields"].initial
         ids = request.GET.get("ids")
-        id_list = json.loads(ids)
-        export_objects = model.objects.filter(id__in=id_list)
+        if ids:
+            try:
+                id_list = json.loads(ids)
+                export_objects = model.objects.filter(id__in=id_list)
+            except Exception:
+                pass
 
     for field in form.fields["selected_fields"].choices:
         value = field[0]
@@ -586,44 +615,93 @@ def export_data(
         if value in selected_fields:
             selected_columns.append((value, key))
 
-    for field_name, verbose_name in selected_columns:
-        if field_name in selected_fields:
-            data_export[verbose_name] = []
-            for obj in export_objects:
-                value = obj
-                nested_attributes = field_name.split("__")
-                for attr in nested_attributes:
-                    value = getattr(value, attr, None)
-                    if value is None:
-                        break
-                if value is True:
-                    value = _("Yes")
-                elif value is False:
-                    value = _("No")
-                if value in fields_mapping:
-                    value = fields_mapping[value]
-                if value == "None":
-                    value = " "
-                if field_name == "month":
-                    value = _(value.title())
+    # Auto-optimize QuerySet with select_related for all referenced foreign relations
+    relations = set()
+    for field_name, col_title in selected_columns:
+        if "__" in field_name:
+            relations.add(field_name.rsplit("__", 1)[0])
+        else:
+            try:
+                f = model._meta.get_field(field_name)
+                if f.is_relation and (f.many_to_one or f.one_to_one):
+                    relations.add(field_name)
+            except Exception:
+                pass
 
-                # Check if the type of 'value' is time
-                value = format_export_value(value, employee)
-                data_export[verbose_name].append(value)
+    for rel in relations:
+        try:
+            export_objects = export_objects.select_related(rel)
+        except Exception:
+            pass
+
+    # Evaluate queryset once in memory to prevent repeated DB round-trips
+    export_objects = list(export_objects)
+
+    # Pre-parse column attribute paths
+    column_specs = [
+        (field_name, verbose_name, field_name.split("__"))
+        for field_name, verbose_name in selected_columns
+        if field_name in selected_fields
+    ]
+
+    for field_name, verbose_name, nested_attributes in column_specs:
+        col_values = []
+        for obj in export_objects:
+            value = obj
+            for attr in nested_attributes:
+                value = getattr(value, attr, None)
+                if value is None:
+                    break
+            if value is True:
+                value = _("Yes")
+            elif value is False:
+                value = _("No")
+            elif value in fields_mapping:
+                value = fields_mapping[value]
+            elif value == "None":
+                value = " "
+            if field_name == "month" and isinstance(value, str):
+                value = _(value.title())
+
+            value = format_export_value(
+                value,
+                employee=employee,
+                time_format_str=time_format_str,
+                date_format_str=date_format_str,
+            )
+            if isinstance(value, Promise):
+                value = str(value)
+            col_values.append(value)
+        data_export[str(verbose_name)] = col_values
 
     data_frame = pd.DataFrame(data=data_export)
-    styled_data_frame = data_frame.style.applymap(
-        lambda x: "text-align: center", subset=pd.IndexSlice[:, :]
-    )
 
-    response = HttpResponse(content_type="application/ms-excel")
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
     response["Content-Disposition"] = f'attachment; filename="{file_name}"'
 
-    writer = pd.ExcelWriter(response, engine="xlsxwriter")
-    styled_data_frame.to_excel(writer, index=False, sheet_name="Sheet1")
-    worksheet = writer.sheets["Sheet1"]
-    worksheet.set_column("A:Z", 18)
-    writer.close()
+    with pd.ExcelWriter(response, engine="xlsxwriter") as writer:
+        data_frame.to_excel(writer, index=False, sheet_name="Sheet1")
+        workbook = writer.book
+        worksheet = writer.sheets["Sheet1"]
+        center_format = workbook.add_format({"align": "center", "valign": "vcenter"})
+        header_format = workbook.add_format(
+            {
+                "bold": True,
+                "align": "center",
+                "valign": "vcenter",
+                "bg_color": "#E9ECEF",
+                "border": 1,
+            }
+        )
+        if len(data_frame.columns) > 0:
+            for col_idx, col_name in enumerate(data_frame.columns):
+                worksheet.write(0, col_idx, str(col_name), header_format)
+                col_width = max(len(str(col_name)) + 4, 18)
+                worksheet.set_column(col_idx, col_idx, col_width, center_format)
+        else:
+            worksheet.set_column("A:Z", 18)
 
     return response
 

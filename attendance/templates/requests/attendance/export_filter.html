@@ -16,8 +16,8 @@
     class="oh-profile-section pt-2"
   >
     <div class="oh-dropdown__filter-body">
-      <div class="oh-accordion">
-        <div class="oh-accordion-header">{% trans "Date range" %}</div>
+      <div class="oh-accordion oh-accordion--show">
+        <div class="oh-accordion-header">{% trans "Date range & Filter" %}</div>
         <div class="oh-accordion-body">
           <div class="row">
             <div class="col-sm-12 col-md-6">
@@ -28,6 +28,7 @@
                   name="attendance_date__gte"
                   id="id_attendance_date__gte"
                   class="oh-input w-100"
+                  value="{{ request.GET.attendance_date__gte }}"
                   required
                 />
               </div>
@@ -40,6 +41,7 @@
                   name="attendance_date__lte"
                   id="id_attendance_date__lte"
                   class="oh-input w-100"
+                  value="{{ request.GET.attendance_date__lte }}"
                   required
                 />
               </div>
@@ -48,11 +50,17 @@
           <div class="row mt-2">
             <div class="col-sm-12 col-md-6">
               <div class="oh-input-group">
+                <label class="oh-label" for="{{ export_filter.form.employee_id.id_for_label }}">{% trans "Employee" %}</label>
+                {{ export_filter.form.employee_id }}
+              </div>
+            </div>
+            <div class="col-sm-12 col-md-6">
+              <div class="oh-input-group">
                 <label class="oh-label" for="id_employee_active">{% trans "Employee status" %}</label>
                 <select name="employee_active" id="id_employee_active" class="oh-select w-100">
-                  <option value="">{% trans "All" %}</option>
-                  <option value="true" selected>{% trans "Active" %}</option>
-                  <option value="false">{% trans "Inactive" %}</option>
+                  <option value="" {% if request.GET.employee_active == "" %}selected{% endif %}>{% trans "All" %}</option>
+                  <option value="true" {% if request.GET.employee_active == "true" or not request.GET.employee_active %}selected{% endif %}>{% trans "Active" %}</option>
+                  <option value="false" {% if request.GET.employee_active == "false" %}selected{% endif %}>{% trans "Inactive" %}</option>
                 </select>
               </div>
             </div>
@@ -95,4 +103,13 @@
     var checked = $(this).is(":checked");
     $("#requestAttendanceExportForm input[name='selected_fields']").prop("checked", checked);
   });
+  if (window.jQuery && $("#id_export_employee_id").length) {
+    if (!$("#id_export_employee_id").hasClass("select2-hidden-accessible")) {
+      $("#id_export_employee_id").select2({
+        width: "100%",
+        multiple: true,
+        placeholder: $("#id_export_employee_id").attr("data-placeholder") || "All Employees",
+      });
+    }
+  }
 </script>

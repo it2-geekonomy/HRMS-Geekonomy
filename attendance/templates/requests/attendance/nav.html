@@ -138,6 +138,7 @@
                                         <a href="#" class="oh-dropdown__link" data-toggle="oh-modal-toggle"
                                             data-target="#requestAttendanceExport"
                                             hx-get="{% url 'request-attendance-export-form' %}"
+                                            hx-include="#requestFilter"
                                             hx-target="#requestAttendanceExportModalBody">{% trans "Export All Attendances" %}</a>
                                     </li>
                                 {% endif %}
