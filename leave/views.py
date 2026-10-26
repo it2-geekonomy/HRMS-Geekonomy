@@ -71,6 +71,8 @@ from leave.models import leave_requested_dates
 from leave.threading import LeaveMailSendThread, send_leave_approve_reject_email
 from notifications.signals import notify
 
+EL_EPOCH_DATE = date(2026, 1, 1)
+
 
 def generate_error_report(error_list, error_data, file_name):
     """
@@ -329,6 +331,37 @@ def leave_type_delete(request, obj_id):
 
 
 @login_required
+@permission_required("leave.change_leavetype")
+def leave_type_toggle_status(request, id):
+    """
+    Toggle active/inactive status of a leave type.
+    """
+    try:
+        leave_type = LeaveType.objects.get(id=id)
+        leave_type.is_active = not leave_type.is_active
+        leave_type.save()
+        status_text = _("Active") if leave_type.is_active else _("Inactive")
+        messages.success(
+            request,
+            _('Leave type "{name}" is now {status}.').format(
+                name=leave_type.name, status=status_text
+            ),
+        )
+    except (LeaveType.DoesNotExist, OverflowError, ValueError):
+        messages.error(request, _("Leave type not found."))
+
+    if request.META.get("HTTP_HX_REQUEST") == "true":
+        if request.META.get("HTTP_HX_TARGET") == "objectDetailsModalTarget":
+            instances_ids = request.GET.get("instances_ids")
+            url = f"/leave/leave-type-individual-view/{id}"
+            if instances_ids:
+                url += f"?instances_ids={instances_ids}"
+            return redirect(url)
+        return redirect(f"/leave/type-filter?{request.GET.urlencode()}")
+    return redirect(leave_type_view)
+
+
+@login_required
 @hx_request_required
 @manager_can_enter("leave.add_leaverequest")
 def get_employee_leave_types(request):
@@ -343,7 +376,8 @@ def get_employee_leave_types(request):
     if employee_id:
         employee = get_object_or_404(Employee, id=employee_id)
         assigned_leave_types = LeaveType.objects.filter(
-            id__in=employee.available_leave.values_list("leave_type_id", flat=True)
+            id__in=employee.available_leave.values_list("leave_type_id", flat=True),
+            is_active=True,
         )
         form.fields["leave_type_id"].queryset = assigned_leave_types
     else:
@@ -418,7 +452,9 @@ def leave_request_creation(request, type_id=None, emp_id=None):
             leave_type_ids = employee.available_leave.values_list(
                 "leave_type_id", flat=True
             )
-            assigned_leave_types = LeaveType.objects.filter(id__in=leave_type_ids)
+            assigned_leave_types = LeaveType.objects.filter(
+                id__in=leave_type_ids, is_active=True
+            )
 
             form.fields["leave_type_id"].queryset = assigned_leave_types
 
@@ -2549,7 +2585,7 @@ def user_leave_filter(request):
     """
     try:
         employee = request.user.employee_get
-        queryset = employee.available_leave.all()
+        queryset = employee.available_leave.filter(leave_type_id__is_active=True)
         previous_data = request.GET.urlencode()
         page_number = request.GET.get("page")
         assigned_leave_filter = AssignedLeaveFilter(request.GET, queryset).qs
@@ -2562,7 +2598,11 @@ def user_leave_filter(request):
             {"user_leaves": page_obj, "pd": previous_data, "filter_dict": data_dict},
         )
     except Exception as e:
-        messages.error(request, _("User is not an employee.."))
+        logger.error(f"Error in user_leave_filter: {e}", exc_info=True)
+        if not hasattr(request.user, "employee_get") or request.user.employee_get is None:
+            messages.error(request, _("User is not an employee.."))
+        else:
+            messages.error(request, _("Something went wrong while loading user leaves."))
         return redirect("/")
 
 
@@ -2577,7 +2617,36 @@ def _computed_leave_display_for_available(available_leave):
     lt_name = (leave_type.name or "").strip()
     reset_based = getattr(leave_type, "reset_based", None) or ""
     total_days_val = round(float(leave_type.total_days or 0), 2)
-    EL_EPOCH_DATE = date(2026, 1, 1)
+    # New Monthly Leaves (active, monthly reset, no carryforward, 1 day)
+    is_new_monthly = (
+        getattr(leave_type, "is_active", False)
+        and getattr(leave_type, "carryforward_type", None) == "no carryforward"
+        and reset_based == "monthly"
+        and total_days_val == 1.0
+        and "probation" not in lt_name.lower()
+        and "intern" not in lt_name.lower()
+    )
+    if is_new_monthly:
+        today = date.today()
+        approved_taken_this_month = (
+            LeaveRequest.objects.filter(
+                employee_id=available_leave.employee_id,
+                leave_type_id=leave_type,
+                status="approved",
+                start_date__year=today.year,
+                start_date__month=today.month,
+            ).aggregate(total=Sum("requested_days"))["total"]
+            or 0
+        )
+        approved_taken = float(approved_taken_this_month)
+        balance = max(0.0, 1.0 - approved_taken)
+        return {
+            "available_days": round(balance, 2),
+            "carryforward_days": 0,
+            "total_leave_days": 1.0,
+            "leave_taken": round(approved_taken, 2),
+        }
+
     # Earned Leave: monthly 1.25
     is_el = (
         (reset_based == "monthly" and ("Earned Leave" in lt_name or total_days_val == 1.25))
@@ -2689,14 +2758,20 @@ def user_request_view(request):
         request_ids = json.dumps(
             list(page_obj.object_list.values_list("id", flat=True))
         )
-        user_leave = AvailableLeave.objects.filter(employee_id=user.id).exclude(
+        user_leave = AvailableLeave.objects.filter(
+            employee_id=user.id,
+            leave_type_id__is_active=True,
+        ).exclude(
             leave_type_id__is_compensatory_leave=True
         )
         if (
             LeaveGeneralSetting.objects.first()
             and LeaveGeneralSetting.objects.first().compensatory_leave
         ):
-            user_leave = AvailableLeave.objects.filter(employee_id=user.id)
+            user_leave = AvailableLeave.objects.filter(
+                employee_id=user.id,
+                leave_type_id__is_active=True,
+            )
         user_leaves = user_leave.select_related("leave_type_id")
         # Computed display for EL/CL monthly so cards show correct balance (e.g. 2.5 EL, 2 CL in Feb)
         computed_leave_display = {}
@@ -2721,7 +2796,11 @@ def user_request_view(request):
             },
         )
     except Exception as e:
-        messages.error(request, _("User is not an employee.."))
+        logger.error(f"Error in user_request_view: {e}", exc_info=True)
+        if not hasattr(request.user, "employee_get") or request.user.employee_get is None:
+            messages.error(request, _("User is not an employee.."))
+        else:
+            messages.error(request, _("Something went wrong while loading leave requests."))
         return redirect("/")
 
 
@@ -2800,14 +2879,20 @@ def user_request_filter(request):
             if len(status_list) > 1:
                 data_dict["status"] = [status_list[-1]]
 
-        user_leave = AvailableLeave.objects.filter(employee_id=user.id).exclude(
+        user_leave = AvailableLeave.objects.filter(
+            employee_id=user.id,
+            leave_type_id__is_active=True,
+        ).exclude(
             leave_type_id__is_compensatory_leave=True
         )
         if (
             LeaveGeneralSetting.objects.first()
             and LeaveGeneralSetting.objects.first().compensatory_leave
         ):
-            user_leave = AvailableLeave.objects.filter(employee_id=user.id)
+            user_leave = AvailableLeave.objects.filter(
+                employee_id=user.id,
+                leave_type_id__is_active=True,
+            )
         user_leaves = user_leave
 
         context = {
@@ -2822,7 +2907,11 @@ def user_request_filter(request):
         }
         return render(request, template, context=context)
     except Exception as e:
-        messages.error(request, _("User is not an employee.."))
+        logger.error(f"Error in user_request_filter: {e}", exc_info=True)
+        if not hasattr(request.user, "employee_get") or request.user.employee_get is None:
+            messages.error(request, _("User is not an employee.."))
+        else:
+            messages.error(request, _("Something went wrong while loading leave requests."))
         return redirect("/")
 
 
@@ -4235,15 +4324,20 @@ def employee_available_leave_count(request):
         EL_EPOCH_DATE = date(2026, 1, 1)
         lt_name = (leave_type.name or "").strip()
         reset_based = getattr(leave_type, "reset_based", None) or ""
-        total_days_val = round(float(leave_type.total_days or 0), 2)
+        from leave.methods import is_new_monthly_leave_type
+        is_new_monthly = is_new_monthly_leave_type(leave_type)
         # Earned Leave: monthly 1.25 — match by name + monthly reset, or by 1.25/month (even if reset_based missing in DB)
         is_el_monthly = (
-            (reset_based == "monthly" and ("Earned Leave" in lt_name or total_days_val == 1.25))
-            or ("Earned Leave" in lt_name and total_days_val == 1.25)
+            not is_new_monthly
+            and (
+                (reset_based == "monthly" and ("Earned Leave" in lt_name or total_days_val == 1.25))
+                or ("Earned Leave" in lt_name and total_days_val == 1.25)
+            )
         )
-        # Casual Leave: monthly 1/day, carryforward cap 12 (exclude Probation Casual Leave)
+        # Casual Leave: monthly 1/day, carryforward cap 12 (exclude Probation Casual Leave and new monthly CL)
         is_cl_monthly = (
-            reset_based == "monthly"
+            not is_new_monthly
+            and reset_based == "monthly"
             and total_days_val == 1.0
             and "probation" not in lt_name.lower()
             and ("Casual Leave" in lt_name or "Casual" in lt_name)
@@ -4251,13 +4345,28 @@ def employee_available_leave_count(request):
         # Probation Leave / Probation Casual Leave / Interns Leave: monthly 1/day, no carryforward
         lt_name_lower_av = lt_name.lower()
         is_pl_monthly = (
-            total_days_val == 1.0
+            not is_new_monthly
+            and total_days_val == 1.0
             and (
                 (reset_based == "monthly" and ("probation" in lt_name_lower_av or "interns leave" in lt_name_lower_av or "intern" in lt_name_lower_av))
                 or ("probation" in lt_name_lower_av or "interns leave" in lt_name_lower_av or "intern" in lt_name_lower_av)
             )
         )
-        if is_el_monthly and leave_type.total_days:
+        if is_new_monthly:
+            ref_date = start_date if start_date else date.today()
+            approved_taken_this_month = (
+                LeaveRequest.objects.filter(
+                    employee_id=available_leave.employee_id,
+                    leave_type_id=leave_type,
+                    status="approved",
+                    start_date__year=ref_date.year,
+                    start_date__month=ref_date.month,
+                ).aggregate(total=Sum("requested_days"))["total"]
+                or 0
+            )
+            balance = max(0.0, 1.0 - float(approved_taken_this_month))
+            total_leave_days = round(balance, 3)
+        elif is_el_monthly and leave_type.total_days:
             # Accrual starts from 1st of month: max(Jan 1 2026, 1st of assign month)
             raw_start = getattr(available_leave, "assigned_date", None)
             if raw_start:
@@ -5709,7 +5818,7 @@ def _leave_configuration_filter_options(request):
         request, AvailableLeave.objects.all(), "leave.view_availableleave"
     )
     return {
-        "filter_leave_type_options": LeaveType.objects.all().order_by("name"),
+        "filter_leave_type_options": LeaveType.objects.all().order_by("-is_active", "name"),
         "filter_department_options": Department.objects.all().order_by("department"),
         "filter_employee_options": (
             Employee.objects.filter(available_leave__in=all_available)
@@ -5735,6 +5844,7 @@ def _build_leave_configuration_data(request, apply_filters=False):
         get_sick_leave_balance_stats,
         get_yearly_entitlement,
         is_casual_leave_type,
+        is_new_monthly_leave_type,
         is_probation_casual_leave_type,
         is_probation_or_interns_monthly,
         is_probation_sick_leave_type,
@@ -5746,13 +5856,20 @@ def _build_leave_configuration_data(request, apply_filters=False):
     filter_department = ""
     filter_employee = ""
     filter_search = ""
+    filter_status = ""
     if apply_filters:
         filter_leave_type = (request.GET.get("leave_type") or "").strip()
         filter_department = (request.GET.get("department") or "").strip()
         filter_employee = (request.GET.get("employee") or "").strip()
         filter_search = (request.GET.get("search") or "").strip()
+        filter_status = (request.GET.get("status") or "").strip().lower()
 
-    leave_types = LeaveType.objects.all().order_by("name")
+    active_types_count = LeaveType.objects.filter(is_active=True).count()
+    inactive_types_count = LeaveType.objects.filter(is_active=False).count()
+
+    leave_types = LeaveType.objects.all().order_by("-is_active", "name")
+    if apply_filters and filter_status in ("active", "inactive"):
+        leave_types = leave_types.filter(is_active=(filter_status == "active"))
     if apply_filters and filter_leave_type.isdigit():
         leave_types = leave_types.filter(id=int(filter_leave_type))
 
@@ -5794,6 +5911,7 @@ def _build_leave_configuration_data(request, apply_filters=False):
         )
 
         reset_date_column_label = "Reset Date"
+        is_new_monthly = is_new_monthly_leave_type(leave_type)
         sick_leave_display = is_sick_leave_type(leave_type)
         casual_leave_display = is_casual_leave_type(leave_type)
         probation_period_leave_display = is_probation_or_interns_monthly(leave_type)
@@ -5815,7 +5933,12 @@ def _build_leave_configuration_data(request, apply_filters=False):
                 or 0
             )
 
-            if sick_leave_display:
+            if is_new_monthly:
+                available_days = av_leave.available_days or 0
+                carryforward_days = 0.0
+                total_leave_days = float(leave_type.total_days or 1.0)
+                accrued_days = round(available_days + float(leave_taken), 2)
+            elif sick_leave_display:
                 sl_stats = get_sick_leave_balance_stats(av_leave)
                 total_leave_days = sl_stats["yearly_total"]
                 accrued_days = sl_stats["accrued_days"]
@@ -5915,61 +6038,75 @@ def _build_leave_configuration_data(request, apply_filters=False):
             )
 
         rules = []
-        if leave_type.reset_based:
-            if leave_type.reset_based == "monthly":
-                accrual = leave_type.total_days or 0
-                rules.append(f"Accrual: {accrual} day(s) per month")
-                if leave_type.reset_day:
-                    if leave_type.carryforward_type == "no carryforward":
-                        rules.append(
-                            f"Accrual Date: {leave_type.reset_day} of each month (no carry forward)"
-                        )
-                    else:
-                        rules.append(
-                            f"Accrual Date: {leave_type.reset_day} of each month (carries forward)"
-                        )
-                if leave_type_uses_yearly_balance_reset(leave_type):
-                    rules.append(
-                        "Yearly Reset: 1 Jan (unused balance cleared for all employees)"
-                    )
-            elif leave_type.reset_based == "yearly":
-                rules.append(
-                    f"Accrual: {leave_type.total_days or 0} day(s) per year"
-                )
-                if leave_type.reset_month and leave_type.reset_day:
-                    month_names = [
-                        "",
-                        "Jan",
-                        "Feb",
-                        "Mar",
-                        "Apr",
-                        "May",
-                        "Jun",
-                        "Jul",
-                        "Aug",
-                        "Sep",
-                        "Oct",
-                        "Nov",
-                        "Dec",
-                    ]
-                    month_name = (
-                        month_names[int(leave_type.reset_month)]
-                        if leave_type.reset_month.isdigit()
-                        else leave_type.reset_month
-                    )
-                    rules.append(
-                        f"Reset Date: {month_name} {leave_type.reset_day} (balance resets)"
-                    )
+        if leave_type.is_active:
+            rules.append("Status: Active")
+        else:
+            rules.append("Status: Inactive")
 
-        if sick_leave_display:
-            rules.append(
-                "Probation Sick Leave taken is deducted from yearly Sick Leave (e.g. 7 − 3 = 4)"
-            )
-        if casual_leave_display:
-            rules.append(
-                "Probation Casual Leave taken is deducted from Casual Leave "
-                "(e.g. 4 months − 1 PCL = 3 available)"
-            )
+        if is_new_monthly:
+            rules.append("Accrual: 1.0 day per month")
+            rules.append("Monthly Refresh: 1st of each month (1.0 day, no carry forward)")
+            lt_clean_name = (leave_type.name or "").strip().lower()
+            if lt_clean_name == "casual leave":
+                rules.append("Duration: Supports Full-Day (1.0) and Half-Day (0.5)")
+            elif lt_clean_name == "sick leave":
+                rules.append("Duration: Full-Day (1.0) only")
+        else:
+            if leave_type.reset_based:
+                if leave_type.reset_based == "monthly":
+                    accrual = leave_type.total_days or 0
+                    rules.append(f"Accrual: {accrual} day(s) per month")
+                    if leave_type.reset_day:
+                        if leave_type.carryforward_type == "no carryforward":
+                            rules.append(
+                                f"Accrual Date: {leave_type.reset_day} of each month (no carry forward)"
+                            )
+                        else:
+                            rules.append(
+                                f"Accrual Date: {leave_type.reset_day} of each month (carries forward)"
+                            )
+                    if leave_type_uses_yearly_balance_reset(leave_type):
+                        rules.append(
+                            "Yearly Reset: 1 Jan (unused balance cleared for all employees)"
+                        )
+                elif leave_type.reset_based == "yearly":
+                    rules.append(
+                        f"Accrual: {leave_type.total_days or 0} day(s) per year"
+                    )
+                    if leave_type.reset_month and leave_type.reset_day:
+                        month_names = [
+                            "",
+                            "Jan",
+                            "Feb",
+                            "Mar",
+                            "Apr",
+                            "May",
+                            "Jun",
+                            "Jul",
+                            "Aug",
+                            "Sep",
+                            "Oct",
+                            "Nov",
+                            "Dec",
+                        ]
+                        month_name = (
+                            month_names[int(leave_type.reset_month)]
+                            if leave_type.reset_month.isdigit()
+                            else leave_type.reset_month
+                        )
+                        rules.append(
+                            f"Reset Date: {month_name} {leave_type.reset_day} (balance resets)"
+                        )
+
+            if sick_leave_display:
+                rules.append(
+                    "Probation Sick Leave taken is deducted from yearly Sick Leave (e.g. 7 - 3 = 4)"
+                )
+            if casual_leave_display:
+                rules.append(
+                    "Probation Casual Leave taken is deducted from Casual Leave "
+                    "(e.g. 4 months - 1 PCL = 3 available)"
+                )
         if probation_period_leave_display:
             if is_probation_sick_leave_type(leave_type) or is_probation_casual_leave_type(
                 leave_type
@@ -6033,6 +6170,9 @@ def _build_leave_configuration_data(request, apply_filters=False):
         "total_leave_types": (
             len(configuration_data) if apply_filters else LeaveType.objects.count()
         ),
+        "active_types_count": active_types_count,
+        "inactive_types_count": inactive_types_count,
+        "filter_status": filter_status,
         "total_employees_with_leaves": employees.count(),
         "total_assignments": available_leaves_queryset.count(),
         "filter_leave_type": filter_leave_type,
@@ -6042,7 +6182,7 @@ def _build_leave_configuration_data(request, apply_filters=False):
         **filter_options,
         "pd": query_string,
         "has_filters": apply_filters and bool(
-            filter_leave_type or filter_department or filter_employee or filter_search
+            filter_leave_type or filter_department or filter_employee or filter_search or filter_status
         ),
     }
 
@@ -6084,10 +6224,11 @@ def leave_configuration_view(request):
     Comprehensive Leave Configuration Dashboard
     Shows leave types, employee assignments, balances, and leave history.
     """
+    apply_filters = bool(request.GET)
     return render(
         request,
         "leave/leave_configuration/leave_configuration.html",
-        _build_leave_configuration_data(request, apply_filters=False),
+        _build_leave_configuration_data(request, apply_filters=apply_filters),
     )
 
 
@@ -6221,12 +6362,17 @@ def export_leave_configuration_excel(request):
         ws.merge_cells(
             start_row=row_idx, start_column=1, end_row=row_idx, end_column=col_count
         )
+        status_label = _("Active") if config["leave_type"].is_active else _("Inactive")
         section_cell = ws.cell(
             row=row_idx,
             column=1,
             value=str(
-                _("%(name)s  —  %(count)s Employee(s)")
-                % {"name": leave_type_name, "count": assigned_count}
+                _("%(name)s  [%(status)s]  —  %(count)s Employee(s)")
+                % {
+                    "name": leave_type_name,
+                    "status": status_label,
+                    "count": assigned_count,
+                }
             ),
         )
         section_cell.font = section_font

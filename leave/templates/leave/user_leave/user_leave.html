@@ -56,7 +56,9 @@
                     {% else %}
                         {% trans "Total Leave Days" %} :
                         {% if user_leave.leave_type_id.limit_leave %}
-                            {% if "sick" in leave_name %}
+                            {% if user_leave.leave_type_id.reset_based == "monthly" %}
+                                {{ user_leave.leave_type_id.total_days }}{% trans " per month" %}
+                            {% elif "sick" in leave_name %}
                                 {{ user_leave.leave_type_id.total_days }}{% trans " per year" %}
                             {% else %}
                                 {{ user_leave.leave_type_id.total_days }}{% trans " per month" %}
@@ -85,7 +87,7 @@
 <span class="oh-kanban-card__subtitle">
     {% trans "Carryforward Leave Days" %} :
 
-    {% if "sick" in leave_name or "probation" in leave_name or "intern" in leave_name or "comp off" in leave_name %}
+    {% if user_leave.leave_type_id.carryforward_type == "no carryforward" or "sick" in leave_name or "probation" in leave_name or "intern" in leave_name or "comp off" in leave_name %}
         {% trans "Not Applicable" %}
 
     {% elif "earned" in leave_name or "casual" in leave_name %}

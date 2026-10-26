@@ -44,11 +44,44 @@
             </div>
 
             <div class="oh-kanban-card__details">
-                <div style="width: 95%; overflow: hidden;">
+                <div style="width: 95%; overflow: hidden; display: flex; align-items: center; justify-content: space-between;">
                     <span class="oh-card__title oh-card__title--sm fw-bold"
                         style="font-size: 18px; word-break: break-word;">
                         {{leave_type.name}}
                     </span>
+                    {% if perms.leave.change_leavetype %}
+                        {% if leave_type.is_active %}
+                            <a href="javascript:void(0)"
+                                onclick="event.stopPropagation();"
+                                hx-confirm="{% trans 'Are you sure you want to deactivate this leave type? Employees will not be able to apply for it.' %}"
+                                hx-post="{% url 'type-toggle-status' leave_type.id %}?{{pd}}"
+                                hx-target="#leaveTypes"
+                                title="{% trans 'Click to deactivate' %}"
+                                style="text-decoration: none;">
+                                <span class="oh-badge oh-badge--success text-success" style="font-size: 11px; padding: 2px 8px; border: 1px solid #28a745; border-radius: 12px; font-weight: 600; cursor: pointer;">
+                                    <ion-icon name="checkmark-circle" class="me-1" style="vertical-align: text-bottom;"></ion-icon>{% trans "Active" %}
+                                </span>
+                            </a>
+                        {% else %}
+                            <a href="javascript:void(0)"
+                                onclick="event.stopPropagation();"
+                                hx-confirm="{% trans 'Are you sure you want to activate this leave type?' %}"
+                                hx-post="{% url 'type-toggle-status' leave_type.id %}?{{pd}}"
+                                hx-target="#leaveTypes"
+                                title="{% trans 'Click to activate' %}"
+                                style="text-decoration: none;">
+                                <span class="oh-badge oh-badge--secondary text-muted" style="font-size: 11px; padding: 2px 8px; border: 1px solid #6c757d; border-radius: 12px; font-weight: 600; cursor: pointer;">
+                                    <ion-icon name="pause-circle" class="me-1" style="vertical-align: text-bottom;"></ion-icon>{% trans "Inactive" %}
+                                </span>
+                            </a>
+                        {% endif %}
+                    {% else %}
+                        {% if leave_type.is_active %}
+                            <span class="oh-badge oh-badge--success text-success" style="font-size: 11px; padding: 2px 8px; border: 1px solid #28a745; border-radius: 12px; font-weight: 600;">{% trans "Active" %}</span>
+                        {% else %}
+                            <span class="oh-badge oh-badge--secondary text-muted" style="font-size: 11px; padding: 2px 8px; border: 1px solid #6c757d; border-radius: 12px; font-weight: 600;">{% trans "Inactive" %}</span>
+                        {% endif %}
+                    {% endif %}
                 </div>
 
                 <div class="oh-timeoff-modal__stats-container mb-1">
@@ -90,6 +123,25 @@
                                     </li>
                                 {% endif %}
                                 {% if perms.leave.change_leavetype %}
+                                    <li class="oh-dropdown__item">
+                                        {% if leave_type.is_active %}
+                                            <a hx-confirm="{% trans 'Are you sure you want to deactivate this leave type? Employees will not be able to apply for it.' %}"
+                                                hx-post="{% url 'type-toggle-status' leave_type.id %}?{{pd}}"
+                                                hx-target="#leaveTypes"
+                                                class="oh-dropdown__link text-warning">
+                                                <ion-icon class="me-1" name="pause-circle-outline"></ion-icon>
+                                                {% trans "Deactivate" %}
+                                            </a>
+                                        {% else %}
+                                            <a hx-confirm="{% trans 'Are you sure you want to activate this leave type?' %}"
+                                                hx-post="{% url 'type-toggle-status' leave_type.id %}?{{pd}}"
+                                                hx-target="#leaveTypes"
+                                                class="oh-dropdown__link text-success">
+                                                <ion-icon class="me-1" name="play-circle-outline"></ion-icon>
+                                                {% trans "Activate" %}
+                                            </a>
+                                        {% endif %}
+                                    </li>
                                     <li class="oh-dropdown__item">
                                         <a href="{% url 'type-update' leave_type.id %}" class="oh-dropdown__link">
                                             {% trans "Edit" %}

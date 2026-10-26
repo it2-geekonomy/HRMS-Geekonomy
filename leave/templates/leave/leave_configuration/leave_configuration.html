@@ -31,7 +31,12 @@
                         </div>
                         <div class="ms-3">
                             <h3 class="oh-card__title mb-0">{{ total_leave_types }}</h3>
-                            <p class="oh-card__subtitle mb-0">{% trans "Leave Types" %}</p>
+                            <p class="oh-card__subtitle mb-0">
+                                {% trans "Leave Types" %}
+                                <span class="ms-1 small">
+                                    (<strong class="text-success">{{ active_types_count }} Active</strong> &bull; <strong class="text-muted">{{ inactive_types_count }} Inactive</strong>)
+                                </span>
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -71,20 +76,55 @@
 
     <!-- Leave Types Configuration -->
     <div class="oh-card">
-        <div class="oh-card__header">
-            <h2 class="oh-card__title">{% trans "Leave Types & Employee Assignments" %}</h2>
+        <div class="oh-card__header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h2 class="oh-card__title mb-0">{% trans "Leave Types & Employee Assignments" %}</h2>
+            <div class="d-flex align-items-center gap-2">
+                <a href="{% url 'leave-configuration' %}"
+                    class="oh-btn oh-btn--sm {% if not filter_status or filter_status == 'all' %}oh-btn--secondary{% else %}oh-btn--light text-muted{% endif %}">
+                    {% trans "All" %} ({{ total_leave_types }})
+                </a>
+                <a href="{% url 'leave-configuration' %}?status=active"
+                    class="oh-btn oh-btn--sm {% if filter_status == 'active' %}oh-btn--success text-white{% else %}oh-btn--light text-success{% endif %}">
+                    <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background-color:#28a745; margin-right:4px;"></span>
+                    {% trans "Active" %} ({{ active_types_count }})
+                </a>
+                <a href="{% url 'leave-configuration' %}?status=inactive"
+                    class="oh-btn oh-btn--sm {% if filter_status == 'inactive' %}oh-btn--secondary text-white{% else %}oh-btn--light text-secondary{% endif %}">
+                    <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background-color:#6c757d; margin-right:4px;"></span>
+                    {% trans "Inactive" %} ({{ inactive_types_count }})
+                </a>
+            </div>
         </div>
         <div class="oh-card__body">
             {% if configuration_data %}
                 {% for config in configuration_data %}
-                    <div class="oh-card mb-4" style="border: 1px solid #e0e0e0;">
-                        <div class="oh-card__header" style="background-color: #f5f5f5;">
-                            <div class="d-flex justify-content-between align-items-center">
+                    <div class="oh-card mb-4" style="border: 1px solid {% if config.leave_type.is_active %}#c3e6cb; border-left: 5px solid #28a745;{% else %}#e0e0e0; border-left: 5px solid #6c757d; opacity: 0.92;{% endif %}">
+                        <div class="oh-card__header" style="background-color: {% if config.leave_type.is_active %}#f4fbf6;{% else %}#f8f9fa;{% endif %}">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                                 <div>
-                                    <h3 class="oh-card__title mb-1">{{ config.leave_type.name }}</h3>
+                                    <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
+                                        <h3 class="oh-card__title mb-0">{{ config.leave_type.name }}</h3>
+                                        {% if config.leave_type.is_active %}
+                                            <span class="oh-badge oh-badge--success d-inline-flex align-items-center" style="font-size: 0.75rem; font-weight: 600; padding: 2px 8px;">
+                                                <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background-color:#28a745; margin-right:4px;"></span>
+                                                {% trans "Active" %}
+                                            </span>
+                                        {% else %}
+                                            <span class="oh-badge d-inline-flex align-items-center" style="font-size: 0.75rem; font-weight: 600; padding: 2px 8px; background-color: #6c757d; color: #ffffff;">
+                                                <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background-color:#ffffff; margin-right:4px; opacity:0.8;"></span>
+                                                {% trans "Inactive" %}
+                                            </span>
+                                        {% endif %}
+                                    </div>
                                     <div class="d-flex flex-wrap gap-2 mt-2">
                                         {% for rule in config.rules %}
-                                            <span class="oh-badge oh-badge--secondary">{{ rule }}</span>
+                                            {% if rule == "Status: Active" %}
+                                                <span class="oh-badge oh-badge--success">{{ rule }}</span>
+                                            {% elif rule == "Status: Inactive" %}
+                                                <span class="oh-badge" style="background-color: #6c757d; color: #fff;">{{ rule }}</span>
+                                            {% else %}
+                                                <span class="oh-badge oh-badge--secondary">{{ rule }}</span>
+                                            {% endif %}
                                         {% endfor %}
                                     </div>
                                 </div>
@@ -112,6 +152,8 @@
                                                         <span title="{% trans 'Unused EL balance expires on this date (3 years from assignment)' %}">{% trans "Expires On" %}</span>
                                                     {% elif config.reset_date_column_label == "Next Accrual" %}
                                                         <span title="{% trans 'Next date 1 day is added (balance is not cleared)' %}">{% trans "Next Accrual" %}</span>
+                                                    {% elif config.reset_date_column_label == "Next Refresh" %}
+                                                        <span title="{% trans 'Next date balance refreshes to 1.0 day (no carry forward)' %}">{% trans "Next Refresh" %}</span>
                                                     {% else %}
                                                         {{ config.reset_date_column_label }}
                                                     {% endif %}
@@ -359,7 +401,7 @@
                         <select id="exportLeaveConfigType" class="oh-select w-100">
                             <option value="">{% trans "All Leave Types" %}</option>
                             {% for lt in filter_leave_type_options %}
-                            <option value="{{ lt.id }}">{{ lt.name }}</option>
+                            <option value="{{ lt.id }}">{{ lt.name }} [{% if lt.is_active %}{% trans "Active" %}{% else %}{% trans "Inactive" %}{% endif %}]</option>
                             {% endfor %}
                         </select>
                     </div>

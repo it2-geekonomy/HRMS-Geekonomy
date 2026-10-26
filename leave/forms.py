@@ -123,7 +123,6 @@ class LeaveTypeForm(ConditionForm):
     class Meta:
         model = LeaveType
         fields = "__all__"
-        exclude = ["is_active"]
         labels = {
             "name": _("Name"),
         }
@@ -197,7 +196,6 @@ class UpdateLeaveTypeForm(ConditionForm):
     class Meta:
         model = LeaveType
         fields = "__all__"
-        exclude = ["is_active"]
         widgets = {
             "color": TextInput(attrs={"type": "color", "style": "height:40px;"}),
             "period_in": forms.HiddenInput(),
@@ -471,7 +469,8 @@ class UserLeaveRequestForm(BaseModelForm):
                 leave_type_id__is_compensatory_leave=True
             )
             assigned_leave_types = LeaveType.objects.filter(
-                id__in=available_leaves.values_list("leave_type_id", flat=True)
+                id__in=available_leaves.values_list("leave_type_id", flat=True),
+                is_active=True,
             )
             self.fields["leave_type_id"].queryset = assigned_leave_types
         if leave_type and isinstance(leave_type, dict):
@@ -612,7 +611,8 @@ class UserLeaveRequestCreationForm(BaseModelForm):
                 leave_type_id__is_compensatory_leave=True
             )
             assigned_leave_types = LeaveType.objects.filter(
-                id__in=available_leaves.values_list("leave_type_id", flat=True)
+                id__in=available_leaves.values_list("leave_type_id", flat=True),
+                is_active=True,
             )
             self.fields["leave_type_id"].queryset = assigned_leave_types
             if assigned_leave_types.filter(name="Sick Leave").exists():

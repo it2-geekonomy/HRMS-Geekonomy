@@ -148,7 +148,12 @@
                                 {% endif %}
                             </div>
                         </div>
-                        <div class="oh-sticky-table__td">{{leave_request.leave_type_id}}</div>
+                        <div class="oh-sticky-table__td">
+                            {{leave_request.leave_type_id}}
+                            {% if not leave_request.leave_type_id.is_active %}
+                                <span class="oh-badge oh-badge--secondary" style="font-size: 10px; padding: 1px 6px; margin-left: 4px; border-radius: 8px;">{% trans "Inactive" %}</span>
+                            {% endif %}
+                        </div>
                         <div class="oh-sticky-table__td dateformat_changer">{{leave_request.start_date}}</div>
                         <div class="oh-sticky-table__td dateformat_changer">{{leave_request.end_date}}</div>
                         <div class="oh-sticky-table__td">{{leave_request.requested_days}}</div>

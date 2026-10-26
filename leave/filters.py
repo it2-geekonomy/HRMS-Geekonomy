@@ -264,6 +264,10 @@ class LeaveRequestFilter(FilterSet):
         super().__init__(data=data, queryset=queryset, request=request, prefix=prefix)
         for field in self.form.fields.keys():
             self.form.fields[field].widget.attrs["id"] = f"{uuid.uuid4()}"
+        if "leave_type_id" in self.form.fields:
+            self.form.fields["leave_type_id"].label_from_instance = (
+                lambda obj: f"{obj.name} [Inactive]" if not getattr(obj, "is_active", True) else obj.name
+            )
 
 
 class UserLeaveRequestFilter(FilterSet):
@@ -315,12 +319,18 @@ class UserLeaveRequestFilter(FilterSet):
         super().__init__(data=data, queryset=queryset, request=request, prefix=prefix)
         from horilla.horilla_middlewares import _thread_locals
 
-        request = getattr(_thread_locals, "request", None)
-        leave_requests = request.user.employee_get.leaverequest_set.all()
-        assigned_leave_types = LeaveType.objects.filter(
-            id__in=leave_requests.values_list("leave_type_id", flat=True)
-        )
-        self.form.fields["leave_type_id"].queryset = assigned_leave_types
+        req = request or getattr(_thread_locals, "request", None)
+        emp = getattr(getattr(req, "user", None), "employee_get", None)
+        if emp:
+            leave_requests = emp.leaverequest_set.all()
+            assigned_leave_types = LeaveType.objects.filter(
+                id__in=leave_requests.values_list("leave_type_id", flat=True)
+            )
+            self.form.fields["leave_type_id"].queryset = assigned_leave_types
+        if "leave_type_id" in self.form.fields:
+            self.form.fields["leave_type_id"].label_from_instance = (
+                lambda obj: f"{obj.name} [Inactive]" if not getattr(obj, "is_active", True) else obj.name
+            )
 
 
 class LeaveAllocationRequestFilter(FilterSet):

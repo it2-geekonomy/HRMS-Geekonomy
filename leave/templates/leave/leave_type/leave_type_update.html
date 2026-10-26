@@ -237,6 +237,18 @@
                             </div>
                         </div>
                     </div>
+                    <div class="col-sm-12 col-md-12 col-lg-6">
+                        <div class="oh-input-group oh-label__info justify-content-between">
+                            <div class="d-flex align-items-center">
+                                <label for="{{ form.is_active.id_for_label }}" class="oh-label">{% trans "Active Status" %}</label>
+                                <span class=" oh-info me-3" title="{% trans 'Active leaves are visible and available for employees to request. Inactive leaves are paused/archived.' %}"></span>
+                            </div>
+                            <div class="oh-switch p-3 ">
+                                {{ form.is_active }}
+                                {{ form.is_active.errors }}
+                            </div>
+                        </div>
+                    </div>
                     <div hidden>{{ form.require_approval }}</div>
                     <div hidden>{{ form.require_attachment }}</div>
                     <div hidden>{{ form.exclude_company_leave }}</div>

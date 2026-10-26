@@ -44,29 +44,45 @@ def leave_reset():
 
     today = datetime.now()
     today_date = today.date()
-    leave_types = LeaveType.objects.filter(reset=True)
+    leave_types = LeaveType.objects.filter(reset=True, is_active=True)
 
     for leave_type in leave_types:
         available_leaves = leave_type.employee_available_leave.all()
 
+        accrual_amount = float(leave_type.total_days or 0)
+        # Active monthly leaves with no carryforward (Casual Leave & Sick Leave)
+        is_new_monthly_accrual = (
+            getattr(leave_type, "is_active", False)
+            and leave_type.reset_based == "monthly"
+            and leave_type.carryforward_type == "no carryforward"
+            and round(float(leave_type.total_days or 0), 2) == 1.0
+        )
         # Earned Leave: monthly accrual (1.25 on 1st of each month, cap at carryforward_max)
         is_el_accrual = (
-            leave_type.name in EARNED_LEAVE_NAMES
+            not is_new_monthly_accrual
+            and leave_type.name in EARNED_LEAVE_NAMES
             and leave_type.reset_based == "monthly"
         )
-        # Casual Leave: monthly 1/day, carryforward cap 12
+        # Casual Leave: monthly 1/day, carryforward cap 12 (legacy only)
         is_cl_accrual = (
-            leave_type.name in CASUAL_LEAVE_NAMES
+            not is_new_monthly_accrual
+            and leave_type.name in CASUAL_LEAVE_NAMES
             and leave_type.reset_based == "monthly"
             and round(float(leave_type.total_days or 0), 2) == 1.0
         )
         # Probation Leave, Probation Casual Leave & Interns Leave: 1 per month, no carryforward
         is_probation_accrual = (
-            leave_type.name in PROBATION_LEAVE_NAMES
-            or leave_type.name in PROBATION_CASUAL_LEAVE_NAMES
-        ) and leave_type.reset_based == "monthly" and round(float(leave_type.total_days or 0), 2) == 1.0
+            not is_new_monthly_accrual
+            and (
+                leave_type.name in PROBATION_LEAVE_NAMES
+                or leave_type.name in PROBATION_CASUAL_LEAVE_NAMES
+            )
+            and leave_type.reset_based == "monthly"
+            and round(float(leave_type.total_days or 0), 2) == 1.0
+        )
         is_interns_accrual = (
-            leave_type.name in INTERNS_LEAVE_NAMES
+            not is_new_monthly_accrual
+            and leave_type.name in INTERNS_LEAVE_NAMES
             and leave_type.reset_based == "monthly"
             and round(float(leave_type.total_days or 0), 2) == 1.0
         )
@@ -75,14 +91,44 @@ def leave_reset():
             and leave_type.reset_based == "yearly"
             and leave_type.reset
         )
-        accrual_amount = float(leave_type.total_days or 0)
-        accrual_cap = leave_type.carryforward_max if leave_type.carryforward_max is not None else 9999
-        # CL cap is typically 12
+        accrual_cap = (
+            leave_type.carryforward_max
+            if leave_type.carryforward_max is not None
+            else 9999
+        )
         cl_cap = 12 if is_cl_accrual else accrual_cap
 
         for available_leave in available_leaves:
             reset_date = available_leave.reset_date
             expired_date = available_leave.expired_date
+
+            # Active monthly no-carryforward leaves (Casual Leave & Sick Leave):
+            # Refresh balance to 1.0 day for current month (no carryforward from prior month).
+            # Triggers on 1st of the month OR catches up if server was down/restarted later.
+            if is_new_monthly_accrual:
+                is_due = (today_date.day == 1) or (reset_date and reset_date <= today_date)
+                if is_due:
+                    from django.db.models import Sum
+                    from leave.models import LeaveRequest
+
+                    approved_taken_this_month = (
+                        LeaveRequest.objects.filter(
+                            employee_id=available_leave.employee_id,
+                            leave_type_id=leave_type,
+                            status="approved",
+                            start_date__year=today_date.year,
+                            start_date__month=today_date.month,
+                        ).aggregate(total=Sum("requested_days"))["total"]
+                        or 0.0
+                    )
+                    available_leave.available_days = max(
+                        0.0, 1.0 - float(approved_taken_this_month)
+                    )
+                    available_leave.carryforward_days = 0.0
+                    new_reset_date = (today_date + relativedelta(months=1)).replace(day=1)
+                    available_leave.reset_date = new_reset_date
+                    available_leave.save()
+                    continue
 
             # Casual Leave: yearly wipe on 1 Jan — unused balance cleared, January accrual credited
             if is_cl_accrual and today_date.month == 1 and today_date.day == 1:

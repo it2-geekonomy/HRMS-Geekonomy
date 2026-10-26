@@ -67,11 +67,13 @@ def _restore_attendance_type_from_hours(work_record):
 
 def connect_signals():
     """Connect signals after apps are loaded to avoid circular imports"""
+    Employee = apps.get_model('employee', 'Employee')
     EmployeeWorkInformation = apps.get_model('employee', 'EmployeeWorkInformation')
     LeaveRequest = apps.get_model('leave', 'LeaveRequest')
     
     pre_save.connect(store_old_joining_date, sender=EmployeeWorkInformation)
     post_save.connect(auto_credit_leave_on_joining_date, sender=EmployeeWorkInformation)
+    post_save.connect(auto_credit_leave_on_employee_create, sender=Employee)
     post_save.connect(create_work_records_for_leave, sender=LeaveRequest)
 
 
@@ -87,12 +89,54 @@ def store_old_joining_date(sender, instance, **kwargs):
         _old_joining_dates[instance.pk] = None
 
 
+def auto_credit_new_monthly_leaves(employee):
+    """
+    Automatically assign the 2 active monthly leave types (Casual Leave & Sick Leave)
+    to an employee with 1.0 day each.
+    """
+    if not employee or not getattr(employee, "is_active", True):
+        return
+    try:
+        from dateutil.relativedelta import relativedelta
+        from leave.models import LeaveType, AvailableLeave
+
+        today = date.today()
+        next_1st = (today + relativedelta(months=1)).replace(day=1)
+
+        active_types = LeaveType.objects.filter(
+            is_active=True,
+            reset_based="monthly",
+            carryforward_type="no carryforward",
+        )
+        for lt in active_types:
+            AvailableLeave.objects.get_or_create(
+                employee_id=employee,
+                leave_type_id=lt,
+                defaults={
+                    "available_days": 1.0,
+                    "carryforward_days": 0.0,
+                    "assigned_date": today,
+                    "reset_date": next_1st,
+                },
+            )
+    except Exception as e:
+        logger.error(
+            f"Error auto-assigning monthly leaves to employee {employee}: {e}",
+            exc_info=True,
+        )
+
+
 def auto_credit_leave_on_joining_date(sender, instance, created, **kwargs):
-    """
-    Left disabled: leave is created and assigned manually.
-    Previously auto-credited EL/CL/SL after probation via probation_leave.
-    """
-    return
+    """Auto-assign 2 active monthly leaves when employee work info is saved."""
+    emp = getattr(instance, "employee_id", None)
+    if emp:
+        auto_credit_new_monthly_leaves(emp)
+
+
+def auto_credit_leave_on_employee_create(sender, instance, created, **kwargs):
+    """Auto-assign 2 active monthly leaves when a new Employee is created."""
+    if created and instance:
+        auto_credit_new_monthly_leaves(instance)
 
 
 def create_work_records_for_leave(sender, instance, created, **kwargs):

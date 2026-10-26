@@ -41,8 +41,41 @@
                 <div class="oh-profile__avatar">
                     <img src="{{leave_type.get_avatar}}" class="oh-profile__image me-2" alt="Mary Magdalene" />
                 </div>
-                <div class="oh-timeoff-modal__profile-info">
-                    <span class="oh-timeoff-modal__user fw-bold m-0">{{leave_type.name}}</span>
+                <div class="oh-timeoff-modal__profile-info d-flex align-items-center">
+                    <span class="oh-timeoff-modal__user fw-bold m-0 me-2">{{leave_type.name}}</span>
+                    {% if perms.leave.change_leavetype %}
+                        {% if leave_type.is_active %}
+                            <a href="javascript:void(0)"
+                                hx-confirm="{% trans 'Are you sure you want to deactivate this leave type? Employees will not be able to apply for it.' %}"
+                                hx-post="{% url 'type-toggle-status' leave_type.id %}?instances_ids={{requests_ids}}"
+                                hx-target="#objectDetailsModalTarget"
+                                onclick="$('.filterButton')[0].click();"
+                                title="{% trans 'Click to deactivate' %}"
+                                style="text-decoration: none;">
+                                <span class="oh-badge oh-badge--success text-success" style="font-size: 11px; padding: 2px 8px; border: 1px solid #28a745; border-radius: 12px; font-weight: 600; cursor: pointer;">
+                                    <ion-icon name="checkmark-circle" class="me-1" style="vertical-align: text-bottom;"></ion-icon>{% trans "Active" %}
+                                </span>
+                            </a>
+                        {% else %}
+                            <a href="javascript:void(0)"
+                                hx-confirm="{% trans 'Are you sure you want to activate this leave type?' %}"
+                                hx-post="{% url 'type-toggle-status' leave_type.id %}?instances_ids={{requests_ids}}"
+                                hx-target="#objectDetailsModalTarget"
+                                onclick="$('.filterButton')[0].click();"
+                                title="{% trans 'Click to activate' %}"
+                                style="text-decoration: none;">
+                                <span class="oh-badge oh-badge--secondary text-muted" style="font-size: 11px; padding: 2px 8px; border: 1px solid #6c757d; border-radius: 12px; font-weight: 600; cursor: pointer;">
+                                    <ion-icon name="pause-circle" class="me-1" style="vertical-align: text-bottom;"></ion-icon>{% trans "Inactive" %}
+                                </span>
+                            </a>
+                        {% endif %}
+                    {% else %}
+                        {% if leave_type.is_active %}
+                            <span class="oh-badge oh-badge--success text-success" style="font-size: 11px; padding: 2px 8px; border: 1px solid #28a745; border-radius: 12px; font-weight: 600;">{% trans "Active" %}</span>
+                        {% else %}
+                            <span class="oh-badge oh-badge--secondary text-muted" style="font-size: 11px; padding: 2px 8px; border: 1px solid #6c757d; border-radius: 12px; font-weight: 600;">{% trans "Inactive" %}</span>
+                        {% endif %}
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -189,6 +222,27 @@
                                 <ion-icon class="me-1" name="checkmark-outline"></ion-icon>
                                 {% trans "Assign" %}
                             </a>
+                        {% endif %}
+                        {% if perms.leave.change_leavetype %}
+                            {% if leave_type.is_active %}
+                                <button class="oh-btn oh-btn--warning w-50"
+                                    hx-confirm="{% trans 'Are you sure you want to deactivate this leave type? Employees will not be able to apply for it.' %}"
+                                    hx-post="{% url 'type-toggle-status' leave_type.id %}?instances_ids={{requests_ids}}"
+                                    hx-target="#objectDetailsModalTarget"
+                                    onclick="$('.filterButton')[0].click();">
+                                    <ion-icon class="me-1" name="pause-circle-outline"></ion-icon>
+                                    {% trans "Deactivate" %}
+                                </button>
+                            {% else %}
+                                <button class="oh-btn oh-btn--secondary w-50"
+                                    hx-confirm="{% trans 'Are you sure you want to activate this leave type?' %}"
+                                    hx-post="{% url 'type-toggle-status' leave_type.id %}?instances_ids={{requests_ids}}"
+                                    hx-target="#objectDetailsModalTarget"
+                                    onclick="$('.filterButton')[0].click();">
+                                    <ion-icon class="me-1" name="play-circle-outline"></ion-icon>
+                                    {% trans "Activate" %}
+                                </button>
+                            {% endif %}
                         {% endif %}
                         <button class="oh-btn oh-btn--danger w-50" data-action="delete"
                             hx-confirm="{% trans 'Do you really want to delete this leave type?' %}"

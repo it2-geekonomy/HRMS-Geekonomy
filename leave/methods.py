@@ -177,9 +177,33 @@ def is_earned_leave_type(leave_type):
     return lt_name in EARNED_LEAVE_NAMES or lt_name.startswith("Earned Leave")
 
 
-def is_casual_leave_type(leave_type):
-    """Regular Casual Leave only — not Probation Casual Leave."""
+def is_new_monthly_leave_type(leave_type):
+    """
+    True for new active monthly leaves with 1.0 day/month and no carry forward
+    (Casual Leave ID 31 and Sick Leave ID 32).
+    These are isolated monthly buckets and do NOT use legacy probation deductions or yearly resets.
+    """
     if not leave_type:
+        return False
+    lt_name = (leave_type.name or "").strip()
+    lt_lower = lt_name.lower()
+    if "probation" in lt_lower or "intern" in lt_lower:
+        return False
+    if getattr(leave_type, "is_compensatory_leave", False):
+        return False
+    reset_based = getattr(leave_type, "reset_based", None)
+    carryforward_type = getattr(leave_type, "carryforward_type", None)
+    total_days = round(float(getattr(leave_type, "total_days", 0) or 0), 2)
+    return (
+        reset_based == "monthly"
+        and carryforward_type == "no carryforward"
+        and total_days == 1.0
+    )
+
+
+def is_casual_leave_type(leave_type):
+    """Regular Legacy Casual Leave only (monthly 1 day, carryforward cap 12) — not Probation Casual Leave or new monthly CL."""
+    if not leave_type or is_new_monthly_leave_type(leave_type):
         return False
     lt_name = (leave_type.name or "").strip()
     lt_lower = lt_name.lower()
@@ -258,8 +282,8 @@ def next_monthly_accrual_date(leave_type, as_of_date=None):
 
 
 def is_sick_leave_type(leave_type):
-    """Full-time Sick Leave (7/year), not Intern Sick Leave."""
-    if not leave_type:
+    """Full-time Legacy Sick Leave (7/year), not Intern Sick Leave or new monthly Sick Leave."""
+    if not leave_type or is_new_monthly_leave_type(leave_type):
         return False
     lt_name = (leave_type.name or "").strip()
     if lt_name in ("Sick Leave", "Sick Leave (SL)", "Sick Leave - Paid", "Sick Leave – Paid"):
@@ -270,17 +294,19 @@ def is_sick_leave_type(leave_type):
 
 def get_yearly_entitlement(leave_type):
     """
-    Yearly policy maximum for Leave Configuration 'Total' column.
-    e.g. CL = 12, EL = 15 (1.25 x 12), SL = 7.
+    Policy maximum for Leave Configuration 'Total' column.
+    e.g. CL = 12, EL = 15 (1.25 x 12), SL = 7, New Monthly = 1.0.
     """
     if not leave_type:
         return 0.0
+    if is_new_monthly_leave_type(leave_type):
+        return float(leave_type.total_days or 1.0)
     per_period = float(leave_type.total_days or 0)
     reset_based = getattr(leave_type, "reset_based", None) or ""
     if reset_based == "monthly" and per_period > 0:
         yearly = round(per_period * 12, 2)
         cap = leave_type.carryforward_max
-        if cap is not None and not is_earned_leave_type(leave_type):
+        if cap is not None and not is_earned_leave_type(leave_type) and cap > 0:
             return min(yearly, float(cap))
         return yearly
     return per_period
@@ -437,8 +463,8 @@ def get_probation_period_leave_balance_stats(
 
 
 def leave_type_uses_yearly_balance_reset(leave_type):
-    """True for Casual Leave and Sick Leave (cleared every calendar year on 1 Jan)."""
-    if not leave_type:
+    """True for Legacy Casual Leave and Legacy Sick Leave (cleared every calendar year on 1 Jan)."""
+    if not leave_type or is_new_monthly_leave_type(leave_type):
         return False
     lt_name = (leave_type.name or "").strip()
     reset_based = getattr(leave_type, "reset_based", None) or ""
@@ -454,13 +480,17 @@ def leave_type_uses_yearly_balance_reset(leave_type):
 def get_leave_configuration_date_display(leave_type, available_leave, as_of_date=None):
     """
     Date shown in Leave Configuration per leave type:
-    - CL/SL: next 1 Jan (yearly balance clear)
+    - New monthly CL/SL: next 1st of month (Next Refresh)
+    - Legacy CL/SL: next 1 Jan (yearly balance clear)
     - EL: balance expiry (3 years from assignment)
     - Probation/Interns: next monthly accrual (adds 1 day, does not wipe balance)
     - Other: stored reset_date if any
     Returns (date_or_none, column_label).
     """
     as_of = as_of_date or date.today()
+    if is_new_monthly_leave_type(leave_type):
+        next_1st = (as_of + relativedelta(months=1)).replace(day=1)
+        return next_1st, "Next Refresh"
     if leave_type_uses_yearly_balance_reset(leave_type):
         return next_yearly_reset_date(as_of), "Year Reset"
     if is_probation_or_interns_monthly(leave_type):
@@ -590,6 +620,33 @@ def computed_balance_for_validation(available_leave, as_of_date=None, exclude_le
             ).aggregate(total=Sum("requested_days"))["total"]
             or 0
         )
+
+    # New Monthly Leaves (active, monthly reset, no carryforward, 1 day)
+    is_new_monthly = (
+        getattr(leave_type, "is_active", False)
+        and getattr(leave_type, "carryforward_type", None) == "no carryforward"
+        and reset_based == "monthly"
+        and total_days_val == 1.0
+        and "probation" not in lt_name.lower()
+        and "intern" not in lt_name.lower()
+    )
+    if is_new_monthly:
+        taken_in_month = (
+            LeaveRequest.objects.filter(
+                employee_id=available_leave.employee_id,
+                leave_type_id=leave_type,
+                status="approved",
+                start_date__year=as_of.year,
+                start_date__month=as_of.month,
+            )
+        )
+        if exclude_leave_request_id is not None:
+            taken_in_month = taken_in_month.exclude(pk=exclude_leave_request_id)
+        taken_days = (
+            taken_in_month.aggregate(total=Sum("requested_days"))["total"] or 0
+        )
+        balance = max(0.0, 1.0 - float(taken_days))
+        return round(balance, 3)
 
     # Earned Leave: monthly 1.25
     is_el = (

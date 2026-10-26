@@ -919,6 +919,20 @@ class LeaveRequest(HorillaModel):
                 _("Mismatch in the breakdown of the start and end date.")
             )
 
+        # Sick Leave: Half-Day is not allowed, only Full Day (1.0)
+        if leave_type and ("sick" in (leave_type.name or "").lower()) and getattr(leave_type, "is_active", True):
+            if (
+                self.start_date_breakdown in ("first_half", "second_half")
+                or self.end_date_breakdown in ("first_half", "second_half")
+            ):
+                raise ValidationError(
+                    {
+                        "start_date_breakdown": _(
+                            "Sick Leave cannot be applied as a half-day. Only Full Day (1.0) is allowed."
+                        )
+                    }
+                )
+
         # Sick Leave (full-time, non-probation): up to 2 days without attachment;
         # more than 2 days requires a medical certificate.
         if leave_type and leave_type.name == "Sick Leave":
@@ -962,8 +976,9 @@ class LeaveRequest(HorillaModel):
                 )
 
         # Past date restriction
+        is_super = getattr(getattr(request, "user", None), "is_superuser", False)
         if (
-            not request.user.is_superuser
+            not is_super
             and EmployeePastLeaveRestrict.objects.filter(enabled=True).exists()
         ):
             restrict = EmployeePastLeaveRestrict.objects.first()
@@ -1079,6 +1094,14 @@ class LeaveRequest(HorillaModel):
             leave_type_id=leave_type,
             status="requested",
         ).exclude(pk=self.pk)
+        if (
+            getattr(leave_type, "carryforward_type", None) == "no carryforward"
+            and getattr(leave_type, "reset_based", None) == "monthly"
+        ):
+            pending_qs = pending_qs.filter(
+                start_date__year=self.start_date.year,
+                start_date__month=self.start_date.month,
+            )
         pending_days = pending_qs.aggregate(total=Sum("requested_days"))["total"] or 0
         effective_available = max(0, total_leave_days - pending_days)
 
@@ -1116,7 +1139,7 @@ class LeaveRequest(HorillaModel):
         # (year-end lapse is handled by leave scheduler on 1 Jan).
 
         # Skip further checks for superusers
-        if request.user.is_superuser:
+        if is_super:
             return cleaned_data
 
         # Restricted leave checks

@@ -72,6 +72,18 @@
             <span class="oh-dot oh-dot--small me-1" style="background-color: orange"></span>
             {% trans "LOP" %}
         </span>
+        <span class="me-3" onclick="$('[name=is_active]').val('false');$('.filterButton').click()" style="cursor: pointer">
+            <span class="oh-dot oh-dot--small me-1" style="background-color: #6c757d"></span>
+            {% trans "Inactive" %}
+        </span>
+        <span class="me-3" onclick="$('[name=is_active]').val('true');$('.filterButton').click()" style="cursor: pointer">
+            <span class="oh-dot oh-dot--small me-1" style="background-color: #28a745"></span>
+            {% trans "Active" %}
+        </span>
+        <span class="me-3" onclick="$('[name=is_active]').val('');$('[name=payment]').val('');$('.filterButton').click()" style="cursor: pointer">
+            <span class="oh-dot oh-dot--small me-1" style="background-color: #007bff"></span>
+            {% trans "All" %}
+        </span>
     </div>
     <!-- end of quick filters  -->
     <div id="leaveTypes">{% include 'leave/leave_type/leave_types.html' %}</div>

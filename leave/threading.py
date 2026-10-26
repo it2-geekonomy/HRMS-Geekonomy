@@ -21,7 +21,7 @@ def _send_leave_approve_reject_fallback(request, leave_request, to_email, approv
     """Fallback: send plain-text email using Django default backend when main path fails."""
     action = "approved" if approved else "rejected"
     subject = f"Leave request {action}"
-    body = (
+    body = ( 
         f"Your leave request (id={leave_request.id}, {leave_request.start_date} - {leave_request.end_date}) "
         f"has been {action}."
     )

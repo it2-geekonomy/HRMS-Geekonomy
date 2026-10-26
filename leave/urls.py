@@ -23,6 +23,11 @@ urlpatterns = [
         kwargs={"model": models.LeaveType},
     ),
     path("type-delete/<int:obj_id>", views.leave_type_delete, name="type-delete"),
+    path(
+        "type-toggle-status/<int:id>",
+        views.leave_type_toggle_status,
+        name="type-toggle-status",
+    ),
     path("type-filter", views.leave_type_filter, name="type-filter"),
     path("request-creation", views.leave_request_creation, name="request-creation"),
     path(
