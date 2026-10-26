@@ -29,6 +29,7 @@
                     <div class="oh-sticky-table__th">{% trans "Total Amount" %}</div>
                     <div class="oh-sticky-table__th">{% trans "Mode of Payment" %}</div>
                     <div class="oh-sticky-table__th">{% trans "Paid By" %}</div>
+                    <div class="oh-sticky-table__th">{% trans "Remarks" %}</div>
                     <div class="oh-sticky-table__th">{% trans "Receipt" %}</div>
                     <div class="oh-sticky-table__th oh-sticky-table__right">{% trans "Actions" %}</div>
                 </div>
@@ -51,6 +52,7 @@
                     </div>
                     <div class="oh-sticky-table__td">{{ expense.mode_of_payment|default:"—" }}</div>
                     <div class="oh-sticky-table__td">{{ expense.paid_by|default:"—" }}</div>
+                    <div class="oh-sticky-table__td" title="{{ expense.remarks }}">{{ expense.remarks|truncatechars:35|default:"—" }}</div>
                     <div class="oh-sticky-table__td" onclick="event.stopPropagation();">
                         {% if expense.attachment %}
                         <a href="{{ expense.attachment.url }}" target="_blank" rel="noopener" class="oh-btn oh-btn--light-bkg oh-btn--sm">

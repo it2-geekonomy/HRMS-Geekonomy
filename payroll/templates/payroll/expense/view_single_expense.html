@@ -28,6 +28,10 @@
             <td>{{ expense.paid_by|default:"—" }}</td>
         </tr>
         <tr>
+            <th>{% trans "Remarks" %}</th>
+            <td>{{ expense.remarks|linebreaksbr|default:"—" }}</td>
+        </tr>
+        <tr>
             <th>{% trans "Categories & Breakup" %}</th>
             <td>
                 {% if expense.breakups.all %}

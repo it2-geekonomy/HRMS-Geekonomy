@@ -456,6 +456,7 @@ class ExpenseFilter(FilterSet):
             return queryset
         return queryset.filter(
             Q(description__icontains=value)
+            | Q(remarks__icontains=value)
             | Q(added_by__employee_first_name__icontains=value)
             | Q(added_by__employee_last_name__icontains=value)
         )

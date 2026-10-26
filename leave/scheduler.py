@@ -14,7 +14,13 @@ EL_EPOCH_DATE = date(2026, 1, 1)
 EARNED_LEAVE_NAMES = ("Earned Leave", "Earned Leave (EL)", "Earned Leave – Paid")
 
 # Casual Leave: monthly 1/day, carryforward cap 12 (any of these in DB).
-CASUAL_LEAVE_NAMES = ("Casual Leave", "Casual Leave (CL)", "Casual Leave – Paid")
+CASUAL_LEAVE_NAMES = (
+    "Casual Leave",
+    "Casual Leave (CL)",
+    "Casual Leave – Paid",
+    "Casual Leave (old)",
+    "Casual Leave (Old)",
+)
 
 # Probation Leave, Probation Casual Leave & Interns Leave: 1 per month, no carryforward
 PROBATION_LEAVE_NAMES = (

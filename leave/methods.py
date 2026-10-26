@@ -13,6 +13,8 @@ CASUAL_LEAVE_NAMES = (
     "Casual Leave (CL)",
     "Casual Leave - Paid",
     "Casual Leave – Paid",
+    "Casual Leave (old)",
+    "Casual Leave (Old)",
 )
 
 EARNED_LEAVE_NAMES = (
@@ -286,7 +288,14 @@ def is_sick_leave_type(leave_type):
     if not leave_type or is_new_monthly_leave_type(leave_type):
         return False
     lt_name = (leave_type.name or "").strip()
-    if lt_name in ("Sick Leave", "Sick Leave (SL)", "Sick Leave - Paid", "Sick Leave – Paid"):
+    if lt_name in (
+        "Sick Leave",
+        "Sick Leave (SL)",
+        "Sick Leave - Paid",
+        "Sick Leave – Paid",
+        "Sick Leave (old)",
+        "Sick Leave (Old)",
+    ):
         return True
     lt_lower = lt_name.lower()
     return lt_lower.startswith("sick leave") and "intern" not in lt_lower

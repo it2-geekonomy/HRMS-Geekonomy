@@ -935,7 +935,10 @@ class LeaveRequest(HorillaModel):
 
         # Sick Leave (full-time, non-probation): up to 2 days without attachment;
         # more than 2 days requires a medical certificate.
-        if leave_type and leave_type.name == "Sick Leave":
+        if leave_type and (
+            leave_type.name in ("Sick Leave", "Sick Leave (old)", "Sick Leave (Old)")
+            or (leave_type.name or "").startswith("Sick Leave")
+        ):
             requested_days_sl = calculate_requested_days(
                 self.start_date,
                 self.end_date,
@@ -1028,7 +1031,13 @@ class LeaveRequest(HorillaModel):
         )
 
         # Casual Leave: maximum 2 days per request (even with carry-forward).
-        cl_names = ("Casual Leave", "Casual Leave (CL)", "Casual Leave – Paid")
+        cl_names = (
+            "Casual Leave",
+            "Casual Leave (CL)",
+            "Casual Leave – Paid",
+            "Casual Leave (old)",
+            "Casual Leave (Old)",
+        )
         if leave_type and (leave_type.name in cl_names or (leave_type.name or "").strip().startswith("Casual Leave")):
             if requested_days > 2:
                 raise ValidationError(

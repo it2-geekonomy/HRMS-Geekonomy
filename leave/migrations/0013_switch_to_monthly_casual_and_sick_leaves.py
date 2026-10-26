@@ -36,6 +36,11 @@ def switch_to_monthly_casual_and_sick_leaves(apps, schema_editor):
 
         if not is_new_monthly:
             lt.is_active = False
+            name_lower = (lt.name or "").strip().lower()
+            if "casual" in name_lower and "probation" not in name_lower:
+                lt.name = "Casual Leave (old)"
+            elif "sick" in name_lower and "probation" not in name_lower and "intern" not in name_lower:
+                lt.name = "Sick Leave (old)"
         lt.save()
 
     # 2. Get or create new active Casual Leave (monthly, no carryforward)

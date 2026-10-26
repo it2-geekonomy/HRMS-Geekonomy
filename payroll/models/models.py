@@ -2154,6 +2154,12 @@ class Expense(HorillaModel):
         default="",
         verbose_name=_("Paid By"),
     )
+    remarks = models.TextField(
+        blank=True,
+        null=True,
+        default="",
+        verbose_name=_("Remarks"),
+    )
     payment_status = models.CharField(
         max_length=20,
         choices=PAYMENT_STATUS_CHOICES,
