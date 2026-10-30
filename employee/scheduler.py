@@ -134,7 +134,7 @@ def block_unblock_disciplinary():
 
 
 def _run_probation_reminder():
-    """Send reminder to reporting managers 7 days before probation complete date."""
+    """Probation reminders: managers 7 days before, HR 1 day before completion."""
     from employee.probation_reminder import send_probation_reminder_emails
 
     send_probation_reminder_emails()
