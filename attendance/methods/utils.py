@@ -767,3 +767,59 @@ def sort_activity_dicts(activity_dicts):
     ]
     sorted_activity_dicts = sorted(activity_dicts, key=lambda x: x["Attendance Date"])
     return sorted_activity_dicts
+
+
+def _late_login_cutoff():
+    from django.conf import settings
+
+    value = (getattr(settings, "HALF_DAY_LATE_AFTER", "") or "").strip()
+    for fmt in ("%H:%M:%S", "%H:%M"):
+        try:
+            return datetime.strptime(value, fmt).time()
+        except ValueError:
+            continue
+    return None
+
+
+def _late_login_start_date():
+    from django.conf import settings
+
+    value = (getattr(settings, "HALF_DAY_LATE_RULE_START", "") or "").strip()
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def late_login_message():
+    """Short message for WorkRecords.message (max 30 chars)."""
+    cutoff = _late_login_cutoff()
+    label = cutoff.strftime("%I:%M %p").lstrip("0") if cutoff else ""
+    return str(_("Late login %(time)s - Half Day") % {"time": label})[:30]
+
+
+def is_late_login(attendance_date, clock_in, off_dates_cache=None):
+    """
+    True when the first punch is at/after HALF_DAY_LATE_AFTER on a working day
+    on/after HALF_DAY_LATE_RULE_START. Earlier dates are never affected.
+    off_dates_cache: optional dict {(year, month): set_of_WO_PH_dates} reused across calls.
+    """
+    if not attendance_date or not clock_in:
+        return False
+    start = _late_login_start_date()
+    cutoff = _late_login_cutoff()
+    if start is None or cutoff is None or attendance_date < start:
+        return False
+    if isinstance(clock_in, datetime):
+        clock_in = clock_in.time()
+    if not isinstance(clock_in, time) or clock_in < cutoff:
+        return False
+
+    key = (attendance_date.year, attendance_date.month)
+    if off_dates_cache is not None and key in off_dates_cache:
+        off_dates = off_dates_cache[key]
+    else:
+        off_dates = set(monthly_leave_days(attendance_date.month, attendance_date.year))
+        if off_dates_cache is not None:
+            off_dates_cache[key] = off_dates
+    return attendance_date not in off_dates

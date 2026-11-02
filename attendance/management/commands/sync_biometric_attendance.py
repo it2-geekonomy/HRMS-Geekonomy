@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from biometric.models import BiometricDevices, BiometricEmployees
-from attendance.methods.utils import strtime_seconds
+from attendance.methods.utils import is_late_login, late_login_message, strtime_seconds
 from attendance.models import Attendance, AttendanceRequestLog
 from attendance.views.clock_in_out import clock_in, clock_out
 from base.models import EmployeeShiftDay
@@ -682,6 +682,7 @@ class Command(BaseCommand):
                         
                         work_records_to_create = []
                         work_records_to_update = []
+                        late_off_dates_cache = {}
                         
                         for att in created_attendances:
                             try:
@@ -721,6 +722,13 @@ class Command(BaseCommand):
                                     status, message = "SP", "Short Presence"
                                 else:
                                     status, message = "ABS", "Absent"
+
+                                if status in ("FDP", "HDP") and is_late_login(
+                                    att.attendance_date,
+                                    att.attendance_clock_in,
+                                    late_off_dates_cache,
+                                ):
+                                    status, message = "HDP", late_login_message()
                                 
                                 # Get or create work record
                                 try:

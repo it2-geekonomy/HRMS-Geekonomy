@@ -59,6 +59,14 @@ def _restore_attendance_type_from_hours(work_record):
     FULL_DAY_SECONDS = 8 * 3600
     SHORT_PRESENCE_SECONDS = 2 * 3600
     if at_work >= FULL_DAY_SECONDS:
+        try:
+            from attendance.methods.utils import is_late_login
+
+            att = work_record.attendance_id if work_record.attendance_id_id else None
+            if att and is_late_login(work_record.date, att.attendance_clock_in):
+                return "HDP"
+        except Exception:
+            pass
         return "FDP"
     if at_work >= SHORT_PRESENCE_SECONDS:
         return "HDP"

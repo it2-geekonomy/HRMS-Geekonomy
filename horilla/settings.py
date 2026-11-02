@@ -231,6 +231,10 @@ DEFAULT_FROM_EMAIL = env(
 HR_EMAIL = env("HR_EMAIL", default="hr@thegeekonomy.com")
 HR_PHONE = env("HR_PHONE", default="")
 
+# Late login: first punch at/after this time is a Half Day, for dates on/after the start date.
+HALF_DAY_LATE_AFTER = env("HALF_DAY_LATE_AFTER", default="09:16")
+HALF_DAY_LATE_RULE_START = env("HALF_DAY_LATE_RULE_START", default="2026-11-02")
+
 # Block search engines (Bing/Google) — internal HRMS must not be indexed
 HRMS_BLOCK_SEARCH_INDEXING = env.bool("HRMS_BLOCK_SEARCH_INDEXING", default=True)
 HRMS_X_ROBOTS_TAG = "noindex, nofollow, noarchive, nosnippet"

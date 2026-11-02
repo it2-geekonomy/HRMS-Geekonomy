@@ -8,7 +8,7 @@ from datetime import date
 from django.core.management.base import BaseCommand
 from django.utils.translation import gettext_lazy as _
 from attendance.models import Attendance, WorkRecords
-from attendance.methods.utils import strtime_seconds
+from attendance.methods.utils import is_late_login, strtime_seconds
 
 
 class Command(BaseCommand):
@@ -26,6 +26,7 @@ class Command(BaseCommand):
         
         FULL_DAY_SECONDS = 28800  # 8 hours
         today = date.today()
+        late_off_dates_cache = {}
         
         # Get all attendance records
         attendances = Attendance.objects.all()
@@ -71,7 +72,11 @@ class Command(BaseCommand):
             elif not attendance.attendance_clock_out and attendance.attendance_date == today:
                 new_status = "HDP"
                 hp_count += 1
-            elif at_work_second >= FULL_DAY_SECONDS:
+            elif at_work_second >= FULL_DAY_SECONDS and not is_late_login(
+                attendance.attendance_date,
+                attendance.attendance_clock_in,
+                late_off_dates_cache,
+            ):
                 new_status = "FDP"
                 fdp_count += 1
             elif at_work_second > 0:

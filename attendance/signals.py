@@ -8,7 +8,7 @@ from django.db.models.signals import post_migrate, post_save, pre_delete, pre_sa
 from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
 
-from attendance.methods.utils import strtime_seconds
+from attendance.methods.utils import is_late_login, late_login_message, strtime_seconds
 from attendance.models import Attendance, AttendanceGeneralSetting, WorkRecords
 from base.models import Company, PenaltyAccounts
 from employee.models import Employee
@@ -106,6 +106,12 @@ def attendance_post_save(sender, instance, **kwargs):
     else:
         # Fallback - should not reach here normally
         status, message = "ABS", _("Absent")
+
+    late_login = status in ("FDP", "HDP") and is_late_login(
+        instance.attendance_date, instance.attendance_clock_in
+    )
+    if late_login:
+        status, message = "HDP", late_login_message()
     
     try:
         work_record, created = WorkRecords.objects.get_or_create(
@@ -147,6 +153,8 @@ def attendance_post_save(sender, instance, **kwargs):
             work_record.day_percentage = 0.25  # Short Presence = 25%
         else:
             work_record.day_percentage = 0.00
+        if late_login:
+            work_record.day_percentage = 0.50
 
     # Handle leave records
     if work_record.is_leave_record:
