@@ -2845,6 +2845,7 @@ def create_expense(request):
             description=source.description,
             mode_of_payment=source.mode_of_payment,
             paid_by=source.paid_by,
+            remarks=source.remarks,
             archived=False,
         )
     if request.method == "POST":
@@ -3000,6 +3001,7 @@ def export_expense_excel(request):
         str(_("Expense Total")),
         str(_("Mode of Payment")),
         str(_("Paid By")),
+        str(_("Remarks")),
         str(_("Archived")),
     ]
     col_count = len(headers)
@@ -3101,6 +3103,7 @@ def export_expense_excel(request):
                 expense_total if idx == 0 else "",
                 (expense.mode_of_payment or "") if idx == 0 else "",
                 (expense.paid_by or "") if idx == 0 else "",
+                (expense.remarks or "") if idx == 0 else "",
                 (
                     str(_("Yes"))
                     if idx == 0 and expense.archived
@@ -3117,7 +3120,7 @@ def export_expense_excel(request):
                     cell.alignment = right
                     if col == 6:
                         cell.fill = amount_fill
-                elif col in (1, 10):
+                elif col in (1, 11):
                     cell.alignment = center
                 else:
                     cell.alignment = left
@@ -3165,7 +3168,7 @@ def export_expense_excel(request):
     ws.row_dimensions[total_row].height = 22
 
     # Column widths
-    widths = [14, 22, 36, 18, 28, 14, 14, 18, 18, 12]
+    widths = [14, 22, 36, 18, 28, 14, 14, 18, 18, 24, 12]
     for i, width in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = width
 

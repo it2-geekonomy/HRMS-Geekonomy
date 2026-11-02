@@ -1186,6 +1186,7 @@ class ExpenseForm(ModelForm):
             "description",
             "mode_of_payment",
             "paid_by",
+            "remarks",
             "attachment",
         ]
         widgets = {
@@ -1193,6 +1194,9 @@ class ExpenseForm(ModelForm):
                 attrs={"type": "date", "class": "oh-input w-100"}
             ),
             "description": forms.Textarea(attrs={"rows": 3}),
+            "remarks": forms.Textarea(
+                attrs={"rows": 2, "class": "oh-input w-100"}
+            ),
             "mode_of_payment": forms.TextInput(
                 attrs={
                     "class": "oh-input w-100",
