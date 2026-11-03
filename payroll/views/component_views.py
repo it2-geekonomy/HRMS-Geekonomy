@@ -2695,7 +2695,7 @@ def _expense_queryset(request):
             0,
             output_field=DecimalField(max_digits=12, decimal_places=2),
         )
-    )
+    ).order_by("-expense_date", "-id")
     qs = _scoped_expenses(request, qs)
     if show_archived:
         qs = qs.filter(archived=True)
