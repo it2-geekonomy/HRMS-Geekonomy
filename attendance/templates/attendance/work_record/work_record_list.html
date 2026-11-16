@@ -138,6 +138,20 @@
         <span class="me-3" style="margin-left: 10px">
             <span
                 class="oh-dot oh-dot--small me-1"
+                style="background-color: #ff7043"
+            ></span>
+            {% trans "Late Login (Half Day)" %}
+        </span>
+        <span class="me-3" style="margin-left: 10px">
+            <span
+                class="oh-dot oh-dot--small me-1"
+                style="background-color: #ff7043"
+            ></span>
+            {% trans "Late Login (Half Day) + Leave" %}
+        </span>
+        <span class="me-3" style="margin-left: 10px">
+            <span
+                class="oh-dot oh-dot--small me-1"
                 style="background-color: #ff6b6b"
             ></span>
             {% trans "Short Presence" %}
@@ -218,6 +232,8 @@
                                 {% endif %}
                             {% elif work_record.work_record_type == 'HDP' %}
                                 background-color: #dfdf52; color: #000;
+                            {% elif work_record.work_record_type == 'LH' %}
+                                background-color: #ff7043; color: #fff;
                             {% elif work_record.work_record_type == 'SP' %}
                                 background-color: #ff6b6b; color: #fff;
                             {% elif work_record.work_record_type == 'MP' %}
@@ -275,7 +291,7 @@
                                 <a class="text-decoration-none" role="button" onclick="window.location.href='{% url 'request-view' %}?id={{ leave_request_cell_urls|dict_get:cell_key }}';">LR</a>
                             </div>
                         {% elif work_record %}
-                            {% if work_record.work_record_type == 'CONF' or work_record.work_record_type == 'FDP' or work_record.work_record_type == 'HDP' or work_record.work_record_type == 'SP' or work_record.work_record_type == 'MP' or work_record.is_leave_record or work_record.work_record_type == 'HD' %}
+                            {% if work_record.work_record_type == 'CONF' or work_record.work_record_type == 'FDP' or work_record.work_record_type == 'HDP' or work_record.work_record_type == 'LH' or work_record.work_record_type == 'SP' or work_record.work_record_type == 'MP' or work_record.is_leave_record or work_record.work_record_type == 'HD' %}
                             <div
                                 {% if work_record.work_record_type == 'SP' and day|hp_p_key:employee.id in sp_l_dates %}
                                     title="{% trans 'Short Presence + Leave' %}"
@@ -292,7 +308,7 @@
                                         window.location.href = `{% url 'request-view' %}?employee_id={{work_record.employee_id.id}}&from_date={{work_record.date|date:'Y-m-d'}}&to_date={{work_record.date|date:'Y-m-d'}}&status=approved`;
                                     {% elif work_record.work_record_type == 'CONF' %}
                                         window.location.href = `{% url 'request-attendance-view' %}?employee_id={{work_record.employee_id.id}}&attendance_date={{work_record.date|date:'Y-m-d'}}`;
-                                    {% elif work_record.work_record_type == 'MP' or work_record.work_record_type == 'FDP' or work_record.work_record_type == 'HDP' or work_record.work_record_type == 'SP' %}
+                                    {% elif work_record.work_record_type == 'MP' or work_record.work_record_type == 'FDP' or work_record.work_record_type == 'HDP' or work_record.work_record_type == 'LH' or work_record.work_record_type == 'SP' %}
                                         window.location.href = `{% url 'request-attendance-view' %}?employee_id={{work_record.employee_id.id}}&attendance_date={{work_record.date|date:'Y-m-d'}}&tab=all`;
                                     {% elif work_record.work_record_type != 'DFT' %}
                                         window.location.href = `{% url 'request-attendance-view' %}?employee_id={{work_record.employee_id.id}}&attendance_date={{work_record.date|date:'Y-m-d'}}&tab=all`;
@@ -303,10 +319,11 @@
                                     {% if work_record.work_record_type == 'CONF' %} AR
                                     {% elif work_record.work_record_type == 'FDP' %}{% if day|hp_p_key:employee.id in pl_dates %}P/L{% elif day|hp_p_key:employee.id in hp_l_dates %}HP/L{% else %}P{% endif %}
                                     {% elif work_record.work_record_type == 'HDP' %}{% if day|hp_p_key:employee.id in hp_l_dates %}HP/L{% else %}HP{% endif %}
+                                    {% elif work_record.work_record_type == 'LH' %}{% if day|hp_p_key:employee.id in lh_l_dates %}LH/L{% else %}LH{% endif %}
                                     {% elif work_record.work_record_type == 'SP' %}{% if day|hp_p_key:employee.id in sp_l_dates %}SP/L{% else %}SP{% endif %}
                                     {% elif work_record.work_record_type == 'MP' %} MP
                                     {% elif work_record.work_record_type == 'HD' %}{% if day in holiday_dates %}PH{% else %}WO{% endif %}
-                                    {% elif work_record.is_leave_record %}{% if day|hp_p_key:employee.id in hp_l_dates %}HP/L{% elif day|hp_p_key:employee.id in sp_l_dates %}SP/L{% elif day|hp_p_key:employee.id in a_l_dates %}A/L{% else %} L{% endif %}
+                                    {% elif work_record.is_leave_record %}{% if day|hp_p_key:employee.id in lh_l_dates %}LH/L{% elif day|hp_p_key:employee.id in hp_l_dates %}HP/L{% elif day|hp_p_key:employee.id in sp_l_dates %}SP/L{% elif day|hp_p_key:employee.id in a_l_dates %}A/L{% else %} L{% endif %}
                                     {% endif %}
                                 </a>
                             </div>

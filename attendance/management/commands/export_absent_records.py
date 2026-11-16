@@ -49,9 +49,10 @@ def _employee_effective_from(employee_ids):
 def _leave_overlay_keys(employee_ids, month_dates, work_records_dict):
     pl_dates = set()
     hp_l_dates = set()
+    lh_l_dates = set()
     sp_l_dates = set()
     if not apps.is_installed("leave"):
-        return pl_dates, hp_l_dates, sp_l_dates
+        return pl_dates, hp_l_dates, lh_l_dates, sp_l_dates
 
     from leave.models import LeaveRequest, leave_requested_dates
 
@@ -92,13 +93,15 @@ def _leave_overlay_keys(employee_ids, month_dates, work_records_dict):
             if is_half and wr:
                 if wr.work_record_type in ("FDP", "HDP"):
                     hp_l_dates.add(key)
+                elif wr.work_record_type == "LH":
+                    lh_l_dates.add(key)
                 elif wr.work_record_type == "SP":
                     sp_l_dates.add(key)
             elif wr and wr.work_record_type == "FDP":
                 pl_dates.add(key)
             elif wr and wr.work_record_type == "SP":
                 sp_l_dates.add(key)
-    return pl_dates, hp_l_dates, sp_l_dates
+    return pl_dates, hp_l_dates, lh_l_dates, sp_l_dates
 
 
 def _display_code(
@@ -110,6 +113,7 @@ def _display_code(
     holiday_dates,
     pl_dates,
     hp_l_dates,
+    lh_l_dates,
     sp_l_dates,
     attendance_request_cell_keys,
     leave_request_cell_keys,
@@ -131,6 +135,9 @@ def _display_code(
     elif record_type == "HDP":
         key = f"{employee.id}_{day.isoformat()}"
         val = "HP/L" if key in hp_l_dates else "HP"
+    elif record_type == "LH":
+        key = f"{employee.id}_{day.isoformat()}"
+        val = "LH/L" if key in lh_l_dates else "LH"
     elif record_type == "SP":
         key = f"{employee.id}_{day.isoformat()}"
         val = "SP/L" if key in sp_l_dates else "SP"
@@ -189,7 +196,7 @@ def collect_absent_rows(year, start_month=1, end_month=6):
             record_lookup[(record.employee_id, record.date)] = record.work_record_type
             work_records_dict[(record.employee_id.id, record.date)] = record
 
-        pl_dates, hp_l_dates, sp_l_dates = _leave_overlay_keys(
+        pl_dates, hp_l_dates, lh_l_dates, sp_l_dates = _leave_overlay_keys(
             employee_ids, month_dates, work_records_dict
         )
 
@@ -247,6 +254,7 @@ def collect_absent_rows(year, start_month=1, end_month=6):
                     holiday_dates=holiday_dates,
                     pl_dates=pl_dates,
                     hp_l_dates=hp_l_dates,
+                    lh_l_dates=lh_l_dates,
                     sp_l_dates=sp_l_dates,
                     attendance_request_cell_keys=attendance_request_cell_keys,
                     leave_request_cell_keys=leave_request_cell_keys,

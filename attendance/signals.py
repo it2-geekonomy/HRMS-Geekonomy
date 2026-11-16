@@ -111,7 +111,7 @@ def attendance_post_save(sender, instance, **kwargs):
         instance.attendance_date, instance.attendance_clock_in
     )
     if late_login:
-        status, message = "HDP", late_login_message()
+        status, message = "LH", late_login_message()
     
     try:
         work_record, created = WorkRecords.objects.get_or_create(
@@ -170,12 +170,16 @@ def attendance_post_save(sender, instance, **kwargs):
             except Exception:
                 is_half_leave = False
 
-        # Half-day leave + half/full/short presence → keep attendance type (calendar HP/L / SP/L)
-        if is_half_leave and status in ("HDP", "FDP", "SP"):
-            message = _("Half day present + leave")
+        # Half-day leave + half/full/short/late presence → keep attendance type (HP/L, LH/L, SP/L)
+        if is_half_leave and status in ("HDP", "LH", "FDP", "SP"):
+            message = (
+                _("Late login half day + leave")
+                if status == "LH"
+                else _("Half day present + leave")
+            )
             work_record.work_record_type = status
             work_record.message = message
-        elif status == "HDP":
+        elif status in ("HDP", "LH"):
             message = _("Half day leave")
             status = "HD"  # Change to Holiday/Leave status
             work_record.work_record_type = status

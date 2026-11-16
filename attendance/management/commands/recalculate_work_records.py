@@ -2,7 +2,8 @@
 Recalculate all work records based on the new logic:
 - MP (Missing Punch): Check-in == Check-out (same time) OR no check-out for past day
 - HP (Half Day Present): Worked > 0 hours but < 8 hours
-- P (Present/FDP): Worked >= 8 hours
+- LH (Late Login Half Day): Late punch at/after cutoff, still 0.5 day
+- P (Present/FDP): Worked >= 8 hours (and not late login)
 """
 from datetime import date
 from django.core.management.base import BaseCommand
@@ -12,7 +13,7 @@ from attendance.methods.utils import is_late_login, strtime_seconds
 
 
 class Command(BaseCommand):
-    help = 'Recalculate all work records based on new MP/HP/P logic'
+    help = 'Recalculate all work records based on new MP/HP/LH/P logic'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -38,8 +39,10 @@ class Command(BaseCommand):
         updated_count = 0
         mp_count = 0
         hp_count = 0
+        lh_count = 0
         fdp_count = 0
         conf_count = 0
+        SHORT_PRESENCE_SECONDS = 7200  # 2 hours
         
         for idx, attendance in enumerate(attendances, 1):
             at_work_second = strtime_seconds(attendance.attendance_worked_hour)
@@ -61,6 +64,12 @@ class Command(BaseCommand):
             # Condition 2: Worked less than 5 minutes (includes same time, 1-2 seconds, etc.)
             elif at_work_second < MP_THRESHOLD_SECONDS and attendance.attendance_date != today:
                 is_missing_punch = True
+
+            late = is_late_login(
+                attendance.attendance_date,
+                attendance.attendance_clock_in,
+                late_off_dates_cache,
+            )
             
             # Determine status
             if not attendance.attendance_validated:
@@ -70,15 +79,18 @@ class Command(BaseCommand):
                 new_status = "MP"
                 mp_count += 1
             elif not attendance.attendance_clock_out and attendance.attendance_date == today:
-                new_status = "HDP"
-                hp_count += 1
-            elif at_work_second >= FULL_DAY_SECONDS and not is_late_login(
-                attendance.attendance_date,
-                attendance.attendance_clock_in,
-                late_off_dates_cache,
-            ):
+                if late:
+                    new_status = "LH"
+                    lh_count += 1
+                else:
+                    new_status = "HDP"
+                    hp_count += 1
+            elif at_work_second >= FULL_DAY_SECONDS and not late:
                 new_status = "FDP"
                 fdp_count += 1
+            elif at_work_second >= SHORT_PRESENCE_SECONDS and late:
+                new_status = "LH"
+                lh_count += 1
             elif at_work_second > 0:
                 new_status = "HDP"
                 hp_count += 1
@@ -98,6 +110,8 @@ class Command(BaseCommand):
                         if not dry_run:
                             work_record.work_record_type = new_status
                             work_record.at_work_second = at_work_second
+                            if new_status == "LH" and attendance.attendance_validated:
+                                work_record.day_percentage = 0.50
                             work_record.save()
                         updated_count += 1
                         
@@ -117,6 +131,7 @@ class Command(BaseCommand):
         self.stdout.write(f'  CONF (Conflict): {conf_count}')
         self.stdout.write(f'  FDP (Present): {fdp_count}')
         self.stdout.write(f'  HDP (Half Day): {hp_count}')
+        self.stdout.write(f'  LH (Late Half): {lh_count}')
         self.stdout.write(f'  MP (Missing Punch): {mp_count}')
         
         if dry_run:

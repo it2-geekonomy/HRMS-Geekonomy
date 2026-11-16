@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 # Store old joining date to detect changes
 _old_joining_dates = {}
 
-ATTENDANCE_PRESENT_TYPES = ("FDP", "HDP", "SP")
+ATTENDANCE_PRESENT_TYPES = ("FDP", "HDP", "LH", "SP")
 
 
 def _is_half_day_leave_on_date(leave_request, leave_date):
@@ -58,18 +58,19 @@ def _restore_attendance_type_from_hours(work_record):
     # Same thresholds as attendance_post_save (8h full, 2h half, else short)
     FULL_DAY_SECONDS = 8 * 3600
     SHORT_PRESENCE_SECONDS = 2 * 3600
-    if at_work >= FULL_DAY_SECONDS:
-        try:
-            from attendance.methods.utils import is_late_login
+    late = False
+    try:
+        from attendance.methods.utils import is_late_login
 
-            att = work_record.attendance_id if work_record.attendance_id_id else None
-            if att and is_late_login(work_record.date, att.attendance_clock_in):
-                return "HDP"
-        except Exception:
-            pass
-        return "FDP"
+        att = work_record.attendance_id if work_record.attendance_id_id else None
+        if att:
+            late = is_late_login(work_record.date, att.attendance_clock_in)
+    except Exception:
+        late = False
+    if at_work >= FULL_DAY_SECONDS:
+        return "LH" if late else "FDP"
     if at_work >= SHORT_PRESENCE_SECONDS:
-        return "HDP"
+        return "LH" if late else "HDP"
     return "SP"
 
 
@@ -150,7 +151,7 @@ def auto_credit_leave_on_employee_create(sender, instance, created, **kwargs):
 def create_work_records_for_leave(sender, instance, created, **kwargs):
     """
     Create or update work records when leave requests are approved/rejected/cancelled.
-    Full-day leave → "L". Half-day leave with attendance kept as HDP/FDP/SP → calendar shows HP/L.
+    Full-day leave → "L". Half-day leave with attendance kept as HDP/LH/FDP/SP → HP/L or LH/L.
     """
     # Only process if leave app is installed
     if not apps.is_installed('attendance'):

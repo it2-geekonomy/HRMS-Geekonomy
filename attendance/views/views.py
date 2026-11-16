@@ -2437,28 +2437,41 @@ def _work_record_has_attendance(wr, employee_id, day):
 
 
 def _classify_leave_attendance_overlay(
-    wr, employee_id, day, is_half, pl_dates, hp_l_dates, sp_l_dates, a_l_dates=None
+    wr,
+    employee_id,
+    day,
+    is_half,
+    pl_dates,
+    hp_l_dates,
+    sp_l_dates,
+    a_l_dates=None,
+    lh_l_dates=None,
 ):
     """
     Mark calendar overlay keys for present+leave combinations.
     Half-day leave + FDP/HDP (or L with attendance) → HP/L.
+    Half-day leave + LH → LH/L.
     Half-day leave + no attendance (L only) → A/L (half absent + half leave).
     """
     if not wr:
         return
     if a_l_dates is None:
         a_l_dates = set()
+    if lh_l_dates is None:
+        lh_l_dates = set()
     key = f"{employee_id}_{day.isoformat()}"
     if is_half:
         if wr.work_record_type == "FDP":
             hp_l_dates.add(key)
         elif wr.work_record_type == "HDP":
             hp_l_dates.add(key)
+        elif wr.work_record_type == "LH":
+            lh_l_dates.add(key)
         elif wr.work_record_type == "SP":
             sp_l_dates.add(key)
         elif wr.work_record_type == "L" or wr.is_leave_record:
             if _work_record_has_attendance(wr, employee_id, day):
-                # Leave approval overwrote HDP→L; still show HP/L when attendance exists
+                # Leave approval overwrote present→L; show HP/L unless restored as LH
                 hp_l_dates.add(key)
             else:
                 # Half leave, no punch → A/L (0.5 paid / 0.5 LOP)
@@ -2672,6 +2685,7 @@ def work_records_change_month(request):
     hp_l_dates = set()
     sp_l_dates = set()
     a_l_dates = set()
+    lh_l_dates = set()
     if apps.is_installed("leave"):
         from leave.models import LeaveRequest, leave_requested_dates
 
@@ -2707,6 +2721,7 @@ def work_records_change_month(request):
                         hp_l_dates,
                         sp_l_dates,
                         a_l_dates,
+                        lh_l_dates,
                     )
                 else:
                     wr = work_records_dict.get((lr["employee_id"], d))
@@ -2719,6 +2734,7 @@ def work_records_change_month(request):
                         hp_l_dates,
                         sp_l_dates,
                         a_l_dates,
+                        lh_l_dates,
                     )
 
     # (employee_id, date) keys for cells that have a pending Attendance Request – use same
@@ -2796,6 +2812,7 @@ def work_records_change_month(request):
         "hp_l_dates": hp_l_dates,
         "sp_l_dates": sp_l_dates,
         "a_l_dates": a_l_dates,
+        "lh_l_dates": lh_l_dates,
         "attendance_request_cell_keys": attendance_request_cell_keys,
         "leave_request_cell_keys": leave_request_cell_keys,
         "leave_request_cell_urls": leave_request_cell_urls,
@@ -2880,6 +2897,7 @@ def my_work_records_change_month(request):
     hp_l_dates = set()
     sp_l_dates = set()
     a_l_dates = set()
+    lh_l_dates = set()
     if apps.is_installed("leave"):
         from leave.models import LeaveRequest, leave_requested_dates
 
@@ -2915,6 +2933,7 @@ def my_work_records_change_month(request):
                         hp_l_dates,
                         sp_l_dates,
                         a_l_dates,
+                        lh_l_dates,
                     )
                 else:
                     wr = work_records_dict.get(d)
@@ -2927,6 +2946,7 @@ def my_work_records_change_month(request):
                         hp_l_dates,
                         sp_l_dates,
                         a_l_dates,
+                        lh_l_dates,
                     )
 
     # (employee_id, date) keys for cells with a pending Attendance Request (own requests only)
@@ -2976,6 +2996,7 @@ def my_work_records_change_month(request):
         "hp_l_dates": hp_l_dates,
         "sp_l_dates": sp_l_dates,
         "a_l_dates": a_l_dates,
+        "lh_l_dates": lh_l_dates,
         "attendance_request_cell_keys": attendance_request_cell_keys,
         "leave_request_cell_keys": leave_request_cell_keys,
         "leave_request_cell_urls": leave_request_cell_urls,
@@ -2991,8 +3012,10 @@ WORK_RECORD_CELL_STYLES = {
     "A": {"bg_color": "#2196F3", "font_color": "#ffffff"},
     "P": {"bg_color": "#38c338", "font_color": "#ffffff"},
     "HP": {"bg_color": "#dfdf52", "font_color": "#000000"},
+    "LH": {"bg_color": "#ff7043", "font_color": "#ffffff"},
     "SP": {"bg_color": "#ff6b6b", "font_color": "#ffffff"},
     "HP/L": {"bg_color": "#dfdf52", "font_color": "#000000"},
+    "LH/L": {"bg_color": "#ff7043", "font_color": "#ffffff"},
     "SP/L": {"bg_color": "#ff6b6b", "font_color": "#ffffff"},
     "A/L": {"bg_color": "#5c6bc0", "font_color": "#ffffff"},
     "P/L": {"bg_color": "#38c338", "font_color": "#ffffff"},
@@ -3071,6 +3094,7 @@ def _work_record_export_data(request):
     hp_l_dates = set()
     sp_l_dates = set()
     a_l_dates = set()
+    lh_l_dates = set()
     if apps.is_installed("leave"):
         from leave.models import LeaveRequest, leave_requested_dates
 
@@ -3106,6 +3130,7 @@ def _work_record_export_data(request):
                         hp_l_dates,
                         sp_l_dates,
                         a_l_dates,
+                        lh_l_dates,
                     )
                 else:
                     wr = work_records_dict.get((lr["employee_id"], d))
@@ -3118,6 +3143,7 @@ def _work_record_export_data(request):
                         hp_l_dates,
                         sp_l_dates,
                         a_l_dates,
+                        lh_l_dates,
                     )
 
     # Attendance Request Raised (AR): same logic as calendar so Excel shows AR correctly
@@ -3235,6 +3261,8 @@ def _work_record_export_data(request):
                 val = "P/L" if f"{employee.id}_{day.isoformat()}" in pl_dates else "HP/L" if f"{employee.id}_{day.isoformat()}" in hp_l_dates else "P"
             elif val == "HDP":
                 val = "HP/L" if f"{employee.id}_{day.isoformat()}" in hp_l_dates else "HP"
+            elif val == "LH":
+                val = "LH/L" if f"{employee.id}_{day.isoformat()}" in lh_l_dates else "LH"
             elif val == "SP":
                 val = "SP/L" if f"{employee.id}_{day.isoformat()}" in sp_l_dates else "SP"
             elif val == "ABS":
@@ -3245,7 +3273,9 @@ def _work_record_export_data(request):
                 val = "MP"
             elif val in ("L", "HD"):
                 cell_key = f"{employee.id}_{day.isoformat()}"
-                if cell_key in hp_l_dates:
+                if cell_key in lh_l_dates:
+                    val = "LH/L"
+                elif cell_key in hp_l_dates:
                     val = "HP/L"
                 elif cell_key in sp_l_dates:
                     val = "SP/L"
@@ -3292,7 +3322,7 @@ def work_record_export(request):
         workbook = writer.book
         worksheet = writer.sheets["Sheet1"]
 
-        # Display codes match calendar: P, HP, HP/L, HP/P, A, WO, MP, L, PH, AR
+        # Display codes match calendar: P, HP, LH, HP/L, LH/L, A, WO, MP, L, PH, AR
         formats = {
             "A": workbook.add_format(
                 {"bg_color": "#2196F3", "font_color": "#ffffff"}
@@ -3303,11 +3333,17 @@ def work_record_export(request):
             "HP": workbook.add_format(
                 {"bg_color": "#dfdf52", "font_color": "#000000"}
             ),
+            "LH": workbook.add_format(
+                {"bg_color": "#ff7043", "font_color": "#ffffff"}
+            ),
             "SP": workbook.add_format(
                 {"bg_color": "#ff6b6b", "font_color": "#ffffff"}
             ),
             "HP/L": workbook.add_format(
                 {"bg_color": "#dfdf52", "font_color": "#000000"}
+            ),
+            "LH/L": workbook.add_format(
+                {"bg_color": "#ff7043", "font_color": "#ffffff"}
             ),
             "SP/L": workbook.add_format(
                 {"bg_color": "#ff6b6b", "font_color": "#ffffff"}

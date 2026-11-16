@@ -728,7 +728,7 @@ class Command(BaseCommand):
                                     att.attendance_clock_in,
                                     late_off_dates_cache,
                                 ):
-                                    status, message = "HDP", late_login_message()
+                                    status, message = "LH", late_login_message()
                                 
                                 # Get or create work record
                                 try:
@@ -752,7 +752,7 @@ class Command(BaseCommand):
                                     if att.attendance_validated:
                                         if status == "FDP":
                                             work_record.day_percentage = 1.00
-                                        elif status == "HDP":
+                                        elif status in ("HDP", "LH"):
                                             work_record.day_percentage = 0.50
                                         elif status == "SP":
                                             work_record.day_percentage = 0.25
@@ -775,7 +775,7 @@ class Command(BaseCommand):
                                         shift_id=att.shift_id,
                                         day_percentage=(
                                             1.00 if status == "FDP" and att.attendance_validated else
-                                            0.50 if status == "HDP" and att.attendance_validated else
+                                            0.50 if status in ("HDP", "LH") and att.attendance_validated else
                                             0.25 if status == "SP" and att.attendance_validated else
                                             1.00 if att.attendance_validated and at_work_second > min_hour_second / 2 else
                                             0.50 if att.attendance_validated else 0.0

@@ -167,8 +167,8 @@ def get_days_worked_for_employee(employee_id, month: int, year: int) -> float:
         if rec.work_record_type == "FDP":
             # FDP includes P/L and regular present days; both count as a full day.
             days_worked += 1
-        elif rec.work_record_type in ("HDP", "HP"):
-            # HP/L (HP + approved half-day leave) and HP + approved full-day leave both count as 1 full day.
+        elif rec.work_record_type in ("HDP", "HP", "LH"):
+            # HP/L, LH/L and HP/LH + approved leave both count as 1 full day; else 0.5.
             if rec.date in half_leave_dates or rec.date in full_leave_dates:
                 days_worked += 1
             else:
@@ -230,6 +230,7 @@ def get_paid_leave_days_for_employee(employee_id, month: int, year: int) -> floa
             "FDP",
             "HDP",
             "HP",
+            "LH",
             "SP",
         ):
             paid_leave += 1
@@ -237,6 +238,7 @@ def get_paid_leave_days_for_employee(employee_id, month: int, year: int) -> floa
             "FDP",
             "HDP",
             "HP",
+            "LH",
             "SP",
         ):
             paid_leave += 0.5

@@ -82,6 +82,20 @@
     <span class="me-3" style="margin-left: 10px">
         <span
             class="oh-dot oh-dot--small me-1"
+            style="background-color: #ff7043"
+        ></span>
+        {% trans "Late Login (Half Day)" %}
+    </span>
+    <span class="me-3" style="margin-left: 10px">
+        <span
+            class="oh-dot oh-dot--small me-1"
+            style="background-color: #ff7043"
+        ></span>
+        {% trans "Late Login (Half Day) + Leave" %}
+    </span>
+    <span class="me-3" style="margin-left: 10px">
+        <span
+            class="oh-dot oh-dot--small me-1"
             style="background-color: #ff6b6b"
         ></span>
         {% trans "Short Presence" %}
@@ -160,6 +174,8 @@
                                 {% endif %}
                             {% elif work_record.work_record_type == 'HDP' %}
                                 background-color: #dfdf52; color: #000;
+                            {% elif work_record.work_record_type == 'LH' %}
+                                background-color: #ff7043; color: #fff;
                             {% elif work_record.work_record_type == 'SP' %}
                                 background-color: #ff6b6b; color: #fff;
                             {% elif work_record.work_record_type == 'MP' %}
@@ -218,7 +234,7 @@
                                 <span>LR</span>
                             </div>
                         {% elif work_record %}
-                            {% if work_record.work_record_type == 'CONF' or work_record.work_record_type == 'FDP' or work_record.work_record_type == 'HDP' or work_record.work_record_type == 'SP' or work_record.work_record_type == 'MP' or work_record.is_leave_record or work_record.work_record_type == 'HD' %}
+                            {% if work_record.work_record_type == 'CONF' or work_record.work_record_type == 'FDP' or work_record.work_record_type == 'HDP' or work_record.work_record_type == 'LH' or work_record.work_record_type == 'SP' or work_record.work_record_type == 'MP' or work_record.is_leave_record or work_record.work_record_type == 'HD' %}
                             <div
                                 {% if work_record.work_record_type == 'SP' and day|hp_p_key:employee.id in sp_l_dates %}
                                     title="{% trans 'Short Presence + Leave' %}"
@@ -233,10 +249,11 @@
                                     {% if work_record.work_record_type == 'CONF' %} AR
                                     {% elif work_record.work_record_type == 'FDP' %}{% if day|hp_p_key:employee.id in pl_dates %}P/L{% elif day|hp_p_key:employee.id in hp_l_dates %}HP/L{% else %}P{% endif %}
                                     {% elif work_record.work_record_type == 'HDP' %}{% if day|hp_p_key:employee.id in hp_l_dates %}HP/L{% else %}HP{% endif %}
+                                    {% elif work_record.work_record_type == 'LH' %}{% if day|hp_p_key:employee.id in lh_l_dates %}LH/L{% else %}LH{% endif %}
                                     {% elif work_record.work_record_type == 'SP' %}{% if day|hp_p_key:employee.id in sp_l_dates %}SP/L{% else %}SP{% endif %}
                                     {% elif work_record.work_record_type == 'MP' %} MP
                                     {% elif work_record.work_record_type == 'HD' %}{% if day in holiday_dates %}PH{% else %}WO{% endif %}
-                                    {% elif work_record.is_leave_record %}{% if day|hp_p_key:employee.id in hp_l_dates %}HP/L{% elif day|hp_p_key:employee.id in sp_l_dates %}SP/L{% elif day|hp_p_key:employee.id in a_l_dates %}A/L{% else %} L{% endif %}
+                                    {% elif work_record.is_leave_record %}{% if day|hp_p_key:employee.id in lh_l_dates %}LH/L{% elif day|hp_p_key:employee.id in hp_l_dates %}HP/L{% elif day|hp_p_key:employee.id in sp_l_dates %}SP/L{% elif day|hp_p_key:employee.id in a_l_dates %}A/L{% else %} L{% endif %}
                                     {% endif %}
                                 </span>
                             </div>
@@ -280,6 +297,12 @@
                     <div class="text-center w-100">
                         <div style="font-size: 11px;">{% trans "Half Day" %}</div>
                         <div class="fw-bold" id="halfday-count">-</div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center px-3 py-2" style="background: #ff7043; color: white; border-radius: 6px; min-width: 100px;">
+                    <div class="text-center w-100">
+                        <div style="font-size: 11px;">{% trans "Late Half" %}</div>
+                        <div class="fw-bold" id="latehalf-count">-</div>
                     </div>
                 </div>
                 <div class="d-flex align-items-center px-3 py-2" style="background: #2196F3; color: white; border-radius: 6px; min-width: 100px;">
@@ -339,12 +362,13 @@
 <script>
 (function() {
     // Count work record types
-    let present = 0, halfDay = 0, nd = 0, mp = 0, leave = 0, ph = 0, wo = 0, ar = 0, lr = 0, sp = 0;
+    let present = 0, halfDay = 0, lateHalf = 0, nd = 0, mp = 0, leave = 0, ph = 0, wo = 0, ar = 0, lr = 0, sp = 0;
     
     document.querySelectorAll('.days div.fw-bold span, .days div.fw-bold a').forEach(function(el) {
         const text = el.textContent.trim();
         if (text === 'P' || text === 'P/L') present++;
         else if (text === 'HP' || text === 'HP/L') halfDay++;
+        else if (text === 'LH' || text === 'LH/L') lateHalf++;
         else if (text === 'A' || text === 'ND') nd++;
         else if (text === 'A/L') { nd += 0.5; leave += 0.5; }
         else if (text === 'MP') mp++;
@@ -358,6 +382,7 @@
     
     document.getElementById('present-count').textContent = present;
     document.getElementById('halfday-count').textContent = halfDay;
+    document.getElementById('latehalf-count').textContent = lateHalf;
     document.getElementById('nd-count').textContent = nd;
     document.getElementById('mp-count').textContent = mp;
     document.getElementById('leave-count').textContent = leave;

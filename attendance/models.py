@@ -1029,6 +1029,7 @@ class WorkRecords(models.Model):
     choices = [
         ("FDP", _("Present")),
         ("HDP", _("Half Day Present")),
+        ("LH", _("Late Login (Half Day)")),
         ("SP", _("Short Presence")),
         ("ABS", _("Absent")),
         ("MP", _("Missing Punch")),
