@@ -3012,10 +3012,10 @@ WORK_RECORD_CELL_STYLES = {
     "A": {"bg_color": "#2196F3", "font_color": "#ffffff"},
     "P": {"bg_color": "#38c338", "font_color": "#ffffff"},
     "HP": {"bg_color": "#dfdf52", "font_color": "#000000"},
-    "LH": {"bg_color": "#ff7043", "font_color": "#ffffff"},
+    "LH": {"bg_color": "#81d4fa", "font_color": "#01579b"},
     "SP": {"bg_color": "#ff6b6b", "font_color": "#ffffff"},
     "HP/L": {"bg_color": "#dfdf52", "font_color": "#000000"},
-    "LH/L": {"bg_color": "#ff7043", "font_color": "#ffffff"},
+    "LH/L": {"bg_color": "#81d4fa", "font_color": "#01579b"},
     "SP/L": {"bg_color": "#ff6b6b", "font_color": "#ffffff"},
     "A/L": {"bg_color": "#5c6bc0", "font_color": "#ffffff"},
     "P/L": {"bg_color": "#38c338", "font_color": "#ffffff"},
@@ -3334,7 +3334,7 @@ def work_record_export(request):
                 {"bg_color": "#dfdf52", "font_color": "#000000"}
             ),
             "LH": workbook.add_format(
-                {"bg_color": "#ff7043", "font_color": "#ffffff"}
+                {"bg_color": "#81d4fa", "font_color": "#01579b"}
             ),
             "SP": workbook.add_format(
                 {"bg_color": "#ff6b6b", "font_color": "#ffffff"}
@@ -3343,7 +3343,7 @@ def work_record_export(request):
                 {"bg_color": "#dfdf52", "font_color": "#000000"}
             ),
             "LH/L": workbook.add_format(
-                {"bg_color": "#ff7043", "font_color": "#ffffff"}
+                {"bg_color": "#81d4fa", "font_color": "#01579b"}
             ),
             "SP/L": workbook.add_format(
                 {"bg_color": "#ff6b6b", "font_color": "#ffffff"}
