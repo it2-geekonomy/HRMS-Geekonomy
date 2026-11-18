@@ -43,7 +43,8 @@ from django.utils import timezone
 from django.utils.html import strip_tags
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.cache import never_cache
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from accessibility.accessibility import ACCESSBILITY_FEATURE
@@ -618,9 +619,13 @@ def initialize_job_position_delete(request, obj_id):
     )
 
 
+@never_cache
+@ensure_csrf_cookie
 def login_user(request):
     """
     Handles user login and authentication.
+    never_cache + ensure_csrf_cookie: avoid stale mobile-cached login forms
+    that cause CSRF 403 until cookies are cleared.
     """
     if request.method == "POST":
         username = request.POST.get("username")
@@ -674,9 +679,31 @@ def login_user(request):
             next_url += f"?{params}"
         return redirect(next_url)
 
-    return render(
+    response = render(
         request, "login.html", {"initialize_database": initialize_database_condition()}
     )
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+    return response
+
+
+def csrf_failure(request, reason=""):
+    """
+    Soft-handle CSRF failures (common on mobile with stale login pages).
+    Redirect back to login with a fresh token instead of the raw 403 page.
+    """
+    path = (request.path or "").rstrip("/")
+    if path.endswith("/login") or path == "/login":
+        messages.warning(
+            request,
+            _("Please try signing in again."),
+        )
+        return redirect("login")
+
+    referer = request.META.get("HTTP_REFERER") or "/"
+    if url_has_allowed_host_and_scheme(referer, allowed_hosts={request.get_host()}):
+        return redirect(referer)
+    return redirect("login")
 
 
 def include_employee_instance(request, form):

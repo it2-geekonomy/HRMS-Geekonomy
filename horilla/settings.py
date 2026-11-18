@@ -198,6 +198,8 @@ MESSAGE_TAGS = {
 
 
 CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
+# Soft-redirect stale login CSRF failures instead of raw 403 (esp. mobile)
+CSRF_FAILURE_VIEW = "base.views.csrf_failure"
 
 LOGIN_URL = "/login"
 
@@ -336,3 +338,5 @@ if not DEBUG:
     # True when serving over HTTPS (Cloudflare). Set False only for plain HTTP IP tests.
     SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=True)
     CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=True)
+    SESSION_COOKIE_SAMESITE = "Lax"
+    CSRF_COOKIE_SAMESITE = "Lax"

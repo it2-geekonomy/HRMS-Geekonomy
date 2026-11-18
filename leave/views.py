@@ -5661,14 +5661,17 @@ def employee_profile_leave_tab(request):
     employee = request.user.employee_get
     if apps.is_installed("leave"):
         instances = LeaveRequest.objects.filter(employee_id=employee)
-        user_leaves = employee.available_leave.all().exclude(
-            leave_type_id__is_compensatory_leave=True
-        )
+        # Profile Leave tab: only active leave types (hide deactivated old types)
+        user_leaves = employee.available_leave.filter(
+            leave_type_id__is_active=True
+        ).exclude(leave_type_id__is_compensatory_leave=True)
         if (
             LeaveGeneralSetting.objects.first()
             and LeaveGeneralSetting.objects.first().compensatory_leave
         ):
-            user_leaves = employee.available_leave.all()
+            user_leaves = employee.available_leave.filter(
+                leave_type_id__is_active=True
+            )
     else:
         user_leaves = None
         instances = None
@@ -5709,7 +5712,8 @@ def employee_view_individual_leave_tab(request, obj_id, **kwargs):
         if instances
         else json.dumps([])
     )
-    employee_leaves = employee.available_leave.all()
+    # Leave tab: only active leave types (hide deactivated Probation/old types, etc.)
+    employee_leaves = employee.available_leave.filter(leave_type_id__is_active=True)
     filtered_employee_ids = request.session.get("filtered_employees", [])
     filtered_employees = Employee.objects.filter(id__in=filtered_employee_ids)
 

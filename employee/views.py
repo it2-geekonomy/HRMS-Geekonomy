@@ -347,7 +347,9 @@ def employee_view_individual(request, obj_id, **kwargs):
             return render(request, "404.html", status=404)
 
     employee_leaves = (
-        employee.available_leave.all() if apps.is_installed("leave") else None
+        employee.available_leave.filter(leave_type_id__is_active=True)
+        if apps.is_installed("leave")
+        else None
     )
     enabled_block_unblock = (
         AccountBlockUnblock.objects.exists()
@@ -429,7 +431,9 @@ def about_tab(request, obj_id, **kwargs):
     employee = Employee.objects.get(id=obj_id)
     contracts = employee.contract_set.all() if apps.is_installed("payroll") else None
     employee_leaves = (
-        employee.available_leave.all() if apps.is_installed("leave") else None
+        employee.available_leave.filter(leave_type_id__is_active=True)
+        if apps.is_installed("leave")
+        else None
     )
     return render(
         request,
